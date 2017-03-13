@@ -92,6 +92,21 @@ class TClass(Type):
     Attributes:
         context (Context): Contains a mapping between variables and types within the scope of this class.
     """
-    
+
     def __init__(self, context):
         self.context = context
+
+def is_subtype(type1, type2):
+    """Check if type1 is a subtype of type2
+
+    Arguments:
+        type1 (Type)
+        type2 (Type)
+
+    Returns:
+        True: if type1 is a subtype of type2
+        False: otherwise
+    """
+    
+    # TODO: implement
+    return False
