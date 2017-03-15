@@ -1,0 +1,199 @@
+from abc import ABCMeta, abstractmethod
+
+class Type(metaclass=ABCMeta):
+    """This class is the top-parent of all possible inferred types of a Python program.
+    Every type has its own class that inherits this class.
+    """
+
+    @abstractmethod
+    def is_subtype(self, t):
+        """Check if this type is a subtype of the parameter type.
+
+        Arguments:
+            type (Type): The type to check the subtype relationship against.
+        """
+        pass
+
+
+class TNone(Type):
+
+    def is_subtype(self, t):
+        return True
+
+
+class TBool(Type):
+
+    def is_subtype(self, t):
+        return isinstance(t, (TBool, TInt, TLong, TFloat))
+
+
+class TInt(Type):
+
+    def is_subtype(self, t):
+        return isinstance(t, (TInt, TLong, TFloat))
+
+
+class TLong(Type):
+
+    def is_subtype(self, t):
+        return isinstance(t, (TLong, TFloat))
+
+
+class TFloat(Type):
+
+    def is_subtype(self, t):
+        return isinstance(t, TFloat)
+
+
+class TString(Type):
+
+    def is_subtype(self, t):
+        return isinstance(t, TString)
+
+
+class TList(Type):
+    """Type given to homogeneous lists.
+
+    Attributes:
+        type (Type): Type of the list elements
+    """
+
+    def __init__(self, t):
+        self.type = t
+
+    def is_subtype(self, t):
+        return isinstance(t, TList) and self.type.is_subtype(t.type)
+
+
+class TTuple(Type):
+    """Type given to a tuple.
+
+    Attributes:
+        types ([Type]): Types of the tuple elements.
+    """
+
+    def __init__(self, t):
+        self.types = t
+
+    def is_subtype(self, t):
+        if not isinstance(t, TTuple):
+            return False
+        if len(self.types) != len(t.types):
+            return False
+        for i in range(len(self.types)):
+            if not self.types[i].is_subtype(t.types[i]):
+                return False
+        return True
+
+
+class TIterator(Type):
+    """Type given to an iterator.
+
+    Attributes:
+        type (Type): Type of the iterator.
+    """
+
+    def __init__(self, t):
+        self.type = t
+
+    def is_subtype(self, t):
+        return isinstance(t, TIterator) and self.type.is_subtype(t.type)
+
+class TDictionary(Type):
+    """Type given to a dictionary, whose keys are of the same type, and values are of the same type.
+
+    Attributes:
+        key_type (Type): Type of the dictionary keys.
+        value_type (Type): Type of the dictionary values.
+    """
+
+    def __init__(self, t_k, t_v):
+        self.key_type = t_k
+        self.value_type = t_v
+
+    def is_subtype(self, t):
+        return (isinstance(t, TDictionary) and self.key_type.is_subtype(t.key_type)
+            and self.value_type.is_subtype(t.value_type))
+
+
+
+class TFunction(Type):
+    """Type given to a function.
+
+    Attributes:
+        return_type (Type): Type of the function return value.
+        arg_types ([Type]): A list of types for the function arguments.
+    """
+
+    def __init__(self, t_r, t_a):
+        self.return_type = t_r
+        self.arg_types = t_a
+
+    def is_subtype(self, t):
+        if not isinstance(t, TFunction):
+            return False
+        if len(self.arg_types) != len(t.arg_types):
+            return False
+        if not self.return_type.is_subtype(t.return_type):
+            return False
+        for i in range(len(self.arg_types)):
+            if not self.arg_types[i].is_subtype(t.arg_types[i]):
+                return False
+        return True
+
+
+class SeveralTypes(Type):
+    """Type given to variables that are inferred to have a range of types.
+
+    Attributes:
+        types (set{Type}): An unordered set of possible types.
+    """
+
+    def __init__(self, t):
+        self.types = t
+
+    def is_subtype(self, t):
+        if len(self.types) == 1: # return true if there's only one type in the set, and this type is a subtype of the passed argument
+            unique_type = list(self.types)[0]
+            if unique_type.is_subtype(t):
+                return True
+        for m_t in self.types: # look for a supertype in t.types for every type in self.types
+            found_supertype = False
+            for t_t in t.types:
+                if m_t.is_subtype(t_t):
+                    found_supertype = True
+                    break
+            if not found_supertype:
+                return False
+
+        return True
+
+
+class TClass(Type):
+    """Type given to a class.
+
+    Attributes:
+        context (Context): Contains a mapping between variables and types within the scope of this class.
+    """
+
+    def __init__(self, context):
+        self.context = context
+
+    def is_subtype(self, t):
+        # TODO: implement
+        return False
+
+
+def is_subtype(type1, type2):
+    """Check if type1 is a subtype of type2
+
+    Arguments:
+        type1 (Type)
+        type2 (Type)
+
+    Returns:
+        True: if type1 is a subtype of type2
+        False: otherwise
+    """
+
+    return type1.is_subtype(type2)
