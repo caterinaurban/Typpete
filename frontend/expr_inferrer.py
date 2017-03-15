@@ -5,7 +5,7 @@ Infers the types for the following expressions:
      - *UnaryOp(unaryop op, expr operand)
      - *Lambda(arguments args, expr body)
      - *IfExp(expr test, expr body, expr orelse)
-     - *Dict(expr* keys, expr* values)
+     - Dict(expr* keys, expr* values)
      - *Set(expr* elts)
      - ListComp(expr elt, comprehension* generators)
      - *SetComp(expr elt, comprehension* generators)
@@ -21,15 +21,15 @@ Infers the types for the following expressions:
      - *FormattedValue(expr value, int? conversion, expr? format_spec)
      - *JoinedStr(expr* values)
      - *Bytes(bytes s)
-     - *NameConstant(singleton value)
+     - NameConstant(singleton value)
      - *Ellipsis
      - *Constant(constant value)
      - *Attribute(expr value, identifier attr, expr_context ctx)
      - *Subscript(expr value, slice slice, expr_context ctx)
      - *Starred(expr value, expr_context ctx)
      - *Name(identifier id, expr_context ctx)
-     - *List(expr* elts, expr_context ctx)
-     - *Tuple(expr* elts, expr_context ctx)
+     - List(expr* elts, expr_context ctx)
+     - Tuple(expr* elts, expr_context ctx)
 
      *: Not implemented yet
 """
@@ -87,6 +87,11 @@ def infer_tuple(node):
 
     return types.TTuple(tuple_types)
 
+def infer_name_constant(node):
+    if node.value == True or node.value == False:
+        return types.TBool()
+    elif node.value == None:
+        return types.TNone()
 
 def infer(node):
     if isinstance(node, ast.Num):
@@ -99,10 +104,6 @@ def infer(node):
         return infer_dict(node)
     elif isinstance(node, ast.Tuple):
         return infer_tuple(node)
+    elif isinstance(node, ast.NameConstant):
+        return infer_name_constant(node)
     return types.TNone()
-
-r = open('test.py','r')
-t = ast.parse(r.read())
-
-print(t.body[0].value)
-print(type(infer(t.body[0].value).types[2]))
