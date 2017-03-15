@@ -115,6 +115,14 @@ def infer_binary_operation(node):
         return right_type
     elif right_type.is_subtype(left_type):
         return left_type
+    if isinstance(node.op, ast.Mult):
+        # Handle sequence multiplication. Ex.:
+        # [1,2,3] * 2 --> [1,2,3,1,2,3]
+        # 2 * "abc" -- > "abcabc"
+        if left_type.is_subtype(types.TInt()):
+            return right_type
+        elif right_type.is_subtype(types.TInt()):
+            return left_type
     raise TypeError("The left and right types should be subtypes of each other.")
 
 def infer(node):
