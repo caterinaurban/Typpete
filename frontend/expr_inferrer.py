@@ -10,10 +10,11 @@ Infers the types for the following expressions:
      - NameConstant(singleton value)
      - List(expr* elts, expr_context ctx)
      - Tuple(expr* elts, expr_context ctx)
+     - Bytes(bytes s)
+     - IfExp(expr test, expr body, expr orelse)
 
      TODO:
      - Lambda(arguments args, expr body)
-     - IfExp(expr test, expr body, expr orelse)
      - ListComp(expr elt, comprehension* generators)
      - SetComp(expr elt, comprehension* generators)
      - DictComp(expr key, expr value, comprehension* generators)
@@ -25,7 +26,6 @@ Infers the types for the following expressions:
      - Call(expr func, expr* args, keyword* keywords)
      - FormattedValue(expr value, int? conversion, expr? format_spec)
      - JoinedStr(expr* values)
-     - Bytes(bytes s)
      - Ellipsis
      - Constant(constant value)
      - Attribute(expr value, identifier attr, expr_context ctx)
@@ -130,11 +130,26 @@ def infer_unary_operation(node):
         return types.TBool()
     return infer(node.operand)
 
+def infer_if_expression(node):
+    """Infer expressions like: {(a) if (test) else (b)}.
+
+    Return a union type of both (a) and (b) types.
+    """
+    a_type = infer(node.body)
+    b_type = infer(node.orelse)
+
+    if type(a_type) is type(b_type):
+        return a_type
+
+    return types.UnionTypes({a_type, b_type})
+
 def infer(node):
     if isinstance(node, ast.Num):
         return infer_numeric(node)
     elif isinstance(node, ast.Str):
         return types.TString()
+    elif isinstance(node, ast.Bytes):
+        return types.TBytesString()
     elif isinstance(node, ast.List):
         return infer_list(node)
     elif isinstance(node, ast.Dict):
@@ -149,4 +164,6 @@ def infer(node):
         return infer_binary_operation(node)
     elif isinstance(node, ast.UnaryOp):
         return infer_unary_operation(node)
+    elif isinstance(node, ast.IfExp):
+        return infer_if_expression(node)
     return types.TNone()

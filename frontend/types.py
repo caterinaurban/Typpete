@@ -50,6 +50,11 @@ class TString(Type):
     def is_subtype(self, t):
         return isinstance(t, TString)
 
+class TBytesString(Type):
+
+    def is_subtype(self, t):
+        return isinstance(t, TBytesString)
+
 
 class TList(Type):
     """Type given to homogeneous lists.
