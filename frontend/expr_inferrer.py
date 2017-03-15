@@ -79,6 +79,14 @@ def infer_dict(node):
             raise HomogeneousTypesConflict(values_type, cur_value_type)
     return types.TDictionary(keys_type, values_type)
 
+def infer_tuple(node):
+    tuple_types = []
+    for elem in node.elts:
+        elem_type = infer(elem)
+        tuple_types.append(elem_type)
+
+    return types.TTuple(tuple_types)
+
 
 def infer(node):
     if isinstance(node, ast.Num):
@@ -89,4 +97,12 @@ def infer(node):
         return infer_list(node)
     elif isinstance(node, ast.Dict):
         return infer_dict(node)
+    elif isinstance(node, ast.Tuple):
+        return infer_tuple(node)
     return types.TNone()
+
+r = open('test.py','r')
+t = ast.parse(r.read())
+
+print(t.body[0].value)
+print(type(infer(t.body[0].value).types[2]))
