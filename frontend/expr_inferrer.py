@@ -1,7 +1,7 @@
 """Inferrer for python expressions.
 
 Infers the types for the following expressions:
-     - *BinOp(expr left, operator op, expr right)
+     - BinOp(expr left, operator op, expr right)
      - *UnaryOp(unaryop op, expr operand)
      - *Lambda(arguments args, expr body)
      - *IfExp(expr test, expr body, expr orelse)
@@ -105,6 +105,17 @@ def infer_set(node):
             raise HomogeneousTypesConflict(set_type, cur_type)
     return types.TSet(set_type)
 
+def infer_binary_operation(node):
+    left_type = infer(node.left)
+    right_type = infer(node.right)
+    if isinstance(node.op, ast.Div): # Check if it is a float division operation
+        if left_type.is_subtype(types.TFloat()) and right_type.is_subtype(types.TFloat()):
+            return types.TFloat()
+    if left_type.is_subtype(right_type):
+        return right_type
+    elif right_type.is_subtype(left_type):
+        return left_type
+    raise TypeError("The left and right types should be subtypes of each other.")
 
 def infer(node):
     if isinstance(node, ast.Num):
@@ -121,10 +132,6 @@ def infer(node):
         return infer_name_constant(node)
     elif isinstance(node, ast.Set):
         return infer_set(node)
+    elif isinstance(node, ast.BinOp):
+        return infer_binary_operation(node)
     return types.TNone()
-
-r = open('test.py','r')
-t = ast.parse(r.read())
-
-print(t.body[0].value.elts)
-print(infer(t.body[0].value).type)
