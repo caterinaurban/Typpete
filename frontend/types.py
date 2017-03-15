@@ -115,6 +115,14 @@ class TDictionary(Type):
         return (isinstance(t, TDictionary) and self.key_type.is_subtype(t.key_type)
             and self.value_type.is_subtype(t.value_type))
 
+class TSet(Type):
+    """Type given to homogeneous sets"""
+
+    def __init__(self, t):
+        self.type = t
+
+    def is_subtype(self, t):
+        return isinstance(t, TSet) and self.type.is_subtype(t.type)
 
 
 class TFunction(Type):
@@ -142,7 +150,7 @@ class TFunction(Type):
         return True
 
 
-class SeveralTypes(Type):
+class UnionTypes(Type):
     """Type given to variables that are inferred to have a range of types.
 
     Attributes:

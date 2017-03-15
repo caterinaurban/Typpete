@@ -6,7 +6,7 @@ Infers the types for the following expressions:
      - *Lambda(arguments args, expr body)
      - *IfExp(expr test, expr body, expr orelse)
      - Dict(expr* keys, expr* values)
-     - *Set(expr* elts)
+     - Set(expr* elts)
      - ListComp(expr elt, comprehension* generators)
      - *SetComp(expr elt, comprehension* generators)
      - *DictComp(expr key, expr value, comprehension* generators)
@@ -93,6 +93,19 @@ def infer_name_constant(node):
     elif node.value == None:
         return types.TNone()
 
+def infer_set(node):
+    if len(node.elts) == 0:
+        return types.TSet(types.TNone)
+    set_type = infer(node.elts[0])
+    for i in range(1, len(node.elts)):
+        cur_type = infer(node.elts[i])
+        if set_type.is_subtype(cur_type): # get the most generic type
+            set_type = cur_type
+        elif not cur_type.is_subtype(set_type): # make sure the set is homogeneous
+            raise HomogeneousTypesConflict(set_type, cur_type)
+    return types.TSet(set_type)
+
+
 def infer(node):
     if isinstance(node, ast.Num):
         return infer_numeric(node)
@@ -106,4 +119,12 @@ def infer(node):
         return infer_tuple(node)
     elif isinstance(node, ast.NameConstant):
         return infer_name_constant(node)
+    elif isinstance(node, ast.Set):
+        return infer_set(node)
     return types.TNone()
+
+r = open('test.py','r')
+t = ast.parse(r.read())
+
+print(t.body[0].value.elts)
+print(infer(t.body[0].value).type)
