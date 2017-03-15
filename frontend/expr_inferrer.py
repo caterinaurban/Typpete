@@ -2,36 +2,36 @@
 
 Infers the types for the following expressions:
      - BinOp(expr left, operator op, expr right)
-     - *UnaryOp(unaryop op, expr operand)
-     - *Lambda(arguments args, expr body)
-     - *IfExp(expr test, expr body, expr orelse)
+     - UnaryOp(unaryop op, expr operand)
      - Dict(expr* keys, expr* values)
      - Set(expr* elts)
-     - ListComp(expr elt, comprehension* generators)
-     - *SetComp(expr elt, comprehension* generators)
-     - *DictComp(expr key, expr value, comprehension* generators)
-     - *GeneratorExp(expr elt, comprehension* generators)
-     - *Await(expr value)
-     - *Yield(expr? value)
-     - *YieldFrom(expr value)
-     - *Compare(expr left, cmpop* ops, expr* comparators)
-     - *Call(expr func, expr* args, keyword* keywords)
-     - Num(object n) -- a number as a PyObject.
-     - Str(string s) -- need to specify raw, unicode, etc?
-     - *FormattedValue(expr value, int? conversion, expr? format_spec)
-     - *JoinedStr(expr* values)
-     - *Bytes(bytes s)
+     - Num(object n)
+     - Str(string s)
      - NameConstant(singleton value)
-     - *Ellipsis
-     - *Constant(constant value)
-     - *Attribute(expr value, identifier attr, expr_context ctx)
-     - *Subscript(expr value, slice slice, expr_context ctx)
-     - *Starred(expr value, expr_context ctx)
-     - *Name(identifier id, expr_context ctx)
      - List(expr* elts, expr_context ctx)
      - Tuple(expr* elts, expr_context ctx)
 
-     *: Not implemented yet
+     TODO:
+     - Lambda(arguments args, expr body)
+     - IfExp(expr test, expr body, expr orelse)
+     - ListComp(expr elt, comprehension* generators)
+     - SetComp(expr elt, comprehension* generators)
+     - DictComp(expr key, expr value, comprehension* generators)
+     - GeneratorExp(expr elt, comprehension* generators)
+     - Await(expr value)
+     - Yield(expr? value)
+     - YieldFrom(expr value)
+     - Compare(expr left, cmpop* ops, expr* comparators)
+     - Call(expr func, expr* args, keyword* keywords)
+     - FormattedValue(expr value, int? conversion, expr? format_spec)
+     - JoinedStr(expr* values)
+     - Bytes(bytes s)
+     - Ellipsis
+     - Constant(constant value)
+     - Attribute(expr value, identifier attr, expr_context ctx)
+     - Subscript(expr value, slice slice, expr_context ctx)
+     - Starred(expr value, expr_context ctx)
+     - Name(identifier id, expr_context ctx)
 """
 
 import types, ast
@@ -125,6 +125,11 @@ def infer_binary_operation(node):
             return left_type
     raise TypeError("The left and right types should be subtypes of each other.")
 
+def infer_unary_operation(node):
+    if isinstance(node.op, ast.Not): # (not expr) always gives bool type
+        return types.TBool()
+    return infer(node.operand)
+
 def infer(node):
     if isinstance(node, ast.Num):
         return infer_numeric(node)
@@ -142,4 +147,6 @@ def infer(node):
         return infer_set(node)
     elif isinstance(node, ast.BinOp):
         return infer_binary_operation(node)
+    elif isinstance(node, ast.UnaryOp):
+        return infer_unary_operation(node)
     return types.TNone()
