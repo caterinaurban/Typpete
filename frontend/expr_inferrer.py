@@ -12,6 +12,7 @@ Infers the types for the following expressions:
      - Tuple(expr* elts, expr_context ctx)
      - Bytes(bytes s)
      - IfExp(expr test, expr body, expr orelse)
+	 - Subscript(expr value, slice slice, expr_context ctx)
 
      TODO:
      - Lambda(arguments args, expr body)
@@ -29,7 +30,6 @@ Infers the types for the following expressions:
      - Ellipsis
      - Constant(constant value)
      - Attribute(expr value, identifier attr, expr_context ctx)
-     - Subscript(expr value, slice slice, expr_context ctx)
      - Starred(expr value, expr_context ctx)
      - Name(identifier id, expr_context ctx)
 """
@@ -106,23 +106,35 @@ def infer_set(node):
             raise HomogeneousTypesConflict(set_type.get_name(), cur_type.get_name())
     return TSet(set_type)
 
+def is_numeric(t):
+	return t.is_subtype(TFloat())
+
 def infer_binary_operation(node):
     left_type = infer(node.left)
     right_type = infer(node.right)
-    if isinstance(node.op, ast.Div): # Check if it is a float division operation
-        if left_type.is_subtype(TFloat()) and right_type.is_subtype(TFloat()):
-            return TFloat()
-    if left_type.is_subtype(right_type):
-        return right_type
-    elif right_type.is_subtype(left_type):
-        return left_type
+    
     if isinstance(node.op, ast.Mult):
         # Handle sequence multiplication. Ex.:
         # [1,2,3] * 2 --> [1,2,3,1,2,3]
         # 2 * "abc" -- > "abcabc"
-        if left_type.is_subtype(TInt()):
+        if left_type.is_subtype(TInt()) and is_sequence(right_type):
             return right_type
-        elif right_type.is_subtype(TInt()):
+        elif right_type.is_subtype(TInt()) and is_sequence(left_type):
+            return left_type
+
+    if isinstance(node.op, ast.Add): # Check if it is a concatenation operation between sequences
+        if is_sequence(left_type) and is_sequence(right_type):
+            if left_type.is_subtype(right_type):
+                return right_type
+            elif right_type.is_subtype(left_type):
+                return left_type
+    if isinstance(node.op, ast.Div): # Check if it is a float division operation
+        if left_type.is_subtype(TFloat()) and right_type.is_subtype(TFloat()):
+            return TFloat()
+    if is_numeric(left_type) and is_numeric(right_type):
+        if left_type.is_subtype(right_type):
+            return right_type
+        elif right_type.is_subtype(left_type):
             return left_type
 
     raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(node.op).__name__, left_type.get_name(), right_type.get_name()))
