@@ -189,8 +189,7 @@ def infer_subscript(node, context):
 		if not (lower_type.is_subtype(TInt()) and upper_type.is_subtype(TInt()) and step_type.is_subtype(TInt())):
 			raise KeyError("Slicing bounds and step should be integers.")
 		if isinstance(indexed_type, TTuple):
-			# TODO tuple slicing
-			pass
+			return indexed_type.get_possible_tuple_slicings()
 		else:
 			return indexed_type
 
@@ -221,7 +220,3 @@ def infer(node, context=None):
         return infer_subscript(node, context)
     return TNone()
 
-r = open("test.py")
-t = ast.parse(r.read())
-
-print(infer(t.body[0].value).get_name())
