@@ -13,6 +13,8 @@ Infers the types for the following expressions:
      - Bytes(bytes s)
      - IfExp(expr test, expr body, expr orelse)
 	 - Subscript(expr value, slice slice, expr_context ctx)
+	 - Await(expr value)
+	 - Yield(expr? value)
 
      TODO:
      - Lambda(arguments args, expr body)
@@ -20,15 +22,11 @@ Infers the types for the following expressions:
      - SetComp(expr elt, comprehension* generators)
      - DictComp(expr key, expr value, comprehension* generators)
      - GeneratorExp(expr elt, comprehension* generators)
-     - Await(expr value)
-     - Yield(expr? value)
      - YieldFrom(expr value)
      - Compare(expr left, cmpop* ops, expr* comparators)
      - Call(expr func, expr* args, keyword* keywords)
      - FormattedValue(expr value, int? conversion, expr? format_spec)
      - JoinedStr(expr* values)
-     - Ellipsis
-     - Constant(constant value)
      - Attribute(expr value, identifier attr, expr_context ctx)
      - Starred(expr value, expr_context ctx)
      - Name(identifier id, expr_context ctx)
@@ -230,5 +228,9 @@ def infer(node, context=None):
         return infer_if_expression(node)
     elif isinstance(node, ast.Subscript):
         return infer_subscript(node, context)
+    elif isinstance(node, ast.Await):
+        return infer(node.value)
+    elif isinstance(node, ast.Yield):
+        return infer(node.value)
     return TNone()
 
