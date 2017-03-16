@@ -15,28 +15,37 @@ class Type(metaclass=ABCMeta):
         pass
 
 
+    @abstractmethod
+    def get_name(self):
+        """Get the name of the type"""
+        pass
+
+
 class TNone(Type):
 
     def is_subtype(self, t):
         return True
 
+    def get_name(self):
+        return "None"
+
 
 class TBool(Type):
 
     def is_subtype(self, t):
-        return isinstance(t, (TBool, TInt, TLong, TFloat))
+        return isinstance(t, (TBool, TInt, TFloat))
+
+    def get_name(self):
+        return "Bool"
 
 
 class TInt(Type):
 
     def is_subtype(self, t):
-        return isinstance(t, (TInt, TLong, TFloat))
-
-
-class TLong(Type):
-
-    def is_subtype(self, t):
-        return isinstance(t, (TLong, TFloat))
+        return isinstance(t, (TInt, TFloat))
+	
+    def get_name(self):
+        return "Int"
 
 
 class TFloat(Type):
@@ -44,16 +53,26 @@ class TFloat(Type):
     def is_subtype(self, t):
         return isinstance(t, TFloat)
 
+    def get_name(self):
+        return "Float"
+
 
 class TString(Type):
 
     def is_subtype(self, t):
         return isinstance(t, TString)
 
+    def get_name(self):
+        return "String"
+
+
 class TBytesString(Type):
 
     def is_subtype(self, t):
         return isinstance(t, TBytesString)
+
+    def get_name(self):
+        return "ByteString"
 
 
 class TList(Type):
@@ -68,6 +87,9 @@ class TList(Type):
 
     def is_subtype(self, t):
         return isinstance(t, TList) and self.type.is_subtype(t.type)
+
+    def get_name(self):
+        return "List[{}]".format(self.type.get_name())
 
 
 class TTuple(Type):
@@ -90,6 +112,15 @@ class TTuple(Type):
                 return False
         return True
 
+    def get_name(self):
+        name = "Tuple("
+        for i in range(len(self.types)):
+            if i > 0:
+        	    name += ","
+            name += self.types[i].get_name()
+        name += ")"
+        return name
+
 
 class TIterator(Type):
     """Type given to an iterator.
@@ -103,6 +134,9 @@ class TIterator(Type):
 
     def is_subtype(self, t):
         return isinstance(t, TIterator) and self.type.is_subtype(t.type)
+
+    def get_name(self):
+        return "Iterator({})".format(self.type.get_name())
 
 class TDictionary(Type):
     """Type given to a dictionary, whose keys are of the same type, and values are of the same type.
@@ -120,6 +154,9 @@ class TDictionary(Type):
         return (isinstance(t, TDictionary) and self.key_type.is_subtype(t.key_type)
             and self.value_type.is_subtype(t.value_type))
 
+    def get_name(self):
+        return "Dict({}:{})".format(self.key_type.get_name(), self.value_type.get_name())
+
 class TSet(Type):
     """Type given to homogeneous sets"""
 
@@ -128,6 +165,9 @@ class TSet(Type):
 
     def is_subtype(self, t):
         return isinstance(t, TSet) and self.type.is_subtype(t.type)
+
+    def get_name(self):
+        return "Set({})".format(self.type.get_name())
 
 
 class TFunction(Type):
@@ -153,6 +193,15 @@ class TFunction(Type):
             if not self.arg_types[i].is_subtype(t.arg_types[i]):
                 return False
         return True
+
+    def get_name(self):
+        name = "Function("
+        for i in range(len(self.arg_types)):
+            if i > 0:
+                name += ","
+            name += self.arg_types[i].get_name()
+        name += ") --> " + self.return_type.get_name()
+        return name
 
 
 class UnionTypes(Type):
@@ -180,6 +229,15 @@ class UnionTypes(Type):
                 return False
 
         return True
+
+    def get_name(self):
+        name = "{"
+        for i in range(len(self.types)):
+            if i > 0:
+                name += ","
+            name += self.types[i].get_name()
+        return name + "}"
+			
 
 
 class TClass(Type):
