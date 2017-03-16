@@ -224,7 +224,7 @@ class UnionTypes(Type):
 
     def get_name(self):
         types_names = [t.get_name() for t in self.types]
-        return "{{}}".format(",".join(types_names))
+        return "Union{{{}}}".format(",".join(types_names))
 			
 
 class TClass(Type):
