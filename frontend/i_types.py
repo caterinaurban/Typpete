@@ -20,6 +20,8 @@ class Type(metaclass=ABCMeta):
         """Get the name of the type"""
         pass
 
+    # TODO: Implement __eq__ and __hash__ for all types, for correct set behaviour
+
 
 class TNone(Type):
 
@@ -116,7 +118,22 @@ class TTuple(Type):
         types_names = [t.get_name() for t in self.types]
         return "Tuple({})".format(",".join(types_names))
 
+    def get_possible_tuple_slicings(self):
+        """Returns a union type of all possible slicings of this tuple
 
+		For example:
+			t = (1, "string", 2.5)
+			
+			t.get_possible_tuple_slicings() will return the following
+			Union{Tuple(Int), Tuple(Int,String), Tuple(Int,String,Float), Tuple(String), Tuple(String,Float), Tuple(Float), Tuple()}
+						
+		"""
+        slicings = {TTuple([])}
+        for i in range(len(self.types)):
+            for j in range(i + 1, len(self.types) + 1):
+                slicings.add(TTuple(self.types[i:j]))
+        return UnionTypes(slicings)
+				
 class TIterator(Type):
     """Type given to an iterator.
 

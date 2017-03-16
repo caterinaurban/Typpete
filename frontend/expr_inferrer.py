@@ -12,6 +12,9 @@ Infers the types for the following expressions:
      - Tuple(expr* elts, expr_context ctx)
      - Bytes(bytes s)
      - IfExp(expr test, expr body, expr orelse)
+	 - Subscript(expr value, slice slice, expr_context ctx)
+	 - Await(expr value)
+	 - Yield(expr? value)
 
      TODO:
      - Lambda(arguments args, expr body)
@@ -19,17 +22,12 @@ Infers the types for the following expressions:
      - SetComp(expr elt, comprehension* generators)
      - DictComp(expr key, expr value, comprehension* generators)
      - GeneratorExp(expr elt, comprehension* generators)
-     - Await(expr value)
-     - Yield(expr? value)
      - YieldFrom(expr value)
      - Compare(expr left, cmpop* ops, expr* comparators)
      - Call(expr func, expr* args, keyword* keywords)
      - FormattedValue(expr value, int? conversion, expr? format_spec)
      - JoinedStr(expr* values)
-     - Ellipsis
-     - Constant(constant value)
      - Attribute(expr value, identifier attr, expr_context ctx)
-     - Subscript(expr value, slice slice, expr_context ctx)
      - Starred(expr value, expr_context ctx)
      - Name(identifier id, expr_context ctx)
 """
@@ -106,23 +104,35 @@ def infer_set(node):
             raise HomogeneousTypesConflict(set_type.get_name(), cur_type.get_name())
     return TSet(set_type)
 
+def is_numeric(t):
+	return t.is_subtype(TFloat())
+
 def infer_binary_operation(node):
     left_type = infer(node.left)
     right_type = infer(node.right)
-    if isinstance(node.op, ast.Div): # Check if it is a float division operation
-        if left_type.is_subtype(TFloat()) and right_type.is_subtype(TFloat()):
-            return TFloat()
-    if left_type.is_subtype(right_type):
-        return right_type
-    elif right_type.is_subtype(left_type):
-        return left_type
+    
     if isinstance(node.op, ast.Mult):
         # Handle sequence multiplication. Ex.:
         # [1,2,3] * 2 --> [1,2,3,1,2,3]
         # 2 * "abc" -- > "abcabc"
-        if left_type.is_subtype(TInt()):
+        if left_type.is_subtype(TInt()) and is_sequence(right_type):
             return right_type
-        elif right_type.is_subtype(TInt()):
+        elif right_type.is_subtype(TInt()) and is_sequence(left_type):
+            return left_type
+
+    if isinstance(node.op, ast.Add): # Check if it is a concatenation operation between sequences
+        if is_sequence(left_type) and is_sequence(right_type):
+            if left_type.is_subtype(right_type):
+                return right_type
+            elif right_type.is_subtype(left_type):
+                return left_type
+    if isinstance(node.op, ast.Div): # Check if it is a float division operation
+        if left_type.is_subtype(TFloat()) and right_type.is_subtype(TFloat()):
+            return TFloat()
+    if is_numeric(left_type) and is_numeric(right_type):
+        if left_type.is_subtype(right_type):
+            return right_type
+        elif right_type.is_subtype(left_type):
             return left_type
 
     raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(node.op).__name__, left_type.get_name(), right_type.get_name()))
@@ -189,8 +199,7 @@ def infer_subscript(node, context):
 		if not (lower_type.is_subtype(TInt()) and upper_type.is_subtype(TInt()) and step_type.is_subtype(TInt())):
 			raise KeyError("Slicing bounds and step should be integers.")
 		if isinstance(indexed_type, TTuple):
-			# TODO tuple slicing
-			pass
+			return indexed_type.get_possible_tuple_slicings()
 		else:
 			return indexed_type
 
@@ -219,9 +228,9 @@ def infer(node, context=None):
         return infer_if_expression(node)
     elif isinstance(node, ast.Subscript):
         return infer_subscript(node, context)
+    elif isinstance(node, ast.Await):
+        return infer(node.value)
+    elif isinstance(node, ast.Yield):
+        return infer(node.value)
     return TNone()
 
-r = open("test.py")
-t = ast.parse(r.read())
-
-print(infer(t.body[0].value).get_name())
