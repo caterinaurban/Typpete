@@ -112,14 +112,9 @@ class TTuple(Type):
                 return False
         return True
 
-    def get_name(self):
-        name = "Tuple("
-        for i in range(len(self.types)):
-            if i > 0:
-        	    name += ","
-            name += self.types[i].get_name()
-        name += ")"
-        return name
+    def get_name(self):	
+        types_names = [t.get_name() for t in self.types]
+        return "Tuple({})".format(",".join(types_names))
 
 
 class TIterator(Type):
@@ -137,6 +132,7 @@ class TIterator(Type):
 
     def get_name(self):
         return "Iterator({})".format(self.type.get_name())
+
 
 class TDictionary(Type):
     """Type given to a dictionary, whose keys are of the same type, and values are of the same type.
@@ -156,6 +152,7 @@ class TDictionary(Type):
 
     def get_name(self):
         return "Dict({}:{})".format(self.key_type.get_name(), self.value_type.get_name())
+
 
 class TSet(Type):
     """Type given to homogeneous sets"""
@@ -195,13 +192,8 @@ class TFunction(Type):
         return True
 
     def get_name(self):
-        name = "Function("
-        for i in range(len(self.arg_types)):
-            if i > 0:
-                name += ","
-            name += self.arg_types[i].get_name()
-        name += ") --> " + self.return_type.get_name()
-        return name
+        args_types_names = [t.get_name() for t in self.arg_types]
+        return "Function({}) --> {}".format(",".join(args_types_names), self.return_type.get_name())
 
 
 class UnionTypes(Type):
@@ -231,14 +223,9 @@ class UnionTypes(Type):
         return True
 
     def get_name(self):
-        name = "{"
-        for i in range(len(self.types)):
-            if i > 0:
-                name += ","
-            name += self.types[i].get_name()
-        return name + "}"
+        types_names = [t.get_name() for t in self.types]
+        return "{{}}".format(",".join(types_names))
 			
-
 
 class TClass(Type):
     """Type given to a class.
