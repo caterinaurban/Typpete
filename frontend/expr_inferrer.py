@@ -17,17 +17,17 @@ Infers the types for the following expressions:
 	 - Yield(expr? value)
      - Compare(expr left, cmpop* ops, expr* comparators)
      - Name(identifier id, expr_context ctx)
+     - FormattedValue(expr value, int? conversion, expr? format_spec) --> Python 3.6+
+     - JoinedStr(expr* values) --> Python 3.6+
+     - ListComp(expr elt, comprehension* generators)
+     - SetComp(expr elt, comprehension* generators)
 
      TODO:
      - Lambda(arguments args, expr body)
-     - ListComp(expr elt, comprehension* generators)
-     - SetComp(expr elt, comprehension* generators)
      - DictComp(expr key, expr value, comprehension* generators)
      - GeneratorExp(expr elt, comprehension* generators)
      - YieldFrom(expr value)
      - Call(expr func, expr* args, keyword* keywords)
-     - FormattedValue(expr value, int? conversion, expr? format_spec)
-     - JoinedStr(expr* values)
      - Attribute(expr value, identifier attr, expr_co0ontext ctx)
      - Starred(expr value, expr_context ctx)
 
@@ -56,23 +56,23 @@ def infer_numeric(node):
     if type(node.n) == float:
         return TFloat()
 
-def infer_list(node):
+def infer_list(node, context):
     """Infer the type of a homogeneous list
 
     Returns: TList(Type t), where t is the type of the list elements
     """
     if len(node.elts) == 0:
         return TList(TNone())
-    list_type = infer(node.elts[0])
+    list_type = infer(node.elts[0], context)
     for i in range(1, len(node.elts)):
-        cur_type = infer(node.elts[i])
+        cur_type = infer(node.elts[i], context)
         if list_type.is_subtype(cur_type): # get the most generic type
             list_type = cur_type
         elif not cur_type.is_subtype(list_type): # make sure the list is homogeneous
             raise HomogeneousTypesConflict(list_type.get_name(), cur_type.get_name())
     return TList(list_type)
 
-def infer_dict(node):
+def infer_dict(node, context):
     """Infer the type of a dictionary with homogeneous key set and value set
 
     Returns: TDictionary(Type k_t, Type v_t), where:
@@ -83,12 +83,12 @@ def infer_dict(node):
         return TDictionary(TNone(), TNone())
     keys = node.keys
     values = node.values
-    keys_type = infer(keys[0])
-    values_type = infer(values[0])
+    keys_type = infer(keys[0], context)
+    values_type = infer(values[0], context)
 
     for i in range(1, len(keys)):
-        cur_key_type = infer(keys[i])
-        cur_value_type = infer(values[i])
+        cur_key_type = infer(keys[i], context)
+        cur_value_type = infer(values[i], context)
 
         if keys_type.is_subtype(cur_key_type): # get the most generic keys type
             keys_type = cur_key_type
@@ -101,14 +101,14 @@ def infer_dict(node):
             raise HomogeneousTypesConflict(values_type.get_name(), cur_value_type.get_name())
     return TDictionary(keys_type, values_type)
 
-def infer_tuple(node):
+def infer_tuple(node, context):
     """Infer the type of a tuple
 
     Returns: TTuple(Type[] t), where t is a list of the tuple's elements types
     """
     tuple_types = []
     for elem in node.elts:
-        elem_type = infer(elem)
+        elem_type = infer(elem, context)
         tuple_types.append(elem_type)
 
     return TTuple(tuple_types)
@@ -120,16 +120,16 @@ def infer_name_constant(node):
     elif node.value == None:
         return TNone()
 
-def infer_set(node):
+def infer_set(node, context):
     """Infer the type of a homogeneous set
 
     Returns: TSet(Type t), where t is the type of the set elements
     """
     if len(node.elts) == 0:
         return TSet(TNone)
-    set_type = infer(node.elts[0])
+    set_type = infer(node.elts[0], context)
     for i in range(1, len(node.elts)):
-        cur_type = infer(node.elts[i])
+        cur_type = infer(node.elts[i], context)
         if set_type.is_subtype(cur_type): # get the most generic type
             set_type = cur_type
         elif not cur_type.is_subtype(set_type): # make sure the set is homogeneous
@@ -139,7 +139,7 @@ def infer_set(node):
 def is_numeric(t):
 	return t.is_subtype(TFloat())
 
-def infer_binary_operation(node):
+def infer_binary_operation(node, context):
     """Infer the type of binary operations
 
     Handled cases:
@@ -147,8 +147,8 @@ def infer_binary_operation(node):
         - Sequence concatenation, ex: [1,2,3] + [4,5,6] --> [1,2,3,4,5,6]
         - Arithmatic and bitwise operations, ex: (1 + 2) * 7 & (2 | -123) / 3
     """
-    left_type = infer(node.left)
-    right_type = infer(node.right)
+    left_type = infer(node.left, context)
+    right_type = infer(node.right, context)
 
     if isinstance(node.op, ast.Mult):
         # Handle sequence multiplication. Ex.:
@@ -186,7 +186,7 @@ def infer_binary_operation(node):
 
     raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(node.op).__name__, left_type.get_name(), right_type.get_name()))
 
-def infer_unary_operation(node):
+def infer_unary_operation(node, context):
     """Infer the type for unary operations
 
     Examples: -5, not 1, ~2
@@ -194,15 +194,15 @@ def infer_unary_operation(node):
     if isinstance(node.op, ast.Not): # (not expr) always gives bool type
         return TBool()
     # TODO: prevent floats from doing the unary operator '~'
-    return infer(node.operand)
+    return infer(node.operand, context)
 
-def infer_if_expression(node):
+def infer_if_expression(node, context):
     """Infer expressions like: {(a) if (test) else (b)}.
 
     Return a union type of both (a) and (b) types.
     """
-    a_type = infer(node.body)
-    b_type = infer(node.orelse)
+    a_type = infer(node.body, context)
+    b_type = infer(node.orelse, context)
 
     if type(a_type) is type(b_type):
         return a_type
@@ -215,7 +215,7 @@ def is_sequence(t):
 def can_be_indexed(t):
     return is_sequence(t) or isinstance(t, TDictionary)
 
-def infer_subscript(node):
+def infer_subscript(node, context):
 	"""Infer expressions like: x[1], x["a"], x[1:2], x[1:].
 	Where x	may be: a list, dict, tuple, str
 
@@ -223,13 +223,13 @@ def infer_subscript(node):
 		node: the subscript node to be inferred
 	"""
 
-	indexed_type = infer(node.value)
+	indexed_type = infer(node.value, context)
 	if not can_be_indexed(indexed_type):
 		raise TypeError("Cannot perform subscripting on {}.".format(indexed_type.get_name()))
 
 	if isinstance(node.slice, ast.Index):
         # Indexing
-		index_type = infer(node.slice.value)
+		index_type = infer(node.slice.value, context)
 		if is_sequence(indexed_type):
 			if not index_type.is_subtype(TInt()):
 				raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type.get_name()))
@@ -247,9 +247,9 @@ def infer_subscript(node):
         # Slicing
 		if not is_sequence(indexed_type):
 			raise TypeError("Cannot slice {}.".format(indexed_type.get_name()))
-		lower_type = infer(node.slice.lower)
-		upper_type = infer(node.slice.upper)
-		step_type = infer(node.slice.step)
+		lower_type = infer(node.slice.lower, context)
+		upper_type = infer(node.slice.upper, context)
+		step_type = infer(node.slice.step, context)
 
 		if not (lower_type.is_subtype(TInt()) and upper_type.is_subtype(TInt()) and step_type.is_subtype(TInt())):
 			raise KeyError("Slicing bounds and step should be integers.")
@@ -261,54 +261,89 @@ def infer_subscript(node):
 def infer_compare(node):
     return TBool()
 
-def infer_name(node, local_context=Context()):
+def infer_name(node, context):
     """Infer the type of a variable
 
     Attributes:
         node: the variable node whose type is to be inferred
-        local_context: an optional parameter if the variable exists in a local scope (not the global one)
+        context: The context to look in for the variable type
     """
-    if local_context.has_variable(node.id):
-        return local_context.get_variable_type(node.id)
-    elif global_context.has_variable(node.id):
-        return global_context.get_variable_type(node.id)
-    raise NameError("Name {} is not defined.".format(node.id))
+    return context.get_type(node.id)
 
-def infer(node):
+def infer_sequence_comprehension(node, sequence_type, context):
+    """Infer the type of a list comprehension
+
+    Attributes:
+        node: the comprehension AST node to be inferred
+        sequence_type: Either TList or TSet
+        context: The current context level
+
+    Examples:
+        - [c * 2 for c in [1,2,3]] --> [2,4,6]
+        - [c for b in [[1,2],[3,4]] for c in b] --> [1,2,3,4]
+        - [(c + 1, c * 2) for c in [1,2,3]] --> [(2,2),(3,4),(4,6)]
+
+    Limitation:
+        The iterable should always be a list or a set (not a tuple)
+        The iteration target should be always a variable name.
+    """
+    local_context = Context(parent_context=context)
+    for gen in node.generators:
+        iter_type = infer(gen.iter, local_context)
+        if not (isinstance(iter_type, TList) or isinstance(iter_type, TSet)):
+            raise TypeError("The iterable should be only a list or a set. Found {}.", iter_type.get_name())
+        target_type = iter_type.type # Get the type of list/set elements
+
+        if not isinstance(gen.target, ast.Name):
+            raise TypeError("The iteration target should be only a variable name.")
+        local_context.set_type(gen.target.id, target_type)
+
+    return sequence_type(infer(node.elt, local_context))
+
+
+def infer(node, context):
     """Infer the type of a given AST node"""
     if isinstance(node, ast.Num):
         return infer_numeric(node)
     elif isinstance(node, ast.Str):
         return TString()
+    elif (sys.version_info[0] >= 3 and sys.version_info[1] >= 6 and
+         (isinstance(node, ast.FormattedValue) or isinstance(node, ast.JoinedStr))):
+         # Formatted strings were introduced in Python 3.6
+        return TString()
     elif isinstance(node, ast.Bytes):
         return TBytesString()
     elif isinstance(node, ast.List):
-        return infer_list(node)
+        return infer_list(node, context)
     elif isinstance(node, ast.Dict):
-        return infer_dict(node)
+        return infer_dict(node, context)
     elif isinstance(node, ast.Tuple):
-        return infer_tuple(node)
+        return infer_tuple(node, context)
     elif isinstance(node, ast.NameConstant):
         return infer_name_constant(node)
     elif isinstance(node, ast.Set):
-        return infer_set(node)
+        return infer_set(node, context)
     elif isinstance(node, ast.BinOp):
-        return infer_binary_operation(node)
+        return infer_binary_operation(node, context)
     elif isinstance(node, ast.UnaryOp):
-        return infer_unary_operation(node)
+        return infer_unary_operation(node, context)
     elif isinstance(node, ast.IfExp):
-        return infer_if_expression(node)
+        return infer_if_expression(node, context)
     elif isinstance(node, ast.Subscript):
-        return infer_subscript(node)
+        return infer_subscript(node, context)
     elif sys.version_info[0] >= 3 and sys.version_info[1] >= 5 and isinstance(node, ast.Await):
-        # Await and Async were released in Python 3.5
-        return infer(node.value)
+        # Await and Async were introduced in Python 3.5
+        return infer(node.value, context)
     elif isinstance(node, ast.Yield):
-        return infer(node.value)
+        return infer(node.value, context)
     elif isinstance(node, ast.Compare):
         return infer_compare(node)
     elif isinstance(node, ast.Name):
-        return infer_name(node)
+        return infer_name(node, context)
+    elif isinstance(node, ast.ListComp):
+        return infer_sequence_comprehension(node, TList, context)
+    elif isinstance(node, ast.SetComp):
+        return infer_sequence_comprehension(node, TSet, context)
     return TNone()
 
 global_context = Context()
