@@ -50,12 +50,17 @@ from abc import ABCMeta, abstractmethod
 from exceptions import HomogeneousTypesConflict
 
 def infer_numeric(node):
+    """Infer the type of a numeric node"""
     if type(node.n) == int:
         return TInt()
     if type(node.n) == float:
         return TFloat()
 
 def infer_list(node):
+    """Infer the type of a homogeneous list
+
+    Returns: TList(Type t), where t is the type of the list elements
+    """
     if len(node.elts) == 0:
         return TList(TNone())
     list_type = infer(node.elts[0])
@@ -68,6 +73,12 @@ def infer_list(node):
     return TList(list_type)
 
 def infer_dict(node):
+    """Infer the type of a dictionary with homogeneous key set and value set
+
+    Returns: TDictionary(Type k_t, Type v_t), where:
+            k_t is the type of dictionary keys
+            v_t is the type of dictionary values
+    """
     if len(node.keys) == 0:
         return TDictionary(TNone(), TNone())
     keys = node.keys
@@ -91,6 +102,10 @@ def infer_dict(node):
     return TDictionary(keys_type, values_type)
 
 def infer_tuple(node):
+    """Infer the type of a tuple
+
+    Returns: TTuple(Type[] t), where t is a list of the tuple's elements types
+    """
     tuple_types = []
     for elem in node.elts:
         elem_type = infer(elem)
@@ -99,12 +114,17 @@ def infer_tuple(node):
     return TTuple(tuple_types)
 
 def infer_name_constant(node):
+    """Infer the type of name constants like: True, False, None"""
     if node.value == True or node.value == False:
         return TBool()
     elif node.value == None:
         return TNone()
 
 def infer_set(node):
+    """Infer the type of a homogeneous set
+
+    Returns: TSet(Type t), where t is the type of the set elements
+    """
     if len(node.elts) == 0:
         return TSet(TNone)
     set_type = infer(node.elts[0])
@@ -120,6 +140,13 @@ def is_numeric(t):
 	return t.is_subtype(TFloat())
 
 def infer_binary_operation(node):
+    """Infer the type of binary operations
+
+    Handled cases:
+        - Sequence multiplication, ex: [1,2,3] * 2 --> [1,2,3,1,2,3]
+        - Sequence concatenation, ex: [1,2,3] + [4,5,6] --> [1,2,3,4,5,6]
+        - Arithmatic and bitwise operations, ex: (1 + 2) * 7 & (2 | -123) / 3
+    """
     left_type = infer(node.left)
     right_type = infer(node.right)
 
@@ -150,7 +177,8 @@ def infer_binary_operation(node):
         if left_type.is_subtype(TFloat()) and right_type.is_subtype(TFloat()):
             return TFloat()
 
-    if is_numeric(left_type) and is_numeric(right_type): # Normal arithmatic or logical operation
+    if is_numeric(left_type) and is_numeric(right_type): # Normal arithmatic or bitwise operation
+        # TODO: Prevent floats from doing bitwise operations
         if left_type.is_subtype(right_type):
             return right_type
         elif right_type.is_subtype(left_type):
@@ -159,8 +187,13 @@ def infer_binary_operation(node):
     raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(node.op).__name__, left_type.get_name(), right_type.get_name()))
 
 def infer_unary_operation(node):
+    """Infer the type for unary operations
+
+    Examples: -5, not 1, ~2
+    """
     if isinstance(node.op, ast.Not): # (not expr) always gives bool type
         return TBool()
+    # TODO: prevent floats from doing the unary operator '~'
     return infer(node.operand)
 
 def infer_if_expression(node):
@@ -188,7 +221,6 @@ def infer_subscript(node):
 
 	Attributes:
 		node: the subscript node to be inferred
-		context: the context containing the mapping between already inferred variables and their types
 	"""
 
 	indexed_type = infer(node.value)
@@ -196,8 +228,9 @@ def infer_subscript(node):
 		raise TypeError("Cannot perform subscripting on {}.".format(indexed_type.get_name()))
 
 	if isinstance(node.slice, ast.Index):
+        # Indexing
 		index_type = infer(node.slice.value)
-		if isinstance(indexed_type, (TList, TTuple, TString)):
+		if is_sequence(indexed_type):
 			if not index_type.is_subtype(TInt()):
 				raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type.get_name()))
 			if isinstance(indexed_type, TString):
@@ -211,6 +244,7 @@ def infer_subscript(node):
 				raise KeyError("Cannot index a dictionary of type {} with an index of type {}.".format(indexed_type.get_name(), index_type.get_name()))
 			return indexed_type.value_type
 	elif isinstance(node.slice, ast.Slice):
+        # Slicing
 		if not is_sequence(indexed_type):
 			raise TypeError("Cannot slice {}.".format(indexed_type.get_name()))
 		lower_type = infer(node.slice.lower)
@@ -228,6 +262,12 @@ def infer_compare(node):
     return TBool()
 
 def infer_name(node, local_context=Context()):
+    """Infer the type of a variable
+
+    Attributes:
+        node: the variable node whose type is to be inferred
+        local_context: an optional parameter if the variable exists in a local scope (not the global one)
+    """
     if local_context.has_variable(node.id):
         return local_context.get_variable_type(node.id)
     elif global_context.has_variable(node.id):
@@ -235,6 +275,7 @@ def infer_name(node, local_context=Context()):
     raise NameError("Name {} is not defined.".format(node.id))
 
 def infer(node):
+    """Infer the type of a given AST node"""
     if isinstance(node, ast.Num):
         return infer_numeric(node)
     elif isinstance(node, ast.Str):
