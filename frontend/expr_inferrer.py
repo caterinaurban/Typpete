@@ -19,10 +19,10 @@ Infers the types for the following expressions:
      - Name(identifier id, expr_context ctx)
      - FormattedValue(expr value, int? conversion, expr? format_spec) --> Python 3.6+
      - JoinedStr(expr* values) --> Python 3.6+
+     - ListComp(expr elt, comprehension* generators)
 
      TODO:
      - Lambda(arguments args, expr body)
-     - ListComp(expr elt, comprehension* generators)
      - SetComp(expr elt, comprehension* generators)
      - DictComp(expr key, expr value, comprehension* generators)
      - GeneratorExp(expr elt, comprehension* generators)
@@ -270,6 +270,31 @@ def infer_name(node, context):
     """
     return context.get_type(node.id)
 
+def infer_list_comprehension(node, context):
+    """Infer the type of a list comprehension
+
+    Examples:
+        - [c * 2 for c in [1,2,3]] --> [2,4,6]
+        - [c for b in [[1,2],[3,4]] for c in b] --> [1,2,3,4]
+        - [(c + 1, c * 2) for c in [1,2,3]] --> [(2,2),(3,4),(4,6)]
+
+    Limitation:
+        The iterable should always be a list or a set (not a tuple)
+        The iteration target should be always a variable name.
+    """
+    local_context = Context(parent_context=context)
+    for gen in node.generators:
+        iter_type = infer(gen.iter, local_context)
+        if not (isinstance(iter_type, TList) or isinstance(iter_type, TSet)):
+            raise TypeError("The iterable should be only a list or a set. Found {}.", iter_type.get_name())
+        target_type = iter_type.type # Get the type of list/set elements
+
+        if not isinstance(gen.target, ast.Name):
+            raise TypeError("The iteration target should be only a variable name.")
+        local_context.set_type(gen.target.id, target_type)
+
+    return TList(infer(node.elt, local_context))
+
 
 def infer(node, context):
     """Infer the type of a given AST node"""
@@ -310,6 +335,8 @@ def infer(node, context):
         return infer_compare(node)
     elif isinstance(node, ast.Name):
         return infer_name(node, context)
+    elif isinstance(node, ast.ListComp):
+        return infer_list_comprehension(node, context)
     return TNone()
 
 global_context = Context()
