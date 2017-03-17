@@ -13,8 +13,10 @@ Infers the types for the following expressions:
      - Bytes(bytes s)
      - IfExp(expr test, expr body, expr orelse)
 	 - Subscript(expr value, slice slice, expr_context ctx)
-	 - Await(expr value)
+	 - Await(expr value) --> Python 3.5+
 	 - Yield(expr? value)
+     - Compare(expr left, cmpop* ops, expr* comparators)
+     - Name(identifier id, expr_context ctx)
 
      TODO:
      - Lambda(arguments args, expr body)
@@ -23,17 +25,27 @@ Infers the types for the following expressions:
      - DictComp(expr key, expr value, comprehension* generators)
      - GeneratorExp(expr elt, comprehension* generators)
      - YieldFrom(expr value)
-     - Compare(expr left, cmpop* ops, expr* comparators)
      - Call(expr func, expr* args, keyword* keywords)
      - FormattedValue(expr value, int? conversion, expr? format_spec)
      - JoinedStr(expr* values)
      - Attribute(expr value, identifier attr, expr_context ctx)
      - Starred(expr value, expr_context ctx)
-     - Name(identifier id, expr_context ctx)
+
+     TODO:
+     - Infer (or narrow) types based on context. For example, in the following expression:
+        (x + 2) * 3
+        if the type of x is still not inferred (or inferred to be a union type), we can infer (narrow) that x
+        is a numeric value (TBool, TInt or TFloat)
+        Affected inference functions:
+            - infer_binary_operation
+            - infer_unary_operation
+            - infer_subscript
+            - infer_compare
 """
 
-import ast
+import ast, sys
 from i_types import *
+from context import Context
 from abc import ABCMeta, abstractmethod
 from exceptions import HomogeneousTypesConflict
 
@@ -110,7 +122,7 @@ def is_numeric(t):
 def infer_binary_operation(node):
     left_type = infer(node.left)
     right_type = infer(node.right)
-    
+
     if isinstance(node.op, ast.Mult):
         # Handle sequence multiplication. Ex.:
         # [1,2,3] * 2 --> [1,2,3,1,2,3]
@@ -121,6 +133,7 @@ def infer_binary_operation(node):
             return left_type
 
     if isinstance(node.op, ast.Add): # Check if it is a concatenation operation between sequences
+        # TODO: handle tuple concatenation
         if is_sequence(left_type) and is_sequence(right_type):
             if left_type.is_subtype(right_type):
                 return right_type
@@ -161,7 +174,7 @@ def is_sequence(t):
 def can_be_indexed(t):
     return is_sequence(t) or isinstance(t, TDictionary)
 
-def infer_subscript(node, context):
+def infer_subscript(node):
 	"""Infer expressions like: x[1], x["a"], x[1:2], x[1:].
 	Where x	may be: a list, dict, tuple, str
 
@@ -169,8 +182,8 @@ def infer_subscript(node, context):
 		node: the subscript node to be inferred
 		context: the context containing the mapping between already inferred variables and their types
 	"""
-	
-	indexed_type = infer(node.value, context)
+
+	indexed_type = infer(node.value)
 	if not can_be_indexed(indexed_type):
 		raise TypeError("Cannot perform subscripting on {}.".format(indexed_type.get_name()))
 
@@ -203,7 +216,17 @@ def infer_subscript(node, context):
 		else:
 			return indexed_type
 
-def infer(node, context=None):
+def infer_compare(node):
+    return TBool()
+
+def infer_name(node, local_context=Context()):
+    if local_context.has_variable(node.id):
+        return local_context.get_variable_type(node.id)
+    elif global_context.has_variable(node.id):
+        return global_context.get_variable_type(node.id)
+    raise NameError("Name {} is not defined.".format(node.id))
+
+def infer(node):
     if isinstance(node, ast.Num):
         return infer_numeric(node)
     elif isinstance(node, ast.Str):
@@ -227,10 +250,21 @@ def infer(node, context=None):
     elif isinstance(node, ast.IfExp):
         return infer_if_expression(node)
     elif isinstance(node, ast.Subscript):
-        return infer_subscript(node, context)
-    elif isinstance(node, ast.Await):
+        return infer_subscript(node)
+    elif sys.version_info[0] >= 3 and sys.version_info[1] >= 5 and isinstance(node, ast.Await):
+        # Await and Async were released in Python 3.5
         return infer(node.value)
     elif isinstance(node, ast.Yield):
         return infer(node.value)
+    elif isinstance(node, ast.Compare):
+        return infer_compare(node)
+    elif isinstance(node, ast.Name):
+        return infer_name(node)
     return TNone()
 
+global_context = Context()
+
+r = open("test.py")
+t = ast.parse(r.open())
+
+print(infer(t.body[0].value))
