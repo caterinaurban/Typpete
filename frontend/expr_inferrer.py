@@ -20,10 +20,10 @@ Infers the types for the following expressions:
      - FormattedValue(expr value, int? conversion, expr? format_spec) --> Python 3.6+
      - JoinedStr(expr* values) --> Python 3.6+
      - ListComp(expr elt, comprehension* generators)
+     - SetComp(expr elt, comprehension* generators)
 
      TODO:
      - Lambda(arguments args, expr body)
-     - SetComp(expr elt, comprehension* generators)
      - DictComp(expr key, expr value, comprehension* generators)
      - GeneratorExp(expr elt, comprehension* generators)
      - YieldFrom(expr value)
@@ -270,8 +270,13 @@ def infer_name(node, context):
     """
     return context.get_type(node.id)
 
-def infer_list_comprehension(node, context):
+def infer_sequence_comprehension(node, sequence_type, context):
     """Infer the type of a list comprehension
+
+    Attributes:
+        node: the comprehension AST node to be inferred
+        sequence_type: Either TList or TSet
+        context: The current context level
 
     Examples:
         - [c * 2 for c in [1,2,3]] --> [2,4,6]
@@ -293,7 +298,7 @@ def infer_list_comprehension(node, context):
             raise TypeError("The iteration target should be only a variable name.")
         local_context.set_type(gen.target.id, target_type)
 
-    return TList(infer(node.elt, local_context))
+    return sequence_type(infer(node.elt, local_context))
 
 
 def infer(node, context):
@@ -336,7 +341,9 @@ def infer(node, context):
     elif isinstance(node, ast.Name):
         return infer_name(node, context)
     elif isinstance(node, ast.ListComp):
-        return infer_list_comprehension(node, context)
+        return infer_sequence_comprehension(node, TList, context)
+    elif isinstance(node, ast.SetComp):
+        return infer_sequence_comprehension(node, TSet, context)
     return TNone()
 
 global_context = Context()
