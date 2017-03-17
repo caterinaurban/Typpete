@@ -28,7 +28,7 @@ Infers the types for the following expressions:
      - Call(expr func, expr* args, keyword* keywords)
      - FormattedValue(expr value, int? conversion, expr? format_spec)
      - JoinedStr(expr* values)
-     - Attribute(expr value, identifier attr, expr_context ctx)
+     - Attribute(expr value, identifier attr, expr_co0ontext ctx)
      - Starred(expr value, expr_context ctx)
 
      TODO:
@@ -133,16 +133,24 @@ def infer_binary_operation(node):
             return left_type
 
     if isinstance(node.op, ast.Add): # Check if it is a concatenation operation between sequences
-        # TODO: handle tuple concatenation
+        if isinstance(left_type, TTuple) and isinstance(right_type, TTuple):
+            # Handle tuples concatenation:
+            # (1, 2.0, "string") + (True, X()) --> (1, 2.0, "string", True, X())
+            # The result type is the concatenation of both tuples' types
+            new_tuple_types = left_type.types + right_type.types
+            return TTuple(new_tuple_types)
+
         if is_sequence(left_type) and is_sequence(right_type):
             if left_type.is_subtype(right_type):
                 return right_type
             elif right_type.is_subtype(left_type):
                 return left_type
+
     if isinstance(node.op, ast.Div): # Check if it is a float division operation
         if left_type.is_subtype(TFloat()) and right_type.is_subtype(TFloat()):
             return TFloat()
-    if is_numeric(left_type) and is_numeric(right_type):
+
+    if is_numeric(left_type) and is_numeric(right_type): # Normal arithmatic or logical operation
         if left_type.is_subtype(right_type):
             return right_type
         elif right_type.is_subtype(left_type):
@@ -263,8 +271,3 @@ def infer(node):
     return TNone()
 
 global_context = Context()
-
-r = open("test.py")
-t = ast.parse(r.open())
-
-print(infer(t.body[0].value))
