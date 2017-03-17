@@ -17,6 +17,8 @@ Infers the types for the following expressions:
 	 - Yield(expr? value)
      - Compare(expr left, cmpop* ops, expr* comparators)
      - Name(identifier id, expr_context ctx)
+     - FormattedValue(expr value, int? conversion, expr? format_spec) --> Python 3.6+
+     - JoinedStr(expr* values) --> Python 3.6+
 
      TODO:
      - Lambda(arguments args, expr body)
@@ -26,8 +28,6 @@ Infers the types for the following expressions:
      - GeneratorExp(expr elt, comprehension* generators)
      - YieldFrom(expr value)
      - Call(expr func, expr* args, keyword* keywords)
-     - FormattedValue(expr value, int? conversion, expr? format_spec)
-     - JoinedStr(expr* values)
      - Attribute(expr value, identifier attr, expr_co0ontext ctx)
      - Starred(expr value, expr_context ctx)
 
@@ -280,6 +280,10 @@ def infer(node):
         return infer_numeric(node)
     elif isinstance(node, ast.Str):
         return TString()
+    elif (sys.version_info[0] >= 3 and sys.version_info[1] >= 6 and
+         (isinstance(node, ast.FormattedValue) or isinstance(node, ast.JoinedStr))):
+         # Formatted strings were introduced in Python 3.6
+        return TString()
     elif isinstance(node, ast.Bytes):
         return TBytesString()
     elif isinstance(node, ast.List):
@@ -301,7 +305,7 @@ def infer(node):
     elif isinstance(node, ast.Subscript):
         return infer_subscript(node)
     elif sys.version_info[0] >= 3 and sys.version_info[1] >= 5 and isinstance(node, ast.Await):
-        # Await and Async were released in Python 3.5
+        # Await and Async were introduced in Python 3.5
         return infer(node.value)
     elif isinstance(node, ast.Yield):
         return infer(node.value)
