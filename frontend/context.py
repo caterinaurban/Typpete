@@ -20,6 +20,14 @@ class Context:
         """Sets the type of a variable in this context."""
         self.types_map[var_name] = var_type
 
+    def delete_type(self, var_name):
+        if var_name in self.types_map:
+            del self.types_map[var_name]
+        elif self.parent_context == None:
+            raise NameError("Name {} is not defined.".format(var_name))
+        else:
+            self.parent_context.delete_type(var_name)
+
     def has_variable(self, var_name):
         if var_name in self.types_map:
             return True

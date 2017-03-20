@@ -2,10 +2,10 @@
 
 Infers the types for the following expressions:
     - Assign(expr* targets, expr value)
-
-    TODO:
     - Return(expr? value)
     - Delete(expr* targets)
+
+    TODO:
     - AugAssign(expr target, operator op, expr value)
     - AnnAssign(expr target, expr annotation, expr? value, int simple)
     - For(expr target, expr iter, stmt* body, stmt* orelse)
@@ -14,15 +14,11 @@ Infers the types for the following expressions:
     - If(expr test, stmt* body, stmt* orelse)
     - With(withitem* items, stmt* body)
     - AsyncWith(withitem* items, stmt* body)
-    - Raise(expr? exc, expr? cause)
     - Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)
-    - Assert(expr test, expr? msg)
     - Import(alias* names)
     - ImportFrom(identifier? module, alias* names, int? level)
     - Global(identifier* names)
     - Nonlocal(identifier* names)
-    - Expr(expr value)
-    - Pass | Break | Continue
 """
 
 import expr_inferrer as expr, ast
@@ -47,6 +43,7 @@ def __infer_assignment_target(target, context, value_type):
     Limitation:
         - In case of tuple/list assignments, there are no guarantees for correct number of unpacked values.
             Because the length of the list/tuple may not be resolved statically.
+    TODO: Attributes assignment
     """
     if isinstance(target, ast.Name):
         if context.has_variable(target.id): # Check if variable is already inferred before
@@ -65,16 +62,18 @@ def __infer_assignment_target(target, context, value_type):
         for i in range(len(target.elts)):
             seq_elem = target.elts[i]
             if isinstance(value_type, TString):
-                infer_assignment_target(seq_elem, context, value_type)
+                __infer_assignment_target(seq_elem, context, value_type)
             elif isinstance(value_type, TList):
-                infer_assignment_target(seq_elem, context, value_type.type)
+                __infer_assignment_target(seq_elem, context, value_type.type)
             elif isinstance(value_type, TTuple):
-                infer_assignment_target(seq_elem, context, value_type.types[i])
+                __infer_assignment_target(seq_elem, context, value_type.types[i])
     elif isinstance(target, ast.Subscript): # Subscript assignment
         subscript_type = expr.infer(target, context)
         indexed_type = expr.infer(target.value, context)
         if isinstance(indexed_type, TString):
             raise TypeError("String objects don't support item assignment.")
+        elif isinstance(indexed_type, TTuple):
+            raise TypeError("Tuple objects don't support item assignment.")
         elif isinstance(indexed_type, TList):
             if isinstance(target.slice, ast.Index):
                 if indexed_type.type.is_subtype(value_type): # Update the type of the list with the more generic type
@@ -94,12 +93,6 @@ def __infer_assignment_target(target, context, value_type):
                     context.get_type(target.value.id).value_type = value_type
             elif not value_type.is_subtype(indexed_type.value_type):
                 raise TypeError("Cannot assign {} to a dictionary item of type {}.".format(value_type.get_name(), indexed_type.value_type.get_name()))
-        elif isinstance(indexed_type, TTuple):
-            # TODO: implement tuple subscripting assignment
-            pass
-
-    else:
-        raise ValueError("Cannot assign value to a literal.")
 
 def _infer_assign(node, context):
     """Infer the types of target variables in an assignment node."""
@@ -109,7 +102,42 @@ def _infer_assign(node, context):
 
     return TNone()
 
+def __delete_element(target, context):
+    """Remove (if needed) a target from the context
+
+    Cases:
+        - del var_name: remove its type mappingfrom the context directly.
+        - del subscript:
+                    * Tuple/String --> Immutable. Raise exception.
+                    * List/Dict --> Do nothing to the context.
+    TODO: Attribute deletion
+    """
+    if isinstance(target, (ast.Tuple, ast.List)): # Multiple deletions
+        for elem in target.elts:
+            __delete_element(elem, context)
+    elif isinstance(target, ast.Name):
+        context.delete_type(target.id)
+    elif isinstance(target, ast.Subscript):
+        indexed_type = expr.infer(target.value)
+        if isinstance(indexed_type, TString):
+            raise TypeError("String objects don't support item deletion.")
+        elif isinstance(indexed_type, TTuple):
+            raise TypeError("Tuple objects don't support item deletion.")
+
+def _infer_delete(node, context):
+    """Remove (if needed) the type of the deleted items in the current context"""
+    for target in node.targets:
+        __delete_element(target, context)
+
+    return TNone()
+
 def infer(node, context):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context)
+    elif isinstance(node, ast.Return):
+        return expr.infer(node.value, context)
+    elif isinstance(node, ast.Delete):
+        return _infer_delete(node, context)
     return TNone()
+r = open("test.py")
+t = ast.parse(r.read())
