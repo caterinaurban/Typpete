@@ -21,10 +21,10 @@ Infers the types for the following expressions:
      - JoinedStr(expr* values) --> Python 3.6+
      - ListComp(expr elt, comprehension* generators)
      - SetComp(expr elt, comprehension* generators)
+     - DictComp(expr key, expr value, comprehension* generators)
 
      TODO:
      - Lambda(arguments args, expr body)
-     - DictComp(expr key, expr value, comprehension* generators)
      - GeneratorExp(expr elt, comprehension* generators)
      - YieldFrom(expr value)
      - Call(expr func, expr* args, keyword* keywords)
@@ -270,6 +270,17 @@ def infer_name(node, context):
     """
     return context.get_type(node.id)
 
+def infer_generators(generators, local_context):
+    for gen in generators:
+        iter_type = infer(gen.iter, local_context)
+        if not (isinstance(iter_type, TList) or isinstance(iter_type, TSet)):
+            raise TypeError("The iterable should be only a list or a set. Found {}.", iter_type.get_name())
+        target_type = iter_type.type # Get the type of list/set elements
+
+        if not isinstance(gen.target, ast.Name):
+            raise TypeError("The iteration target should be only a variable name.")
+        local_context.set_type(gen.target.id, target_type)
+
 def infer_sequence_comprehension(node, sequence_type, context):
     """Infer the type of a list comprehension
 
@@ -284,21 +295,33 @@ def infer_sequence_comprehension(node, sequence_type, context):
         - [(c + 1, c * 2) for c in [1,2,3]] --> [(2,2),(3,4),(4,6)]
 
     Limitation:
-        The iterable should always be a list or a set (not a tuple)
+        The iterable should always be a list or a set (not a tuple or a dict)
         The iteration target should be always a variable name.
     """
     local_context = Context(parent_context=context)
-    for gen in node.generators:
-        iter_type = infer(gen.iter, local_context)
-        if not (isinstance(iter_type, TList) or isinstance(iter_type, TSet)):
-            raise TypeError("The iterable should be only a list or a set. Found {}.", iter_type.get_name())
-        target_type = iter_type.type # Get the type of list/set elements
-
-        if not isinstance(gen.target, ast.Name):
-            raise TypeError("The iteration target should be only a variable name.")
-        local_context.set_type(gen.target.id, target_type)
-
+    infer_generators(node.generators, local_context)
     return sequence_type(infer(node.elt, local_context))
+
+def infer_dict_comprehension(node, context):
+    """Infer the type of a dictionary comprehension
+
+    Attributes:
+        node: the dict comprehension AST node to be inferred
+        context: The current context level
+
+    Examples:
+        - {a:(2 * a) for a in [1,2,3]} --> {1:2, 2:4, 3:6}
+        - {a:len(a) for a in ["a","ab","abc"]}--> {"a":1, "ab":2, "abc":3}
+
+    Limitation:
+        The iterable should always be a list or a set (not a tuple or a dict)
+        The iteration target should be always a variable name.
+    """
+    local_context = Context(parent_context=context)
+    infer_generators(node.generators, local_context)
+    key_type = infer(node.key, local_context)
+    val_type = infer(node.value, local_context)
+    return TDictionary(key_type, val_type)
 
 
 def infer(node, context):
@@ -344,6 +367,8 @@ def infer(node, context):
         return infer_sequence_comprehension(node, TList, context)
     elif isinstance(node, ast.SetComp):
         return infer_sequence_comprehension(node, TSet, context)
+    elif isinstance(node, ast.DictComp):
+        return infer_dict_comprehension(node, context)
     return TNone()
 
 global_context = Context()
