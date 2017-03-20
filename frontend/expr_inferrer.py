@@ -370,5 +370,3 @@ def infer(node, context):
     elif isinstance(node, ast.DictComp):
         return infer_dict_comprehension(node, context)
     return TNone()
-
-global_context = Context()

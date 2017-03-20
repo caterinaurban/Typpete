@@ -1,5 +1,5 @@
 class HomogeneousTypesConflict(Exception):
 
     def __init__(self, type1, type2):
-        self.message = "Conflict in list types: {} and {}".format(type(type1).__name__, type(type2).__name__)
+        self.message = "Conflict in list types: {} and {}".format(type1, type2)
         super(HomogeneousTypesConflict, self).__init__(self.message)
