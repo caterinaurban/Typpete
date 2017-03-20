@@ -5,8 +5,8 @@ class Context:
         types_map ({str, Type}): a dict mapping variable names to their inferred types.
     """
 
-    def __init__(self, t_m={}, parent_context=None):
-        self.types_map = t_m
+    def __init__(self, parent_context=None):
+        self.types_map = {}
         self.parent_context = parent_context
 
     def get_type(self, var_name):
@@ -21,4 +21,8 @@ class Context:
         self.types_map[var_name] = var_type
 
     def has_variable(self, var_name):
-        return
+        if var_name in self.types_map:
+            return True
+        if self.parent_context == None:
+            return False
+        return self.parent_context.has_variable(var_name)
