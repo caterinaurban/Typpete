@@ -45,7 +45,7 @@ class TInt(Type):
 
     def is_subtype(self, t):
         return isinstance(t, (TInt, TFloat))
-	
+
     def get_name(self):
         return "Int"
 
@@ -114,7 +114,7 @@ class TTuple(Type):
                 return False
         return True
 
-    def get_name(self):	
+    def get_name(self):
         types_names = [t.get_name() for t in self.types]
         return "Tuple({})".format(",".join(types_names))
 
@@ -123,17 +123,17 @@ class TTuple(Type):
 
 		For example:
 			t = (1, "string", 2.5)
-			
+
 			t.get_possible_tuple_slicings() will return the following
 			Union{Tuple(Int), Tuple(Int,String), Tuple(Int,String,Float), Tuple(String), Tuple(String,Float), Tuple(Float), Tuple()}
-						
+
 		"""
         slicings = {TTuple([])}
         for i in range(len(self.types)):
             for j in range(i + 1, len(self.types) + 1):
                 slicings.add(TTuple(self.types[i:j]))
         return UnionTypes(slicings)
-				
+
 class TIterator(Type):
     """Type given to an iterator.
 
@@ -242,7 +242,15 @@ class UnionTypes(Type):
     def get_name(self):
         types_names = [t.get_name() for t in self.types]
         return "Union{{{}}}".format(",".join(types_names))
-			
+
+    def union(self, other_type):
+        """Add other types to the union"""
+        if isinstance(other_type, UnionTypes):
+            for t in other_type.types:
+                self.types.add(t)
+        else:
+            self.types.add(other_type)
+
 
 class TClass(Type):
     """Type given to a class.

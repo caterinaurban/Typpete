@@ -207,6 +207,12 @@ def infer_if_expression(node, context):
     if type(a_type) is type(b_type):
         return a_type
 
+    if isinstance(a_type, UnionTypes):
+        a_type.union(b_type)
+        return a_type
+    elif isinstance(b_type, UnionTypes):
+        b_type.union(a_type)
+        return b_type
     return UnionTypes({a_type, b_type})
 
 def is_sequence(t):
