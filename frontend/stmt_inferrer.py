@@ -131,6 +131,24 @@ def _infer_delete(node, context):
 
     return TNone()
 
+def _infer_body(body, context):
+    body_type = TNone()
+    for stmt in body:
+        stmt_type = infer(stmt, context)
+        if body_type.is_subtype(stmt_type):
+            body_type = stmt_type
+        elif not stmt_type.is_subtype(body_type):
+            if isinstance(body_type, UnionTypes):
+                body_type.union(stmt_type)
+            elif isinstance(stmt_type, UnionTypes):
+                stmt_type.union(body_type)
+                body_type = stmt_type
+            else:
+                union = {body_type, stmt_type}
+                body_type = UnionTypes(union)
+    return body_type
+
+
 def infer(node, context):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context)
@@ -141,3 +159,5 @@ def infer(node, context):
     return TNone()
 r = open("test.py")
 t = ast.parse(r.read())
+
+global_context = Context()
