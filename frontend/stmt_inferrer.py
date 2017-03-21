@@ -93,6 +93,10 @@ def __infer_assignment_target(target, context, value_type):
                     context.get_type(target.value.id).value_type = value_type
             elif not value_type.is_subtype(indexed_type.value_type):
                 raise TypeError("Cannot assign {} to a dictionary item of type {}.".format(value_type.get_name(), indexed_type.value_type.get_name()))
+        else:
+            raise NotImplementedError("The inference for {} subscripting is not supported.".format(indexed_type.get_name()))
+    else:
+        raise NotImplementedError("The inference for {} assignment is not supported.".format(type(target).__name__))
 
 def _infer_assign(node, context):
     """Infer the types of target variables in an assignment node."""

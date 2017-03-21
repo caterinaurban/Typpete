@@ -35,7 +35,7 @@ class TNone(Type):
     def get_name(self):
         return "None"
 
-
+# TODO: Numerics should be subtype of class
 class TBool(Type):
 
     def is_subtype(self, t):
@@ -92,7 +92,7 @@ class TList(Type):
         self.type = t
 
     def is_subtype(self, t):
-        return isinstance(t, TList) and self.type.is_subtype(t.type)
+        return isinstance(t, TList) and type(self.type) is type(t.type)
 
     def get_name(self):
         return "List[{}]".format(self.type.get_name())
@@ -149,7 +149,7 @@ class TIterator(Type):
         self.type = t
 
     def is_subtype(self, t):
-        return isinstance(t, TIterator) and self.type.is_subtype(t.type)
+        return isinstance(t, TIterator) and type(self.type) is type(t.type)
 
     def get_name(self):
         return "Iterator({})".format(self.type.get_name())
@@ -168,8 +168,8 @@ class TDictionary(Type):
         self.value_type = t_v
 
     def is_subtype(self, t):
-        return (isinstance(t, TDictionary) and self.key_type.is_subtype(t.key_type)
-            and self.value_type.is_subtype(t.value_type))
+        return (isinstance(t, TDictionary) and type(self.key_type) is type(t.key_type)
+            and type(self.value_type) is type(t.value_type))
 
     def get_name(self):
         return "Dict({}:{})".format(self.key_type.get_name(), self.value_type.get_name())
@@ -208,7 +208,7 @@ class TFunction(Type):
         if not self.return_type.is_subtype(t.return_type):
             return False
         for i in range(len(self.arg_types)):
-            if not self.arg_types[i].is_subtype(t.arg_types[i]):
+            if not t.arg_types[i].is_subtype(self.arg_types[i]):
                 return False
         return True
 

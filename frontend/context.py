@@ -12,7 +12,7 @@ class Context:
     def get_type(self, var_name):
         if var_name in self.types_map:
             return self.types_map[var_name]
-        if self.parent_context == None:
+        if self.parent_context is None:
             raise NameError("Name {} is not defined.".format(var_name))
         return self.parent_context.get_type(var_name)
 
@@ -23,7 +23,7 @@ class Context:
     def delete_type(self, var_name):
         if var_name in self.types_map:
             del self.types_map[var_name]
-        elif self.parent_context == None:
+        elif self.parent_context is None:
             raise NameError("Name {} is not defined.".format(var_name))
         else:
             self.parent_context.delete_type(var_name)
@@ -31,6 +31,6 @@ class Context:
     def has_variable(self, var_name):
         if var_name in self.types_map:
             return True
-        if self.parent_context == None:
+        if self.parent_context is None:
             return False
         return self.parent_context.has_variable(var_name)
