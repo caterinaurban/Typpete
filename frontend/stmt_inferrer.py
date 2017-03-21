@@ -131,7 +131,8 @@ def _infer_delete(node, context):
 
     return TNone()
 
-def _infer_body(body, context):
+def __infer_body(body, context):
+    """Infer the type of a code block containing multiple statements"""
     body_type = TNone()
     for stmt in body:
         stmt_type = infer(stmt, context)
@@ -148,6 +149,34 @@ def _infer_body(body, context):
                 body_type = UnionTypes(union)
     return body_type
 
+def _infer_if(node, context):
+    """Infer the type(s) for an if statement block.
+
+    Example:
+        if (some_condition):
+            ......
+            return "some string"
+        else:
+            ......
+            return 2.0
+
+        type: Union{String, Float}
+    """
+    body_type = __infer_body(node.body, context)
+    else_type = __infer_body(node.orelse, context)
+
+    if body_type.is_subtype(else_type):
+        return else_type
+    elif else_type.is_subtype(body_type):
+        return body_type
+
+    if isinstance(body_type, UnionTypes):
+        body_type.union(else_type)
+        return body_type
+    elif isinstance(else_type, UnionTypes):
+        else_type.union(body_type)
+        return else_type
+    return UnionTypes({body_type, else_type})
 
 def infer(node, context):
     if isinstance(node, ast.Assign):
@@ -156,8 +185,6 @@ def infer(node, context):
         return expr.infer(node.value, context)
     elif isinstance(node, ast.Delete):
         return _infer_delete(node, context)
+    elif isinstance(node, ast.If):
+        return _infer_if(node, context)
     return TNone()
-r = open("test.py")
-t = ast.parse(r.read())
-
-global_context = Context()
