@@ -20,8 +20,12 @@ class Type(metaclass=ABCMeta):
         """Get the name of the type"""
         pass
 
-    # TODO: Implement __eq__ and __hash__ for all types, for correct set behaviour
+    # Two types are considered identical if their names exactly match.
+    def __eq__(self, other):
+        return self.get_name() == other.get_name()
 
+    def __hash__(self):
+        return hash(self.get_name())
 
 class TNone(Type):
 
@@ -228,6 +232,8 @@ class UnionTypes(Type):
             unique_type = list(self.types)[0]
             if unique_type.is_subtype(t):
                 return True
+        if not isinstance(t, UnionTypes):
+            return False
         for m_t in self.types: # look for a supertype in t.types for every type in self.types
             found_supertype = False
             for t_t in t.types:
