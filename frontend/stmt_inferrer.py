@@ -4,14 +4,14 @@ Infers the types for the following expressions:
     - Assign(expr* targets, expr value)
     - Return(expr? value)
     - Delete(expr* targets)
+    - If(expr test, stmt* body, stmt* orelse)
+    - While(expr test, stmt* body, stmt* orelse)
+    - For(expr target, expr iter, stmt* body, stmt* orelse)
 
     TODO:
     - AugAssign(expr target, operator op, expr value)
     - AnnAssign(expr target, expr annotation, expr? value, int simple)
-    - For(expr target, expr iter, stmt* body, stmt* orelse)
     - AsyncFor(expr target, expr iter, stmt* body, stmt* orelse)
-    - While(expr test, stmt* body, stmt* orelse)
-    - If(expr test, stmt* body, stmt* orelse)
     - With(withitem* items, stmt* body)
     - AsyncWith(withitem* items, stmt* body)
     - Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)
@@ -153,9 +153,12 @@ def __infer_body(body, context):
                 body_type = UnionTypes(union)
     return body_type
 
-def _infer_if(node, context):
-    """Infer the type(s) for an if statement block.
+def _infer_control_flow(node, context):
+    """Infer the type(s) for an if/while/for statements block.
 
+    Arguments:
+        node: The AST node to be inferred
+        context: the current context level
     Example:
         if (some_condition):
             ......
@@ -182,6 +185,29 @@ def _infer_if(node, context):
         return else_type
     return UnionTypes({body_type, else_type})
 
+def _infer_for(node, context):
+    """Infer the type for a for loop node
+
+    Limitation:
+        - The iterable should only be a set, a list or an iterator (not a tuple or a dict).
+            For example: the following is not allowed:
+                for x in (1, 2.0, "string"):
+                    ....
+    """
+    iter_type = expr.infer(node.iter, context)
+    if not isinstance(iter_type, (TList, TSet, TIterator)):
+        raise TypeError("The iterable should only be a set, list or iterator. Found {}.".format(iter_type.get_name()))
+
+    # Infer the target in the loop, inside the global context
+    # Cases:
+    # - Var name. Ex: for i in range(5)..
+    # - Tuple. Ex: for (a,b) in [(1,"st"), (3,"st2")]..
+    # -List. Ex: for [a,b] in [(1, "st"), (3, "st2")]..
+    __infer_assignment_target(node.target, context, iter_type.type)
+
+    return _infer_control_flow(node, context)
+
+
 def infer(node, context):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context)
@@ -189,6 +215,8 @@ def infer(node, context):
         return expr.infer(node.value, context)
     elif isinstance(node, ast.Delete):
         return _infer_delete(node, context)
-    elif isinstance(node, ast.If):
-        return _infer_if(node, context)
+    elif isinstance(node, (ast.If, ast.While)):
+        return _infer_control_flow(node, context)
+    elif isinstance(node, ast.For):
+        return _infer_for(node, context)
     return TNone()
