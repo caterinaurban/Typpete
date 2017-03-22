@@ -254,6 +254,21 @@ def _infer_with(node, context):
 
     return __infer_body(node.body, context)
 
+def _infer_try(node, context):
+    """Infer the types for a try/except/else block"""
+    try_type = UnionTypes()
+
+    try_type.union(__infer_body(node.body, context))
+    try_type.union(__infer_body(node.orelse, context))
+    try_type.union(__infer_body(node.finalbody, context))
+    # TODO: Infer exception handlers as classes
+
+    for handler in node.handlers:
+        try_type.union(__infer_body(handler.body, context))
+
+    if len(try_type.types) == 1:
+        return list(try_type.types)[0]
+    return try_type
 
 def infer(node, context):
     if isinstance(node, ast.Assign):
@@ -276,4 +291,6 @@ def infer(node, context):
     elif sys.version_info[0] >= 3 and sys.version_info[1] >= 5 and isinstance(node, ast.AsyncWith):
         # AsyncWith is instroduced in Python 3.5
         return _infer_with(node, context)
+    elif isinstance(node, ast.Try):
+        return _infer_try(node, context)
     return TNone()

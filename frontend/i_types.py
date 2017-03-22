@@ -224,7 +224,7 @@ class UnionTypes(Type):
         types (set{Type}): An unordered set of possible types.
     """
 
-    def __init__(self, t):
+    def __init__(self, t=set()):
         self.types = set()
         for ti in t:
             self.union(ti)
