@@ -225,7 +225,9 @@ class UnionTypes(Type):
     """
 
     def __init__(self, t):
-        self.types = t
+        self.types = set()
+        for ti in t:
+            self.union(ti)
 
     def is_subtype(self, t):
         if len(self.types) == 1: # return true if there's only one type in the set, and this type is a subtype of the passed argument
@@ -253,8 +255,16 @@ class UnionTypes(Type):
         """Add other types to the union"""
         if isinstance(other_type, UnionTypes):
             for t in other_type.types:
-                self.types.add(t)
+                self.union(t)
         else:
+            to_remove = set()
+            for t in self.types:
+                if other_type.is_subtype(t): # Ignore union if supertype already exists in the set
+                    return
+                elif t.is_subtype(other_type): # Remove subtypes of added type
+                    to_remove.add(t)
+            for t in to_remove:
+                self.types.remove(t)
             self.types.add(other_type)
 
 
