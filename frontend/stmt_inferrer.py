@@ -4,14 +4,14 @@ Infers the types for the following expressions:
     - Assign(expr* targets, expr value)
     - Return(expr? value)
     - Delete(expr* targets)
+    - If(expr test, stmt* body, stmt* orelse)
+    - While(expr test, stmt* body, stmt* orelse)
+    - For(expr target, expr iter, stmt* body, stmt* orelse)
 
     TODO:
     - AugAssign(expr target, operator op, expr value)
     - AnnAssign(expr target, expr annotation, expr? value, int simple)
-    - For(expr target, expr iter, stmt* body, stmt* orelse)
     - AsyncFor(expr target, expr iter, stmt* body, stmt* orelse)
-    - While(expr test, stmt* body, stmt* orelse)
-    - If(expr test, stmt* body, stmt* orelse)
     - With(withitem* items, stmt* body)
     - AsyncWith(withitem* items, stmt* body)
     - Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)
@@ -93,6 +93,10 @@ def __infer_assignment_target(target, context, value_type):
                     context.get_type(target.value.id).value_type = value_type
             elif not value_type.is_subtype(indexed_type.value_type):
                 raise TypeError("Cannot assign {} to a dictionary item of type {}.".format(value_type.get_name(), indexed_type.value_type.get_name()))
+        else:
+            raise NotImplementedError("The inference for {} subscripting is not supported.".format(indexed_type.get_name()))
+    else:
+        raise NotImplementedError("The inference for {} assignment is not supported.".format(type(target).__name__))
 
 def _infer_assign(node, context):
     """Infer the types of target variables in an assignment node."""
@@ -131,6 +135,79 @@ def _infer_delete(node, context):
 
     return TNone()
 
+def __infer_body(body, context):
+    """Infer the type of a code block containing multiple statements"""
+    body_type = TNone()
+    for stmt in body:
+        stmt_type = infer(stmt, context)
+        if body_type.is_subtype(stmt_type):
+            body_type = stmt_type
+        elif not stmt_type.is_subtype(body_type):
+            if isinstance(body_type, UnionTypes):
+                body_type.union(stmt_type)
+            elif isinstance(stmt_type, UnionTypes):
+                stmt_type.union(body_type)
+                body_type = stmt_type
+            else:
+                union = {body_type, stmt_type}
+                body_type = UnionTypes(union)
+    return body_type
+
+def _infer_control_flow(node, context):
+    """Infer the type(s) for an if/while/for statements block.
+
+    Arguments:
+        node: The AST node to be inferred
+        context: the current context level
+    Example:
+        if (some_condition):
+            ......
+            return "some string"
+        else:
+            ......
+            return 2.0
+
+        type: Union{String, Float}
+    """
+    body_type = __infer_body(node.body, context)
+    else_type = __infer_body(node.orelse, context)
+
+    if body_type.is_subtype(else_type):
+        return else_type
+    elif else_type.is_subtype(body_type):
+        return body_type
+
+    if isinstance(body_type, UnionTypes):
+        body_type.union(else_type)
+        return body_type
+    elif isinstance(else_type, UnionTypes):
+        else_type.union(body_type)
+        return else_type
+    return UnionTypes({body_type, else_type})
+
+def _infer_for(node, context):
+    """Infer the type for a for loop node
+
+    Limitation:
+        - The iterable should only be a set, a list or an iterator (not a tuple or a dict).
+            For example: the following is not allowed:
+                for x in (1, 2.0, "string"):
+                    ....
+    """
+    iter_type = expr.infer(node.iter, context)
+    if not isinstance(iter_type, (TList, TSet, TIterator)):
+        raise TypeError("The iterable should only be a set, list or iterator. Found {}.".format(iter_type.get_name()))
+
+    # Infer the target in the loop, inside the global context
+    # Cases:
+    # - Var name. Ex: for i in range(5)..
+    # - Tuple. Ex: for (a,b) in [(1,"st"), (3,"st2")]..
+    # -List. Ex: for [a,b] in [(1, "st"), (3, "st2")]..
+    __infer_assignment_target(node.target, context, iter_type.type)
+
+    return _infer_control_flow(node, context)
+
+
 def infer(node, context):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context)
@@ -138,6 +215,8 @@ def infer(node, context):
         return expr.infer(node.value, context)
     elif isinstance(node, ast.Delete):
         return _infer_delete(node, context)
+    elif isinstance(node, (ast.If, ast.While)):
+        return _infer_control_flow(node, context)
+    elif isinstance(node, ast.For):
+        return _infer_for(node, context)
     return TNone()
-r = open("test.py")
-t = ast.parse(r.read())

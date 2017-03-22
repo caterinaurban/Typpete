@@ -56,21 +56,24 @@ def infer_numeric(node):
     if type(node.n) == float:
         return TFloat()
 
+def __get_supertype(elts, context):
+    if len(elts) == 0:
+        return TNone()
+    supertype = infer(elts[0], context)
+    for i in range(1, len(elts)):
+        cur_type = infer(elts[i], context)
+        if supertype.is_subtype(cur_type): # get the most generic type
+            supertype = cur_type
+        elif not cur_type.is_subtype(supertype): # make sure the list is homogeneous
+            raise HomogeneousTypesConflict(supertype.get_name(), cur_type.get_name())
+    return supertype
+
 def infer_list(node, context):
     """Infer the type of a homogeneous list
 
     Returns: TList(Type t), where t is the type of the list elements
     """
-    if len(node.elts) == 0:
-        return TList(TNone())
-    list_type = infer(node.elts[0], context)
-    for i in range(1, len(node.elts)):
-        cur_type = infer(node.elts[i], context)
-        if list_type.is_subtype(cur_type): # get the most generic type
-            list_type = cur_type
-        elif not cur_type.is_subtype(list_type): # make sure the list is homogeneous
-            raise HomogeneousTypesConflict(list_type.get_name(), cur_type.get_name())
-    return TList(list_type)
+    return TList(__get_supertype(node.elts, context))
 
 def infer_dict(node, context):
     """Infer the type of a dictionary with homogeneous key set and value set
@@ -79,26 +82,8 @@ def infer_dict(node, context):
             k_t is the type of dictionary keys
             v_t is the type of dictionary values
     """
-    if len(node.keys) == 0:
-        return TDictionary(TNone(), TNone())
-    keys = node.keys
-    values = node.values
-    keys_type = infer(keys[0], context)
-    values_type = infer(values[0], context)
-
-    for i in range(1, len(keys)):
-        cur_key_type = infer(keys[i], context)
-        cur_value_type = infer(values[i], context)
-
-        if keys_type.is_subtype(cur_key_type): # get the most generic keys type
-            keys_type = cur_key_type
-        elif not cur_key_type.is_subtype(keys_type): # make sure the dict key set is homogeneous
-            raise HomogeneousTypesConflict(keys_type.get_name(), cur_key_type.get_name())
-
-        if values_type.is_subtype(cur_value_type): # get the most generic values type
-            values_type = cur_value_type
-        elif not cur_value_type.is_subtype(values_type): # make sure the dict value set is homogeneous
-            raise HomogeneousTypesConflict(values_type.get_name(), cur_value_type.get_name())
+    keys_type = __get_supertype(node.keys, context)
+    values_type = __get_supertype(node.values, context)
     return TDictionary(keys_type, values_type)
 
 def infer_tuple(node, context):
@@ -117,24 +102,16 @@ def infer_name_constant(node):
     """Infer the type of name constants like: True, False, None"""
     if node.value == True or node.value == False:
         return TBool()
-    elif node.value == None:
+    elif node.value is None:
         return TNone()
+    raise NotImplementedError("The inference for {} is not supported.".format(node.value))
 
 def infer_set(node, context):
     """Infer the type of a homogeneous set
 
     Returns: TSet(Type t), where t is the type of the set elements
     """
-    if len(node.elts) == 0:
-        return TSet(TNone)
-    set_type = infer(node.elts[0], context)
-    for i in range(1, len(node.elts)):
-        cur_type = infer(node.elts[i], context)
-        if set_type.is_subtype(cur_type): # get the most generic type
-            set_type = cur_type
-        elif not cur_type.is_subtype(set_type): # make sure the set is homogeneous
-            raise HomogeneousTypesConflict(set_type.get_name(), cur_type.get_name())
-    return TSet(set_type)
+    return TSet(__get_supertype(node.elts, context))
 
 def is_numeric(t):
 	return t.is_subtype(TFloat())
@@ -204,9 +181,17 @@ def infer_if_expression(node, context):
     a_type = infer(node.body, context)
     b_type = infer(node.orelse, context)
 
-    if type(a_type) is type(b_type):
+    if a_type.is_subtype(b_type):
+        return b_type
+    elif b_type.is_subtype(a_type):
         return a_type
 
+    if isinstance(a_type, UnionTypes):
+        a_type.union(b_type)
+        return a_type
+    elif isinstance(b_type, UnionTypes):
+        b_type.union(a_type)
+        return b_type
     return UnionTypes({a_type, b_type})
 
 def is_sequence(t):

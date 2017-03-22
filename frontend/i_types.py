@@ -20,8 +20,12 @@ class Type(metaclass=ABCMeta):
         """Get the name of the type"""
         pass
 
-    # TODO: Implement __eq__ and __hash__ for all types, for correct set behaviour
+    # Two types are considered identical if their names exactly match.
+    def __eq__(self, other):
+        return self.get_name() == other.get_name()
 
+    def __hash__(self):
+        return hash(self.get_name())
 
 class TNone(Type):
 
@@ -31,7 +35,7 @@ class TNone(Type):
     def get_name(self):
         return "None"
 
-
+# TODO: Numerics should be subtype of class
 class TBool(Type):
 
     def is_subtype(self, t):
@@ -45,7 +49,7 @@ class TInt(Type):
 
     def is_subtype(self, t):
         return isinstance(t, (TInt, TFloat))
-	
+
     def get_name(self):
         return "Int"
 
@@ -88,7 +92,7 @@ class TList(Type):
         self.type = t
 
     def is_subtype(self, t):
-        return isinstance(t, TList) and self.type.is_subtype(t.type)
+        return isinstance(t, TList) and type(self.type) is type(t.type)
 
     def get_name(self):
         return "List[{}]".format(self.type.get_name())
@@ -114,7 +118,7 @@ class TTuple(Type):
                 return False
         return True
 
-    def get_name(self):	
+    def get_name(self):
         types_names = [t.get_name() for t in self.types]
         return "Tuple({})".format(",".join(types_names))
 
@@ -123,17 +127,17 @@ class TTuple(Type):
 
 		For example:
 			t = (1, "string", 2.5)
-			
+
 			t.get_possible_tuple_slicings() will return the following
 			Union{Tuple(Int), Tuple(Int,String), Tuple(Int,String,Float), Tuple(String), Tuple(String,Float), Tuple(Float), Tuple()}
-						
+
 		"""
         slicings = {TTuple([])}
         for i in range(len(self.types)):
             for j in range(i + 1, len(self.types) + 1):
                 slicings.add(TTuple(self.types[i:j]))
         return UnionTypes(slicings)
-				
+
 class TIterator(Type):
     """Type given to an iterator.
 
@@ -145,7 +149,7 @@ class TIterator(Type):
         self.type = t
 
     def is_subtype(self, t):
-        return isinstance(t, TIterator) and self.type.is_subtype(t.type)
+        return isinstance(t, TIterator) and type(self.type) is type(t.type)
 
     def get_name(self):
         return "Iterator({})".format(self.type.get_name())
@@ -164,8 +168,8 @@ class TDictionary(Type):
         self.value_type = t_v
 
     def is_subtype(self, t):
-        return (isinstance(t, TDictionary) and self.key_type.is_subtype(t.key_type)
-            and self.value_type.is_subtype(t.value_type))
+        return (isinstance(t, TDictionary) and type(self.key_type) is type(t.key_type)
+            and type(self.value_type) is type(t.value_type))
 
     def get_name(self):
         return "Dict({}:{})".format(self.key_type.get_name(), self.value_type.get_name())
@@ -204,7 +208,7 @@ class TFunction(Type):
         if not self.return_type.is_subtype(t.return_type):
             return False
         for i in range(len(self.arg_types)):
-            if not self.arg_types[i].is_subtype(t.arg_types[i]):
+            if not t.arg_types[i].is_subtype(self.arg_types[i]):
                 return False
         return True
 
@@ -228,6 +232,8 @@ class UnionTypes(Type):
             unique_type = list(self.types)[0]
             if unique_type.is_subtype(t):
                 return True
+        if not isinstance(t, UnionTypes):
+            return False
         for m_t in self.types: # look for a supertype in t.types for every type in self.types
             found_supertype = False
             for t_t in t.types:
@@ -242,7 +248,15 @@ class UnionTypes(Type):
     def get_name(self):
         types_names = [t.get_name() for t in self.types]
         return "Union{{{}}}".format(",".join(types_names))
-			
+
+    def union(self, other_type):
+        """Add other types to the union"""
+        if isinstance(other_type, UnionTypes):
+            for t in other_type.types:
+                self.types.add(t)
+        else:
+            self.types.add(other_type)
+
 
 class TClass(Type):
     """Type given to a class.
