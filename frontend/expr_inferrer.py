@@ -116,18 +116,8 @@ def infer_set(node, context):
 def is_numeric(t):
 	return t.is_subtype(TFloat())
 
-def infer_binary_operation(node, context):
-    """Infer the type of binary operations
-
-    Handled cases:
-        - Sequence multiplication, ex: [1,2,3] * 2 --> [1,2,3,1,2,3]
-        - Sequence concatenation, ex: [1,2,3] + [4,5,6] --> [1,2,3,4,5,6]
-        - Arithmatic and bitwise operations, ex: (1 + 2) * 7 & (2 | -123) / 3
-    """
-    left_type = infer(node.left, context)
-    right_type = infer(node.right, context)
-
-    if isinstance(node.op, ast.Mult):
+def binary_operation_type(left_type, op, right_type):
+    if isinstance(op, ast.Mult):
         # Handle sequence multiplication. Ex.:
         # [1,2,3] * 2 --> [1,2,3,1,2,3]
         # 2 * "abc" -- > "abcabc"
@@ -136,7 +126,7 @@ def infer_binary_operation(node, context):
         elif right_type.is_subtype(TInt()) and is_sequence(left_type):
             return left_type
 
-    if isinstance(node.op, ast.Add): # Check if it is a concatenation operation between sequences
+    if isinstance(op, ast.Add): # Check if it is a concatenation operation between sequences
         if isinstance(left_type, TTuple) and isinstance(right_type, TTuple):
             # Handle tuples concatenation:
             # (1, 2.0, "string") + (True, X()) --> (1, 2.0, "string", True, X())
@@ -150,7 +140,7 @@ def infer_binary_operation(node, context):
             elif right_type.is_subtype(left_type):
                 return left_type
 
-    if isinstance(node.op, ast.Div): # Check if it is a float division operation
+    if isinstance(op, ast.Div): # Check if it is a float division operation
         if left_type.is_subtype(TFloat()) and right_type.is_subtype(TFloat()):
             return TFloat()
 
@@ -161,7 +151,20 @@ def infer_binary_operation(node, context):
         elif right_type.is_subtype(left_type):
             return left_type
 
-    raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(node.op).__name__, left_type.get_name(), right_type.get_name()))
+    raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(op).__name__, left_type.get_name(), right_type.get_name()))
+
+def infer_binary_operation(node, context):
+    """Infer the type of binary operations
+
+    Handled cases:
+        - Sequence multiplication, ex: [1,2,3] * 2 --> [1,2,3,1,2,3]
+        - Sequence concatenation, ex: [1,2,3] + [4,5,6] --> [1,2,3,4,5,6]
+        - Arithmatic and bitwise operations, ex: (1 + 2) * 7 & (2 | -123) / 3
+    """
+    left_type = infer(node.left, context)
+    right_type = infer(node.right, context)
+
+    return binary_operation_type(left_type, node.op, right_type)
 
 def infer_unary_operation(node, context):
     """Infer the type for unary operations
