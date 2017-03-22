@@ -2,6 +2,7 @@
 
 Infers the types for the following expressions:
     - Assign(expr* targets, expr value)
+    - AugAssign(expr target, operator op, expr value)
     - Return(expr? value)
     - Delete(expr* targets)
     - If(expr test, stmt* body, stmt* orelse)
@@ -9,7 +10,6 @@ Infers the types for the following expressions:
     - For(expr target, expr iter, stmt* body, stmt* orelse)
 
     TODO:
-    - AugAssign(expr target, operator op, expr value)
     - AnnAssign(expr target, expr annotation, expr? value, int simple)
     - AsyncFor(expr target, expr iter, stmt* body, stmt* orelse)
     - With(withitem* items, stmt* body)
@@ -105,6 +105,45 @@ def _infer_assign(node, context):
         __infer_assignment_target(target, context, value_type)
 
     return TNone()
+
+def _infer_augmented_assign(node, context):
+    """Infer the types for augmented assignments
+
+    Examples:
+        a += 5
+        b[2] &= x
+
+    TODO: Attribute augmented assignment
+    """
+    target_type = expr.infer(node.target, context)
+    value_type = expr.infer(node.value, context)
+    result_type = expr.binary_operation_type(target_type, node.op, value_type)
+    if isinstance(node.target, ast.Name):
+        # If result_type was a supertype of target_type, replace it in the context
+        context.set_type(node.target.id, result_type)
+    elif isinstance(node.target, ast.Subscript):
+        indexed_type = expr.infer(node.target.value, context)
+        if isinstance(indexed_type, TString):
+            raise TypeError("String objects don't support item assignment.")
+        elif isinstance(indexed_type, TTuple):
+            raise TypeError("Tuple objects don't support item assignment.")
+        elif isinstance(indexed_type, TDictionary):
+            if not type(result_type) is type(indexed_type.value_type):
+                raise TypeError("Cannot convert the dictionary value from {} to {}.".format(indexed_type.value_type.get_name(),
+                                                                                            result_type.get_name()))
+        elif isinstance(indexed_type, TList):
+            if not type(result_type) is type(indexed_type.type):
+                raise TypeError("Cannot convert the list values from {} to {}.".format(indexed_type.type.get_name(),
+                                                                                            result_type.get_name()))
+        else:
+            # This block should never be executed.
+            raise TypeError("Unknown subscript type.")
+    elif isinstance(node.target, ast.Attribute):
+        # TODO: Implement after classes inference
+        pass
+    return TNone()
+
+
 
 def __delete_element(target, context):
     """Remove (if needed) a target from the context
@@ -211,6 +250,8 @@ def _infer_for(node, context):
 def infer(node, context):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context)
+    elif isinstance(node, ast.AugAssign):
+        return _infer_augmented_assign(node, context)
     elif isinstance(node, ast.Return):
         return expr.infer(node.value, context)
     elif isinstance(node, ast.Delete):
