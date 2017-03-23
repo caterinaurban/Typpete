@@ -51,8 +51,8 @@ def __infer_assignment_target(target, context, value_type):
                 context.set_type(target.id, value_type)
             elif not value_type.is_subtype(var_type):
                 raise TypeError("The type of {} is {}. Cannot assign it to {}.".format(target.id,
-                                                                                    var_type.get_name(),
-                                                                                    value_type.get_name()))
+                                                                                    var_type,
+                                                                                    value_type))
         else:
             context.set_type(target.id, value_type)
     elif isinstance(target, ast.Tuple) or isinstance(target, ast.List): # Tuple/List assignment
@@ -79,21 +79,21 @@ def __infer_assignment_target(target, context, value_type):
                     if isinstance(target.value, ast.Name):
                         context.set_type(target.value.id, TList(value_type))
                 elif not value_type.is_subtype(indexed_type.type):
-                    raise TypeError("Cannot assign {} to {}.".format(value_type.get_name(), indexed_type.type.get_name()))
+                    raise TypeError("Cannot assign {} to {}.".format(value_type, indexed_type.type))
             else: # Slice subscripting
                 if indexed_type.is_subtype(value_type):
                     if isinstance(target.value, ast.Name): # Update the type of the list with the more generic type
                         context.set_type(target.value.id, value_type)
                 elif not (isinstance(value_type, TList) and value_type.type.is_subtype(indexed_type.type)):
-                    raise TypeError("Cannot assign {} to {}.".format(value_type.get_name(), indexed_type.get_name()))
+                    raise TypeError("Cannot assign {} to {}.".format(value_type, indexed_type))
         elif isinstance(indexed_type, TDictionary):
             if indexed_type.value_type.is_subtype(value_type):
                 if isinstance(target.value, ast.Name): # Update the type of the dictionary values with the more generic type
                     context.get_type(target.value.id).value_type = value_type
             elif not value_type.is_subtype(indexed_type.value_type):
-                raise TypeError("Cannot assign {} to a dictionary item of type {}.".format(value_type.get_name(), indexed_type.value_type.get_name()))
+                raise TypeError("Cannot assign {} to a dictionary item of type {}.".format(value_type, indexed_type.value_type))
         else:
-            raise NotImplementedError("The inference for {} subscripting is not supported.".format(indexed_type.get_name()))
+            raise NotImplementedError("The inference for {} subscripting is not supported.".format(indexed_type))
     else:
         raise NotImplementedError("The inference for {} assignment is not supported.".format(type(target).__name__))
 
@@ -128,12 +128,12 @@ def _infer_augmented_assign(node, context):
             raise TypeError("Tuple objects don't support item assignment.")
         elif isinstance(indexed_type, TDictionary):
             if not type(result_type) is type(indexed_type.value_type):
-                raise TypeError("Cannot convert the dictionary value from {} to {}.".format(indexed_type.value_type.get_name(),
-                                                                                            result_type.get_name()))
+                raise TypeError("Cannot convert the dictionary value from {} to {}.".format(indexed_type.value_type,
+                                                                                            result_type))
         elif isinstance(indexed_type, TList):
             if not type(result_type) is type(indexed_type.type):
-                raise TypeError("Cannot convert the list values from {} to {}.".format(indexed_type.type.get_name(),
-                                                                                            result_type.get_name()))
+                raise TypeError("Cannot convert the list values from {} to {}.".format(indexed_type.type,
+                                                                                            result_type))
         else:
             # This block should never be executed.
             raise TypeError("Unknown subscript type.")
@@ -234,7 +234,7 @@ def _infer_for(node, context):
     """
     iter_type = expr.infer(node.iter, context)
     if not isinstance(iter_type, (TList, TSet, TIterator)):
-        raise TypeError("The iterable should only be a set, list or iterator. Found {}.".format(iter_type.get_name()))
+        raise TypeError("The iterable should only be a set, list or iterator. Found {}.".format(iter_type))
 
     # Infer the target in the loop, inside the global context
     # Cases:

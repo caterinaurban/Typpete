@@ -27,6 +27,9 @@ class Type(metaclass=ABCMeta):
     def __hash__(self):
         return hash(self.get_name())
 
+    def __str__(self):
+        return self.get_name()
+
 class TNone(Type):
 
     def is_subtype(self, t):
@@ -281,18 +284,3 @@ class TClass(Type):
     def is_subtype(self, t):
         # TODO: implement
         return False
-
-
-def is_subtype(type1, type2):
-    """Check if type1 is a subtype of type2
-
-    Arguments:
-        type1 (Type)
-        type2 (Type)
-
-    Returns:
-        True: if type1 is a subtype of type2
-        False: otherwise
-    """
-
-    return type1.is_subtype(type2)
