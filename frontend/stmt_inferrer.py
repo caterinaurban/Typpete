@@ -24,7 +24,7 @@ import expr_inferrer as expr, ast, sys
 from context import Context
 from i_types import *
 
-def __infer_assignment_target(target, context, value_type):
+def _infer_assignment_target(target, context, value_type):
     """Infer the type of a target in an assignment
 
     Attributes:
@@ -61,11 +61,11 @@ def __infer_assignment_target(target, context, value_type):
         for i in range(len(target.elts)):
             seq_elem = target.elts[i]
             if isinstance(value_type, TString):
-                __infer_assignment_target(seq_elem, context, value_type)
+                _infer_assignment_target(seq_elem, context, value_type)
             elif isinstance(value_type, TList):
-                __infer_assignment_target(seq_elem, context, value_type.type)
+                _infer_assignment_target(seq_elem, context, value_type.type)
             elif isinstance(value_type, TTuple):
-                __infer_assignment_target(seq_elem, context, value_type.types[i])
+                _infer_assignment_target(seq_elem, context, value_type.types[i])
     elif isinstance(target, ast.Subscript): # Subscript assignment
         subscript_type = expr.infer(target, context)
         indexed_type = expr.infer(target.value, context)
@@ -101,7 +101,7 @@ def _infer_assign(node, context):
     """Infer the types of target variables in an assignment node."""
     value_type = expr.infer(node.value, context) # The type of the value assigned to the targets in the assignment statement.
     for target in node.targets:
-        __infer_assignment_target(target, context, value_type)
+        _infer_assignment_target(target, context, value_type)
 
     return TNone()
 
@@ -144,7 +144,7 @@ def _infer_augmented_assign(node, context):
 
 
 
-def __delete_element(target, context):
+def _delete_element(target, context):
     """Remove (if needed) a target from the context
 
     Cases:
@@ -156,7 +156,7 @@ def __delete_element(target, context):
     """
     if isinstance(target, (ast.Tuple, ast.List)): # Multiple deletions
         for elem in target.elts:
-            __delete_element(elem, context)
+            _delete_element(elem, context)
     elif isinstance(target, ast.Name):
         context.delete_type(target.id)
     elif isinstance(target, ast.Subscript):
@@ -169,11 +169,11 @@ def __delete_element(target, context):
 def _infer_delete(node, context):
     """Remove (if needed) the type of the deleted items in the current context"""
     for target in node.targets:
-        __delete_element(target, context)
+        _delete_element(target, context)
 
     return TNone()
 
-def __infer_body(body, context):
+def _infer_body(body, context):
     """Infer the type of a code block containing multiple statements"""
     body_type = TNone()
     for stmt in body:
@@ -207,8 +207,8 @@ def _infer_control_flow(node, context):
 
         type: Union{String, Float}
     """
-    body_type = __infer_body(node.body, context)
-    else_type = __infer_body(node.orelse, context)
+    body_type = _infer_body(node.body, context)
+    else_type = _infer_body(node.orelse, context)
 
     if body_type.is_subtype(else_type):
         return else_type
@@ -246,7 +246,7 @@ def _infer_for(node, context):
         value_type = value_type.type
     elif isinstance(iter_type, TDictionary):
         value_type = value_type.key_type
-    __infer_assignment_target(node.target, context, value_type)
+    _infer_assignment_target(node.target, context, value_type)
 
     return _infer_control_flow(node, context)
 
@@ -255,21 +255,21 @@ def _infer_with(node, context):
     for item in node.items:
         if item.optional_vars:
             item_type = expr.infer(item.context_expr, context)
-            __infer_assignment_target(item.optional_vars, context, item_type)
+            _infer_assignment_target(item.optional_vars, context, item_type)
 
-    return __infer_body(node.body, context)
+    return _infer_body(node.body, context)
 
 def _infer_try(node, context):
     """Infer the types for a try/except/else block"""
     try_type = UnionTypes()
 
-    try_type.union(__infer_body(node.body, context))
-    try_type.union(__infer_body(node.orelse, context))
-    try_type.union(__infer_body(node.finalbody, context))
+    try_type.union(_infer_body(node.body, context))
+    try_type.union(_infer_body(node.orelse, context))
+    try_type.union(_infer_body(node.finalbody, context))
     # TODO: Infer exception handlers as classes
 
     for handler in node.handlers:
-        try_type.union(__infer_body(handler.body, context))
+        try_type.union(_infer_body(handler.body, context))
 
     if len(try_type.types) == 1:
         return list(try_type.types)[0]

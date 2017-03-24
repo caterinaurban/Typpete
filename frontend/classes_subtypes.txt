@@ -1,0 +1,26 @@
+# This file represents the subtype relationships tree
+# Each line denotes a directed edge in the tree. Each consists of two names, x and y, denoting that type
+# x is a subtype of type y
+#
+#
+#             ----------- object -----------
+#            /    /    /    /\    \    \    \
+#           /    /    /    /  \    \    \    \
+#          /    /    /    /    \    \    \    \
+#       float  str bytes list tuple dict set function
+#        /
+#      int
+#      /
+#    bool
+#
+
+bool int
+int float
+float object
+str object
+bytes object
+list object
+tuple object
+dict object
+set object
+function object

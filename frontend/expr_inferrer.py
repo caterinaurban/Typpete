@@ -49,30 +49,30 @@ from context import Context
 from abc import ABCMeta, abstractmethod
 from exceptions import HomogeneousTypesConflict
 
-def __has_supertype(types, t):
+def _has_supertype(types, t):
     for ti in types:
         if t.is_subtype(ti):
             return True
     return False
 
-def __has_subtype(types, t):
+def _has_subtype(types, t):
     for ti in types:
         if ti.is_subtype(t):
             return True
     return False
 
-def __filter_types(types, types_filter):
-    return {t for t in types if (__has_supertype(types_filter, t))}
+def _filter_types(types, types_filter):
+    return {t for t in types if (_has_supertype(types_filter, t))}
 
 def narrow_types(original, types_filter):
     if not isinstance(original, UnionTypes):
-        if not __has_supertype(types_filter, original):
+        if not _has_supertype(types_filter, original):
             raise TypeError("Cannot narrow types. The original type {} doesn't exist in the types filter {}."
                             .format(original, types_filter))
         else:
             return original
     else:
-        intersection = __filter_types(original.types, types_filter)
+        intersection = _filter_types(original.types, types_filter)
         if len(intersection) == 0:
             TypeError("Cannot narrow types. The original types set {} doesn't intersect with the types filter {}."
                             .format(original, types_filter))
@@ -86,7 +86,7 @@ def infer_numeric(node):
     if type(node.n) == float:
         return TFloat()
 
-def __get_common_supertype(elts, context):
+def _get_common_supertype(elts, context):
     if len(elts) == 0:
         return TNone()
     supertype = infer(elts[0], context)
@@ -103,7 +103,7 @@ def infer_list(node, context):
 
     Returns: TList(Type t), where t is the type of the list elements
     """
-    return TList(__get_common_supertype(node.elts, context))
+    return TList(_get_common_supertype(node.elts, context))
 
 def infer_dict(node, context):
     """Infer the type of a dictionary with homogeneous key set and value set
@@ -112,8 +112,8 @@ def infer_dict(node, context):
             k_t is the type of dictionary keys
             v_t is the type of dictionary values
     """
-    keys_type = __get_common_supertype(node.keys, context)
-    values_type = __get_common_supertype(node.values, context)
+    keys_type = _get_common_supertype(node.keys, context)
+    values_type = _get_common_supertype(node.values, context)
     return TDictionary(keys_type, values_type)
 
 def infer_tuple(node, context):
@@ -141,7 +141,7 @@ def infer_set(node, context):
 
     Returns: TSet(Type t), where t is the type of the set elements
     """
-    return TSet(__get_common_supertype(node.elts, context))
+    return TSet(_get_common_supertype(node.elts, context))
 
 def is_numeric(t):
 	return t.is_subtype(TFloat())

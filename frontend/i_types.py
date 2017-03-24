@@ -1,4 +1,46 @@
 from abc import ABCMeta, abstractmethod
+from context import Context
+
+class SubtypesTree:
+    __file_name = "classes_subtypes.txt"
+    def __init__(self):
+        """Initialize the tree with the text file
+
+        The tree is represented by an adjacency list,
+        where each directed edge between node x and y
+        denotes that x is a subtype of y.
+
+        The subtype relationship is reflexive and transitive.
+        """
+        self.tree = {}
+        for line in open(SubtypesTree.__file_name):
+            line = line.strip()
+            if line.startswith("#") or len(line) == 0:
+                continue
+            t1, t2 = line.split()
+            if t1 in self.tree:
+                self.tree[t1].append(t2)
+            else:
+                self.tree[t1] = [t2]
+
+    def __reachable(self, current, target, visited):
+        if current in visited or (not current in self.tree):
+            return False
+        if current == target:
+            return True
+
+        visited.add(current)
+        for adjacent in self.tree[current]:
+            if self.__reachable(adjacent, target, visited):
+                return True
+        return False
+
+    def reachable(self, source, target):
+        """Check if node2 is reachable from node1"""
+        return self.__reachable(source, target, set())
+
+
+subtypes_tree = SubtypesTree()
 
 class Type(metaclass=ABCMeta):
     """This class is the top-parent of all possible inferred types of a Python program.
@@ -30,6 +72,23 @@ class Type(metaclass=ABCMeta):
     def __str__(self):
         return self.get_name()
 
+class TClass(Type):
+    """Type given to a class.
+
+    Attributes:
+        name (str): Class name.
+        context (Context): Contains a mapping between variables and types within the scope of this class.
+    """
+
+    def __init__(self, name, context=Context()):
+        self.name = name
+        self.context = context
+
+    def is_subtype(self, t):
+        if not isinstance(t, TClass):
+            return False
+        return subtypes_tree.reachable(self.name, t.name)
+
 class TNone(Type):
 
     def is_subtype(self, t):
@@ -39,52 +98,50 @@ class TNone(Type):
         return "None"
 
 # TODO: Numerics should be subtype of class
-class TBool(Type):
-
-    def is_subtype(self, t):
-        return isinstance(t, (TBool, TInt, TFloat))
-
-    def get_name(self):
-        return "Bool"
-
-
-class TInt(Type):
-
-    def is_subtype(self, t):
-        return isinstance(t, (TInt, TFloat))
+class TBool(TClass):
+    def __init__(self):
+        self.name = "bool"
 
     def get_name(self):
-        return "Int"
+        return self.name
 
 
-class TFloat(Type):
-
-    def is_subtype(self, t):
-        return isinstance(t, TFloat)
-
-    def get_name(self):
-        return "Float"
-
-
-class TString(Type):
-
-    def is_subtype(self, t):
-        return isinstance(t, TString)
+class TInt(TClass):
+    def __init__(self):
+        self.name = "int"
 
     def get_name(self):
-        return "String"
+        return self.name
 
 
-class TBytesString(Type):
+class TFloat(TClass):
 
-    def is_subtype(self, t):
-        return isinstance(t, TBytesString)
+    def __init__(self):
+        self.name = "float"
 
     def get_name(self):
-        return "ByteString"
+        return self.name
 
 
-class TList(Type):
+class TString(TClass):
+
+    def __init__(self):
+        self.name = "str"
+
+    def get_name(self):
+        return self.name
+
+
+class TBytesString(TClass):
+
+    def __init__(self):
+        self.name = "bytes"
+
+    def get_name(self):
+        return self.name
+
+
+class TList(TClass):
     """Type given to homogeneous lists.
 
     Attributes:
@@ -93,15 +150,17 @@ class TList(Type):
 
     def __init__(self, t):
         self.type = t
+        self.name = "list"
 
     def is_subtype(self, t):
+        if isinstance(t, TClass) and t.name == "object":
+            return True
         return isinstance(t, TList) and type(self.type) is type(t.type)
 
     def get_name(self):
-        return "List[{}]".format(self.type.get_name())
+        return "{}[{}]".format(self.name, self.type.get_name())
 
-
-class TTuple(Type):
+class TTuple(TClass):
     """Type given to a tuple.
 
     Attributes:
@@ -110,8 +169,11 @@ class TTuple(Type):
 
     def __init__(self, t):
         self.types = t
+        self.name = "tuple"
 
     def is_subtype(self, t):
+        if isinstance(t, TClass) and t.name == "object":
+            return True
         if not isinstance(t, TTuple):
             return False
         if len(self.types) != len(t.types):
@@ -123,7 +185,7 @@ class TTuple(Type):
 
     def get_name(self):
         types_names = [t.get_name() for t in self.types]
-        return "Tuple({})".format(",".join(types_names))
+        return "{}({})".format(self.name, ",".join(types_names))
 
     def get_possible_tuple_slicings(self):
         """Returns a union type of all possible slicings of this tuple
@@ -158,7 +220,7 @@ class TIterator(Type):
         return "Iterator({})".format(self.type.get_name())
 
 
-class TDictionary(Type):
+class TDictionary(TClass):
     """Type given to a dictionary, whose keys are of the same type, and values are of the same type.
 
     Attributes:
@@ -169,29 +231,35 @@ class TDictionary(Type):
     def __init__(self, t_k, t_v):
         self.key_type = t_k
         self.value_type = t_v
+        self.name = "dict"
 
     def is_subtype(self, t):
+        if isinstance(t, TClass) and t.name == "object":
+            return True
         return (isinstance(t, TDictionary) and type(self.key_type) is type(t.key_type)
             and type(self.value_type) is type(t.value_type))
 
     def get_name(self):
-        return "Dict({}:{})".format(self.key_type.get_name(), self.value_type.get_name())
+        return "{}({}:{})".format(self.name, self.key_type.get_name(), self.value_type.get_name())
 
 
-class TSet(Type):
+class TSet(TClass):
     """Type given to homogeneous sets"""
 
     def __init__(self, t):
         self.type = t
+        self.name = "set"
 
     def is_subtype(self, t):
+        if isinstance(t, TClass) and t.name == "object":
+            return True
         return isinstance(t, TSet) and self.type.is_subtype(t.type)
 
     def get_name(self):
-        return "Set({})".format(self.type.get_name())
+        return "{}({})".format(self.name, self.type.get_name())
 
 
-class TFunction(Type):
+class TFunction(TClass):
     """Type given to a function.
 
     Attributes:
@@ -202,8 +270,11 @@ class TFunction(Type):
     def __init__(self, t_r, t_a):
         self.return_type = t_r
         self.arg_types = t_a
+        self.name = "function"
 
     def is_subtype(self, t):
+        if isinstance(t, TClass) and t.name == "object":
+            return True
         if not isinstance(t, TFunction):
             return False
         if len(self.arg_types) != len(t.arg_types):
@@ -217,7 +288,7 @@ class TFunction(Type):
 
     def get_name(self):
         args_types_names = [t.get_name() for t in self.arg_types]
-        return "Function({}) --> {}".format(",".join(args_types_names), self.return_type.get_name())
+        return "{}({}) --> {}".format(self.name, ",".join(args_types_names), self.return_type.get_name())
 
 
 class UnionTypes(Type):
@@ -269,18 +340,3 @@ class UnionTypes(Type):
             for t in to_remove:
                 self.types.remove(t)
             self.types.add(other_type)
-
-
-class TClass(Type):
-    """Type given to a class.
-
-    Attributes:
-        context (Context): Contains a mapping between variables and types within the scope of this class.
-    """
-
-    def __init__(self, context):
-        self.context = context
-
-    def is_subtype(self, t):
-        # TODO: implement
-        return False
