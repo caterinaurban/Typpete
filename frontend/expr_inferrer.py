@@ -86,7 +86,7 @@ def infer_numeric(node):
     if type(node.n) == float:
         return TFloat()
 
-def __get_supertype(elts, context):
+def __get_common_supertype(elts, context):
     if len(elts) == 0:
         return TNone()
     supertype = infer(elts[0], context)
@@ -103,7 +103,7 @@ def infer_list(node, context):
 
     Returns: TList(Type t), where t is the type of the list elements
     """
-    return TList(__get_supertype(node.elts, context))
+    return TList(__get_common_supertype(node.elts, context))
 
 def infer_dict(node, context):
     """Infer the type of a dictionary with homogeneous key set and value set
@@ -112,8 +112,8 @@ def infer_dict(node, context):
             k_t is the type of dictionary keys
             v_t is the type of dictionary values
     """
-    keys_type = __get_supertype(node.keys, context)
-    values_type = __get_supertype(node.values, context)
+    keys_type = __get_common_supertype(node.keys, context)
+    values_type = __get_common_supertype(node.values, context)
     return TDictionary(keys_type, values_type)
 
 def infer_tuple(node, context):
@@ -141,7 +141,7 @@ def infer_set(node, context):
 
     Returns: TSet(Type t), where t is the type of the set elements
     """
-    return TSet(__get_supertype(node.elts, context))
+    return TSet(__get_common_supertype(node.elts, context))
 
 def is_numeric(t):
 	return t.is_subtype(TFloat())
@@ -302,7 +302,10 @@ def infer_generators(generators, local_context):
         target_type = iter_type.type # Get the type of list/set elements
 
         if not isinstance(gen.target, ast.Name):
-            raise TypeError("The iteration target should be only a variable name.")
+            if not isinstance(gen.target, (ast.Tuple, ast.List)):
+                raise TypeError("The iteration target should be only a variable name.")
+            else:
+                raise NotImplementedError("The inference doesn't support lists or tuples as iteration targets yet.")
         local_context.set_type(gen.target.id, target_type)
 
 def infer_sequence_comprehension(node, sequence_type, context):

@@ -227,21 +227,26 @@ def _infer_for(node, context):
     """Infer the type for a for loop node
 
     Limitation:
-        - The iterable should only be a set, a list or an iterator (not a tuple or a dict).
+        - The iterable can't be a tuple.
             For example: the following is not allowed:
                 for x in (1, 2.0, "string"):
                     ....
     """
     iter_type = expr.infer(node.iter, context)
-    if not isinstance(iter_type, (TList, TSet, TIterator)):
+    if not isinstance(iter_type, (TList, TSet, TIterator, TBytesString, TDictionary, TString)):
         raise TypeError("The iterable should only be a set, list or iterator. Found {}.".format(iter_type))
 
     # Infer the target in the loop, inside the global context
     # Cases:
     # - Var name. Ex: for i in range(5)..
     # - Tuple. Ex: for (a,b) in [(1,"st"), (3,"st2")]..
-    # -List. Ex: for [a,b] in [(1, "st"), (3, "st2")]..
-    __infer_assignment_target(node.target, context, iter_type.type)
+    # - List. Ex: for [a,b] in [(1, "st"), (3, "st2")]..
+    value_type = iter_type
+    if isinstance(iter_type, (TList, TSet, TIterator)):
+        value_type = value_type.type
+    elif isinstance(iter_type, TDictionary):
+        value_type = value_type.key_type
+    __infer_assignment_target(node.target, context, value_type)
 
     return _infer_control_flow(node, context)
 
