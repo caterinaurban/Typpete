@@ -50,29 +50,32 @@ from abc import ABCMeta, abstractmethod
 from exceptions import HomogeneousTypesConflict
 
 def _has_supertype(types, t):
+    """Return true if (t) is a subtype of any of the types in (types)"""
     for ti in types:
         if t.is_subtype(ti):
             return True
     return False
 
-def _has_subtype(types, t):
-    for ti in types:
-        if ti.is_subtype(t):
+def _satisfies_predicates(t, *preds):
+    """Check if type t satisfies any of the predicates preds"""
+    for pred in preds:
+        if pred(t):
             return True
     return False
 
-def _filter_types(types, types_filter):
-    return {t for t in types if (_has_supertype(types_filter, t))}
 
-def narrow_types(original, types_filter):
+def _filter_types(types, types_filter, *preds):
+    return {t for t in types if (_has_supertype(types_filter, t) or _satisfies_predicates(t, *preds))}
+
+def narrow_types(original, types_filter, *preds):
     if not isinstance(original, UnionTypes):
-        if not _has_supertype(types_filter, original):
+        if not (_has_supertype(types_filter, original) or _satisfies_predicates(original, *preds)):
             raise TypeError("Cannot narrow types. The original type {} doesn't exist in the types filter {}."
                             .format(original, types_filter))
         else:
             return original
     else:
-        intersection = _filter_types(original.types, types_filter)
+        intersection = _filter_types(original.types, types_filter, *preds)
         if len(intersection) == 0:
             TypeError("Cannot narrow types. The original types set {} doesn't intersect with the types filter {}."
                             .format(original, types_filter))
