@@ -49,6 +49,36 @@ from context import Context
 from abc import ABCMeta, abstractmethod
 from exceptions import HomogeneousTypesConflict
 
+def __has_supertype(types, t):
+    for ti in types:
+        if t.is_subtype(ti):
+            return True
+    return False
+
+def __has_subtype(types, t):
+    for ti in types:
+        if ti.is_subtype(t):
+            return True
+    return False
+
+def __filter_types(types, types_filter):
+    return {t for t in types if (__has_supertype(types_filter, t))}
+
+def narrow_types(original, types_filter):
+    if not isinstance(original, UnionTypes):
+        if not __has_supertype(types_filter, original):
+            raise TypeError("Cannot narrow types. The original type {} doesn't exist in the types filter {}."
+                            .format(original, types_filter))
+        else:
+            return original
+    else:
+        intersection = __filter_types(original.types, types_filter)
+        if len(intersection) == 0:
+            TypeError("Cannot narrow types. The original types set {} doesn't intersect with the types filter {}."
+                            .format(original, types_filter))
+        else:
+            return UnionTypes(intersection)
+
 def infer_numeric(node):
     """Infer the type of a numeric node"""
     if type(node.n) == int:
@@ -56,7 +86,7 @@ def infer_numeric(node):
     if type(node.n) == float:
         return TFloat()
 
-def __get_supertype(elts, context):
+def __get_common_supertype(elts, context):
     if len(elts) == 0:
         return TNone()
     supertype = infer(elts[0], context)
@@ -65,7 +95,7 @@ def __get_supertype(elts, context):
         if supertype.is_subtype(cur_type): # get the most generic type
             supertype = cur_type
         elif not cur_type.is_subtype(supertype): # make sure the list is homogeneous
-            raise HomogeneousTypesConflict(supertype.get_name(), cur_type.get_name())
+            raise HomogeneousTypesConflict(supertype, cur_type)
     return supertype
 
 def infer_list(node, context):
@@ -73,7 +103,7 @@ def infer_list(node, context):
 
     Returns: TList(Type t), where t is the type of the list elements
     """
-    return TList(__get_supertype(node.elts, context))
+    return TList(__get_common_supertype(node.elts, context))
 
 def infer_dict(node, context):
     """Infer the type of a dictionary with homogeneous key set and value set
@@ -82,8 +112,8 @@ def infer_dict(node, context):
             k_t is the type of dictionary keys
             v_t is the type of dictionary values
     """
-    keys_type = __get_supertype(node.keys, context)
-    values_type = __get_supertype(node.values, context)
+    keys_type = __get_common_supertype(node.keys, context)
+    values_type = __get_common_supertype(node.values, context)
     return TDictionary(keys_type, values_type)
 
 def infer_tuple(node, context):
@@ -111,20 +141,21 @@ def infer_set(node, context):
 
     Returns: TSet(Type t), where t is the type of the set elements
     """
-    return TSet(__get_supertype(node.elts, context))
+    return TSet(__get_common_supertype(node.elts, context))
 
 def is_numeric(t):
 	return t.is_subtype(TFloat())
 
 def binary_operation_type(left_type, op, right_type):
+    op_type = UnionTypes()
     if isinstance(op, ast.Mult):
         # Handle sequence multiplication. Ex.:
         # [1,2,3] * 2 --> [1,2,3,1,2,3]
         # 2 * "abc" -- > "abcabc"
         if left_type.is_subtype(TInt()) and is_sequence(right_type):
-            return right_type
+            op_type.union(right_type)
         elif right_type.is_subtype(TInt()) and is_sequence(left_type):
-            return left_type
+            op_type.union(left_type)
 
     if isinstance(op, ast.Add): # Check if it is a concatenation operation between sequences
         if isinstance(left_type, TTuple) and isinstance(right_type, TTuple):
@@ -132,26 +163,31 @@ def binary_operation_type(left_type, op, right_type):
             # (1, 2.0, "string") + (True, X()) --> (1, 2.0, "string", True, X())
             # The result type is the concatenation of both tuples' types
             new_tuple_types = left_type.types + right_type.types
-            return TTuple(new_tuple_types)
+            op_type.union(TTuple(new_tuple_types))
 
         if is_sequence(left_type) and is_sequence(right_type):
             if left_type.is_subtype(right_type):
-                return right_type
+                op_type.union(right_type)
             elif right_type.is_subtype(left_type):
-                return left_type
+                op_type.union(left_type)
 
     if isinstance(op, ast.Div): # Check if it is a float division operation
         if left_type.is_subtype(TFloat()) and right_type.is_subtype(TFloat()):
-            return TFloat()
+            op_type.union(TFloat())
 
     if is_numeric(left_type) and is_numeric(right_type): # Normal arithmatic or bitwise operation
         # TODO: Prevent floats from doing bitwise operations
         if left_type.is_subtype(right_type):
-            return right_type
+            op_type.union(right_type)
         elif right_type.is_subtype(left_type):
-            return left_type
+            op_type.union(left_type)
 
-    raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(op).__name__, left_type.get_name(), right_type.get_name()))
+    if len(op_type.types) == 0:
+        raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(op).__name__, left_type, right_type))
+    elif len(op_type.types) == 1:
+        return list(op_type.types)[0]
+    else:
+        return op_type
 
 def infer_binary_operation(node, context):
     """Infer the type of binary operations
@@ -213,14 +249,14 @@ def infer_subscript(node, context):
 
 	indexed_type = infer(node.value, context)
 	if not can_be_indexed(indexed_type):
-		raise TypeError("Cannot perform subscripting on {}.".format(indexed_type.get_name()))
+		raise TypeError("Cannot perform subscripting on {}.".format(indexed_type))
 
 	if isinstance(node.slice, ast.Index):
         # Indexing
 		index_type = infer(node.slice.value, context)
 		if is_sequence(indexed_type):
 			if not index_type.is_subtype(TInt()):
-				raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type.get_name()))
+				raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type))
 			if isinstance(indexed_type, TString):
 				return TString()
 			elif isinstance(indexed_type, TList):
@@ -229,12 +265,12 @@ def infer_subscript(node, context):
 				return UnionTypes(indexed_type.types)
 		elif isinstance(indexed_type, TDictionary):
 			if not index_type.is_subtype(indexed_type.key_type):
-				raise KeyError("Cannot index a dictionary of type {} with an index of type {}.".format(indexed_type.get_name(), index_type.get_name()))
+				raise KeyError("Cannot index a dictionary of type {} with an index of type {}.".format(indexed_type, index_type))
 			return indexed_type.value_type
 	elif isinstance(node.slice, ast.Slice):
         # Slicing
 		if not is_sequence(indexed_type):
-			raise TypeError("Cannot slice {}.".format(indexed_type.get_name()))
+			raise TypeError("Cannot slice {}.".format(indexed_type))
 		lower_type = infer(node.slice.lower, context)
 		upper_type = infer(node.slice.upper, context)
 		step_type = infer(node.slice.step, context)
@@ -262,11 +298,14 @@ def infer_generators(generators, local_context):
     for gen in generators:
         iter_type = infer(gen.iter, local_context)
         if not (isinstance(iter_type, TList) or isinstance(iter_type, TSet)):
-            raise TypeError("The iterable should be only a list or a set. Found {}.", iter_type.get_name())
+            raise TypeError("The iterable should be only a list or a set. Found {}.", iter_type)
         target_type = iter_type.type # Get the type of list/set elements
 
         if not isinstance(gen.target, ast.Name):
-            raise TypeError("The iteration target should be only a variable name.")
+            if not isinstance(gen.target, (ast.Tuple, ast.List)):
+                raise TypeError("The iteration target should be only a variable name.")
+            else:
+                raise NotImplementedError("The inference doesn't support lists or tuples as iteration targets yet.")
         local_context.set_type(gen.target.id, target_type)
 
 def infer_sequence_comprehension(node, sequence_type, context):
