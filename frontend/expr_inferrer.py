@@ -37,8 +37,6 @@ Infers the types for the following expressions:
         if the type of x is still not inferred (or inferred to be a union type), we can infer (narrow) that x
         is a numeric value (TBool, TInt or TFloat)
         Affected inference functions:
-            - infer_binary_operation
-            - infer_unary_operation
             - infer_subscript
             - infer_compare
 """
@@ -64,6 +62,8 @@ def narrow_types(original, types_filter, *preds):
         if len(intersection) == 0:
             TypeError("Cannot narrow types. The original types set {} doesn't intersect with the types filter {}."
                             .format(original, types_filter))
+        elif len(intersection) == 1:
+            return list(intersection)[0]
         else:
             return UnionTypes(intersection)
 
@@ -137,35 +137,61 @@ def binary_operation_type(left_type, op, right_type):
         # Handle sequence multiplication. Ex.:
         # [1,2,3] * 2 --> [1,2,3,1,2,3]
         # 2 * "abc" -- > "abcabc"
-        if left_type.is_subtype(TInt()) and pred.is_sequence(right_type):
-            op_type.union(right_type)
-        elif right_type.is_subtype(TInt()) and pred.is_sequence(left_type):
-            op_type.union(left_type)
+        try:
+            narrowed_left = narrow_types(left_type, UnionTypes({TInt()}), pred.is_sequence)
+            narrowed_right = narrow_types(right_type, UnionTypes({TInt()}), pred.is_sequence)
+            if pred.has_subtype(narrowed_left, TInt()) and pred.has_sequence(right_type):
+                op_type.union(narrow_types(right_type, UnionTypes(), pred.is_sequence))
+            elif pred.has_subtype(narrowed_right, TInt()) and pred.has_sequence(left_type):
+                op_type.union(narrow_types(left_type, UnionTypes(), pred.is_sequence))
+        except TypeError:
+            pass
 
     if isinstance(op, ast.Add): # Check if it is a concatenation operation between sequences
-        if isinstance(left_type, TTuple) and isinstance(right_type, TTuple):
+        if pred.has_instance(left_type, TTuple) and pred.has_instance(right_type, TTuple):
             # Handle tuples concatenation:
             # (1, 2.0, "string") + (True, X()) --> (1, 2.0, "string", True, X())
             # The result type is the concatenation of both tuples' types
-            new_tuple_types = left_type.types + right_type.types
-            op_type.union(TTuple(new_tuple_types))
+            left_tuples = UnionTypes()
+            right_tuples = UnionTypes()
+            left_tuples.union(narrow_types(left_type, UnionTypes(), pred.is_tuple))
+            right_tuples.union(narrow_types(right_type, UnionTypes(), pred.is_tuple))
 
-        if pred.is_sequence(left_type) and pred.is_sequence(right_type):
-            if left_type.is_subtype(right_type):
-                op_type.union(right_type)
-            elif right_type.is_subtype(left_type):
-                op_type.union(left_type)
+            for tup1 in left_tuples.types:
+                for tup2 in right_tuples.types:
+                    new_tuple_types = tup1.types + tup2.types
+                    op_type.union(TTuple(new_tuple_types))
+
+
+        elif pred.has_sequence(left_type) and pred.has_sequence(right_type):
+            left_sequences = UnionTypes()
+            right_sequences = UnionTypes()
+            left_sequences.union(narrow_types(left_type, UnionTypes(), pred.is_sequence))
+            right_sequences.union(narrow_types(right_type, UnionTypes(), pred.is_sequence))
+
+            for seq1 in left_sequences.types:
+                for seq2 in right_sequences.types:
+                    if seq1.is_subtype(seq2):
+                        op_type.union(seq2)
+                    elif seq2.is_subtype(seq1):
+                        op_type.union(seq1)
 
     if isinstance(op, ast.Div): # Check if it is a float division operation
-        if left_type.is_subtype(TFloat()) and right_type.is_subtype(TFloat()):
+        if pred.has_subtype(left_type, TFloat()) and pred.has_subtype(right_type, TFloat()):
             op_type.union(TFloat())
 
-    if pred.is_numeric(left_type) and pred.is_numeric(right_type): # Normal arithmatic or bitwise operation
+    if pred.has_subtype(left_type, TFloat()) and pred.has_subtype(right_type, TFloat()): # Normal arithmatic or bitwise operation
         # TODO: Prevent floats from doing bitwise operations
-        if left_type.is_subtype(right_type):
-            op_type.union(right_type)
-        elif right_type.is_subtype(left_type):
-            op_type.union(left_type)
+        left_numeric = UnionTypes()
+        right_numeric = UnionTypes()
+        left_numeric.union(narrow_types(left_type, UnionTypes({TFloat()})))
+        right_numeric.union(narrow_types(right_type, UnionTypes({TFloat()})))
+        for num1 in left_numeric.types:
+            for num2 in right_numeric.types:
+                if num1.is_subtype(num2):
+                    op_type.union(num2)
+                elif num2.is_subtype(num1):
+                    op_type.union(num1)
 
     if len(op_type.types) == 0:
         raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(op).__name__, left_type, right_type))
@@ -198,7 +224,7 @@ def infer_unary_operation(node, context):
     unary_type = infer(node.operand, context)
 
     try:
-        unary_type = narrow_types(unary_type, {TInt() if isinstance(node.op, ast.Invert) else TFloat()})
+        unary_type = narrow_types(unary_type, UnionTypes({TInt() if isinstance(node.op, ast.Invert) else TFloat()}))
     except TypeError:
         raise TypeError("Cannot perform unary operation ({}) on type {}.".format(type(node.op).__name__, unary_type))
     return unary_type
@@ -211,18 +237,11 @@ def infer_if_expression(node, context):
     a_type = infer(node.body, context)
     b_type = infer(node.orelse, context)
 
-    if a_type.is_subtype(b_type):
-        return b_type
-    elif b_type.is_subtype(a_type):
-        return a_type
-
-    if isinstance(a_type, UnionTypes):
-        a_type.union(b_type)
-        return a_type
-    elif isinstance(b_type, UnionTypes):
-        b_type.union(a_type)
-        return b_type
-    return UnionTypes({a_type, b_type})
+    result_type = UnionTypes({a_type, b_type})
+    if len(result_type.types) == 1:
+        return list(result_type.types)[0]
+    else:
+        return result_type
 
 def infer_subscript(node, context):
 	"""Infer expressions like: x[1], x["a"], x[1:2], x[1:].

@@ -10,3 +10,7 @@ i, j, (k, (l, m)) = {1 : 2.0}, True, ((1, 2), (f, e))
 n = a if True else "string"
 o = 1 is 2
 p = i[o]
+condition = True
+q = [3] if condition else ("4",True)
+r = (2.0,) if condition else [1,2]
+s = q + r
