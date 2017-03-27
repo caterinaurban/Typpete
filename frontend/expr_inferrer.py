@@ -194,8 +194,14 @@ def infer_unary_operation(node, context):
     """
     if isinstance(node.op, ast.Not): # (not expr) always gives bool type
         return TBool()
-    # TODO: prevent floats from doing the unary operator '~'
-    return infer(node.operand, context)
+
+    unary_type = infer(node.operand, context)
+
+    try:
+        unary_type = narrow_types(unary_type, {TInt() if isinstance(node.op, ast.Invert) else TFloat()})
+    except TypeError:
+        raise TypeError("Cannot perform unary operation ({}) on type {}.".format(type(node.op).__name__, unary_type))
+    return unary_type
 
 def infer_if_expression(node, context):
     """Infer expressions like: {(a) if (test) else (b)}.
