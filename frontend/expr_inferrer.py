@@ -43,33 +43,18 @@ Infers the types for the following expressions:
             - infer_compare
 """
 
-import ast, sys
+import ast, sys, predicates as pred
 from i_types import *
 from context import Context
 from abc import ABCMeta, abstractmethod
 from exceptions import HomogeneousTypesConflict
 
-def _has_supertype(types, t):
-    """Return true if (t) is a subtype of any of the types in (types)"""
-    for ti in types:
-        if t.is_subtype(ti):
-            return True
-    return False
-
-def _satisfies_predicates(t, *preds):
-    """Check if type t satisfies any of the predicates preds"""
-    for pred in preds:
-        if pred(t):
-            return True
-    return False
-
-
 def _filter_types(types, types_filter, *preds):
-    return {t for t in types if (_has_supertype(types_filter, t) or _satisfies_predicates(t, *preds))}
+    return {t for t in types if (pred.has_supertype(types_filter, t) or pred.satisfies_predicates(t, *preds))}
 
 def narrow_types(original, types_filter, *preds):
     if not isinstance(original, UnionTypes):
-        if not (_has_supertype(types_filter, original) or _satisfies_predicates(original, *preds)):
+        if not (pred.has_supertype(types_filter, original) or pred.satisfies_predicates(original, *preds)):
             raise TypeError("Cannot narrow types. The original type {} doesn't exist in the types filter {}."
                             .format(original, types_filter))
         else:
@@ -146,18 +131,15 @@ def infer_set(node, context):
     """
     return TSet(_get_common_supertype(node.elts, context))
 
-def is_numeric(t):
-	return t.is_subtype(TFloat())
-
 def binary_operation_type(left_type, op, right_type):
     op_type = UnionTypes()
     if isinstance(op, ast.Mult):
         # Handle sequence multiplication. Ex.:
         # [1,2,3] * 2 --> [1,2,3,1,2,3]
         # 2 * "abc" -- > "abcabc"
-        if left_type.is_subtype(TInt()) and is_sequence(right_type):
+        if left_type.is_subtype(TInt()) and pred.is_sequence(right_type):
             op_type.union(right_type)
-        elif right_type.is_subtype(TInt()) and is_sequence(left_type):
+        elif right_type.is_subtype(TInt()) and pred.is_sequence(left_type):
             op_type.union(left_type)
 
     if isinstance(op, ast.Add): # Check if it is a concatenation operation between sequences
@@ -168,7 +150,7 @@ def binary_operation_type(left_type, op, right_type):
             new_tuple_types = left_type.types + right_type.types
             op_type.union(TTuple(new_tuple_types))
 
-        if is_sequence(left_type) and is_sequence(right_type):
+        if pred.is_sequence(left_type) and pred.is_sequence(right_type):
             if left_type.is_subtype(right_type):
                 op_type.union(right_type)
             elif right_type.is_subtype(left_type):
@@ -178,7 +160,7 @@ def binary_operation_type(left_type, op, right_type):
         if left_type.is_subtype(TFloat()) and right_type.is_subtype(TFloat()):
             op_type.union(TFloat())
 
-    if is_numeric(left_type) and is_numeric(right_type): # Normal arithmatic or bitwise operation
+    if pred.is_numeric(left_type) and pred.is_numeric(right_type): # Normal arithmatic or bitwise operation
         # TODO: Prevent floats from doing bitwise operations
         if left_type.is_subtype(right_type):
             op_type.union(right_type)
@@ -236,12 +218,6 @@ def infer_if_expression(node, context):
         return b_type
     return UnionTypes({a_type, b_type})
 
-def is_sequence(t):
-	return isinstance(t, (TList, TTuple, TString))
-
-def can_be_indexed(t):
-    return is_sequence(t) or isinstance(t, TDictionary)
-
 def infer_subscript(node, context):
 	"""Infer expressions like: x[1], x["a"], x[1:2], x[1:].
 	Where x	may be: a list, dict, tuple, str
@@ -251,13 +227,13 @@ def infer_subscript(node, context):
 	"""
 
 	indexed_type = infer(node.value, context)
-	if not can_be_indexed(indexed_type):
+	if not pred.can_be_indexed(indexed_type):
 		raise TypeError("Cannot perform subscripting on {}.".format(indexed_type))
 
 	if isinstance(node.slice, ast.Index):
         # Indexing
 		index_type = infer(node.slice.value, context)
-		if is_sequence(indexed_type):
+		if pred.is_sequence(indexed_type):
 			if not index_type.is_subtype(TInt()):
 				raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type))
 			if isinstance(indexed_type, TString):
@@ -272,7 +248,7 @@ def infer_subscript(node, context):
 			return indexed_type.value_type
 	elif isinstance(node.slice, ast.Slice):
         # Slicing
-		if not is_sequence(indexed_type):
+		if not pred.is_sequence(indexed_type):
 			raise TypeError("Cannot slice {}.".format(indexed_type))
 		lower_type = infer(node.slice.lower, context)
 		upper_type = infer(node.slice.upper, context)

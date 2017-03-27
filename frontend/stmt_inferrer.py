@@ -20,7 +20,7 @@ Infers the types for the following expressions:
     - Nonlocal(identifier* names)
 """
 
-import expr_inferrer as expr, ast, sys
+import expr_inferrer as expr, ast, sys, predicates as pred
 from context import Context
 from i_types import *
 
@@ -56,7 +56,7 @@ def _infer_assignment_target(target, context, value_type):
         else:
             context.set_type(target.id, value_type)
     elif isinstance(target, ast.Tuple) or isinstance(target, ast.List): # Tuple/List assignment
-        if not expr.is_sequence(value_type):
+        if not pred.is_sequence(value_type):
             raise ValueError("Cannot unpack a non sequence.")
         for i in range(len(target.elts)):
             seq_elem = target.elts[i]
