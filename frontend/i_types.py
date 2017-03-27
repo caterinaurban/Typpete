@@ -69,7 +69,7 @@ class Type(metaclass=ABCMeta):
     def __hash__(self):
         return hash(self.get_name())
 
-    def __str__(self):
+    def __repr__(self):
         return self.get_name()
 
 class TClass(Type):
