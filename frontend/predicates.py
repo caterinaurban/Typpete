@@ -12,7 +12,7 @@ def is_dict(t):
 	return isinstance(t, TDictionary)
 
 def is_sequence(t):
-	return isinstance(t, (TList, TTuple, TString, TBytesString))
+	return isinstance(t, TSequence)
 
 def has_sequence(types):
 	if is_sequence(types):
@@ -67,4 +67,4 @@ def satisfies_predicates(t, *preds):
     return False
 
 def is_numeric(t):
-	return t.is_subtype(TFloat())
+	return isinstance(t, TNumber())

@@ -89,49 +89,66 @@ class TClass(Type):
             return False
         return subtypes_tree.reachable(self.name, t.name)
 
+class TNumber:
+    pass
+
+class TSequence:
+    pass
+
+class TMutableSequence(TSequence):
+    pass
+
+class TImmutableSequence(TSequence):
+    pass
+
 class TNone(Type):
 
     def is_subtype(self, t):
-        return True
+        return isinstance(t, TNone)
 
     def get_name(self):
         return "None"
 
-# TODO: Numerics should be subtype of class
-class TBool(TClass):
+class TBool(TClass, TNumber):
+
     def __init__(self):
+        self.strength = 0
         self.name = "bool"
 
     def get_name(self):
         return self.name
 
 
-class TInt(TClass):
+class TInt(TClass, TNumber):
+
     def __init__(self):
+        self.strength = 1
         self.name = "int"
 
     def get_name(self):
         return self.name
 
 
-class TFloat(TClass):
+class TFloat(TClass, TNumber):
 
     def __init__(self):
+        self.strength = 2
         self.name = "float"
 
     def get_name(self):
         return self.name
 
-class TComplex(TClass):
+class TComplex(TClass, TNumber):
 
     def __init__(self):
+        self.strength = 3
         self.name = "complex"
 
     def get_name(self):
         return self.name
 
 
-class TString(TClass):
+class TString(TClass, TImmutableSequence):
 
     def __init__(self):
         self.name = "str"
@@ -140,7 +157,7 @@ class TString(TClass):
         return self.name
 
 
-class TBytesString(TClass):
+class TBytesString(TClass, TImmutableSequence):
 
     def __init__(self):
         self.name = "bytes"
@@ -149,7 +166,7 @@ class TBytesString(TClass):
         return self.name
 
 
-class TList(TClass):
+class TList(TClass, TMutableSequence):
     """Type given to homogeneous lists.
 
     Attributes:
@@ -163,12 +180,12 @@ class TList(TClass):
     def is_subtype(self, t):
         if isinstance(t, TClass) and t.name == "object":
             return True
-        return isinstance(t, TList) and type(self.type) is type(t.type)
+        return isinstance(t, TList) and self.type.get_name() == t.type.get_name()
 
     def get_name(self):
         return "{}[{}]".format(self.name, self.type.get_name())
 
-class TTuple(TClass):
+class TTuple(TClass, TImmutableSequence):
     """Type given to a tuple.
 
     Attributes:
@@ -330,7 +347,7 @@ class UnionTypes(Type):
         return True
 
     def get_name(self):
-        types_names = [t.get_name() for t in self.types]
+        types_names = sorted([t.get_name() for t in self.types])
         return "Union{{{}}}".format(",".join(types_names))
 
     def union(self, other_type):
@@ -342,6 +359,7 @@ class UnionTypes(Type):
             to_remove = set()
             for t in self.types:
                 if other_type.is_subtype(t): # Ignore union if supertype already exists in the set
+                    print(str(t) + str(other_type))
                     return
                 elif t.is_subtype(other_type): # Remove subtypes of added type
                     to_remove.add(t)
