@@ -122,6 +122,14 @@ class TFloat(TClass):
     def get_name(self):
         return self.name
 
+class TComplex(TClass):
+
+    def __init__(self):
+        self.name = "complex"
+
+    def get_name(self):
+        return self.name
+
 
 class TString(TClass):
 

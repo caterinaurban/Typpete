@@ -73,6 +73,8 @@ def infer_numeric(node):
         return TInt()
     if type(node.n) == float:
         return TFloat()
+    if type(node.n) == complex:
+        return TComplex()
 
 def _get_common_supertype(elts, context):
     if len(elts) == 0:
