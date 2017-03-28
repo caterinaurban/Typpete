@@ -30,15 +30,6 @@ Infers the types for the following expressions:
      - Call(expr func, expr* args, keyword* keywords)
      - Attribute(expr value, identifier attr, expr_co0ontext ctx)
      - Starred(expr value, expr_context ctx)
-
-     TODO:
-     - Infer (or narrow) types based on context. For example, in the following expression:
-        (x + 2) * 3
-        if the type of x is still not inferred (or inferred to be a union type), we can infer (narrow) that x
-        is a numeric value (TBool, TInt or TFloat)
-        Affected inference functions:
-            - infer_subscript
-            - infer_compare
 """
 
 import ast, sys, predicates as pred
@@ -165,13 +156,15 @@ def binary_operation_type(left_type, op, right_type):
                     op_type.union(TTuple(new_tuple_types))
 
 
-        elif pred.has_sequence(left_type) and pred.has_sequence(right_type):
+        if pred.has_sequence(left_type) and pred.has_sequence(right_type):
             left_sequences = UnionTypes()
             right_sequences = UnionTypes()
             left_sequences.union(narrow_types(left_type, UnionTypes(), pred.is_sequence))
             right_sequences.union(narrow_types(right_type, UnionTypes(), pred.is_sequence))
 
             for seq1 in left_sequences.types:
+                if isinstance(seq1, TTuple):
+                    continue
                 for seq2 in right_sequences.types:
                     if seq1.is_subtype(seq2):
                         op_type.union(seq2)
@@ -246,47 +239,72 @@ def infer_if_expression(node, context):
         return result_type
 
 def infer_subscript(node, context):
-	"""Infer expressions like: x[1], x["a"], x[1:2], x[1:].
-	Where x	may be: a list, dict, tuple, str
+    """Infer expressions like: x[1], x["a"], x[1:2], x[1:].
+    Where x	may be: a list, dict, tuple, str
 
-	Attributes:
-		node: the subscript node to be inferred
-	"""
+    Attributes:
+        node: the subscript node to be inferred
+    """
 
-	indexed_type = infer(node.value, context)
-	if not pred.can_be_indexed(indexed_type):
-		raise TypeError("Cannot perform subscripting on {}.".format(indexed_type))
+    indexed_type = infer(node.value, context)
+    if not pred.can_be_indexed(indexed_type):
+        raise TypeError("Cannot perform subscripting on {}.".format(indexed_type))
 
-	if isinstance(node.slice, ast.Index):
+    subscript_type = UnionTypes()
+    if isinstance(node.slice, ast.Index):
         # Indexing
-		index_type = infer(node.slice.value, context)
-		if pred.is_sequence(indexed_type):
-			if not index_type.is_subtype(TInt()):
-				raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type))
-			if isinstance(indexed_type, TString):
-				return TString()
-			elif isinstance(indexed_type, TList):
-				return indexed_type.type
-			elif isinstance(indexed_type, TTuple):
-				return UnionTypes(indexed_type.types)
-		elif isinstance(indexed_type, TDictionary):
-			if not index_type.is_subtype(indexed_type.key_type):
-				raise KeyError("Cannot index a dictionary of type {} with an index of type {}.".format(indexed_type, index_type))
-			return indexed_type.value_type
-	elif isinstance(node.slice, ast.Slice):
-        # Slicing
-		if not pred.is_sequence(indexed_type):
-			raise TypeError("Cannot slice {}.".format(indexed_type))
-		lower_type = infer(node.slice.lower, context)
-		upper_type = infer(node.slice.upper, context)
-		step_type = infer(node.slice.step, context)
+        index_type = infer(node.slice.value, context)
+        if pred.has_sequence(indexed_type):
+            if not pred.has_subtype(index_type, TInt()):
+                raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type))
 
-		if not (lower_type.is_subtype(TInt()) and upper_type.is_subtype(TInt()) and step_type.is_subtype(TInt())):
-			raise KeyError("Slicing bounds and step should be integers.")
-		if isinstance(indexed_type, TTuple):
-			return indexed_type.get_possible_tuple_slicings()
-		else:
-			return indexed_type
+        if pred.has_instance(indexed_type, TString):
+            subscript_type.union(TString())
+
+        if pred.has_instance(indexed_type, TList):
+            lists = UnionTypes()
+            lists.union(narrow_types(indexed_type, UnionTypes(), pred.is_list))
+            for l in lists.types:
+                subscript_type.union(l.type)
+
+        if pred.has_instance(indexed_type, TTuple):
+            tuples = UnionTypes()
+            tuples.union(narrow_types(indexed_type, UnionTypes(), pred.is_tuple))
+            for t in tuples.types:
+                subscript_type.union(UnionTypes(t.types))
+
+        if pred.has_instance(indexed_type, TDictionary):
+            dicts = UnionTypes()
+            dicts.union(narrow_types(indexed_type, UnionTypes(), pred.is_dict))
+            for d in dicts.types:
+                if pred.has_subtype(index_type, d.key_type):
+                    subscript_type.union(d.value_type)
+        if len(subscript_type.types) == 0:
+            raise TypeError("Couldn't subscript {} with index {}".format(indexed_type, index_type))
+    elif isinstance(node.slice, ast.Slice):
+        # Slicing
+        if not pred.has_sequence(indexed_type):
+            raise TypeError("Cannot slice {}.".format(indexed_type))
+        lower_type = infer(node.slice.lower, context)
+        upper_type = infer(node.slice.upper, context)
+        step_type = infer(node.slice.step, context)
+
+        if not (pred.has_subtype(lower_type, TInt()) and pred.has_subtype(upper_type, TInt()) and pred.has_subtype(step_type, TInt())):
+            raise KeyError("Slicing bounds and step should be integers.")
+        if pred.has_instance(indexed_type, TTuple):
+            tuples = UnionTypes()
+            tuples.union(narrow_types(indexed_type, UnionTypes(), pred.is_tuple))
+            for t in tuples.types:
+                subscript_type.union(t.get_possible_tuple_slicings())
+        else:
+            seq = narrow_types(indexed_type, UnionTypes, pred.is_sequence)
+            subscript_type.union(seq)
+        if len(subscript_type.types) == 0:
+            raise TypeError("Couldn't slice {}".format(indexed_type))
+
+    if len(subscript_type.types) == 1:
+        return list(subscript_type.types)[0]
+    return subscript_type
 
 def infer_compare(node):
     return TBool()
