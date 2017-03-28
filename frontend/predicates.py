@@ -5,8 +5,14 @@ from i_types import *
 def is_tuple(t):
 	return isinstance(t, TTuple)
 
+def is_list(t):
+	return isinstance(t, TList)
+
+def is_dict(t):
+	return isinstance(t, TDictionary)
+
 def is_sequence(t):
-	return isinstance(t, (TList, TTuple, TString, TBytesString))
+	return isinstance(t, TSequence)
 
 def has_sequence(types):
 	if is_sequence(types):
@@ -29,7 +35,7 @@ def has_instance(types, cl):
 	return False
 
 def can_be_indexed(t):
-    return is_sequence(t) or isinstance(t, TDictionary)
+    return has_sequence(t) or has_instance(t, TDictionary)
 
 def has_supertype(types, t):
 	"""Return true if (t) is a subtype of any of the union type in (types)"""
@@ -61,4 +67,4 @@ def satisfies_predicates(t, *preds):
     return False
 
 def is_numeric(t):
-	return t.is_subtype(TFloat())
+	return isinstance(t, TNumber())

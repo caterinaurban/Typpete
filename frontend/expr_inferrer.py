@@ -30,15 +30,6 @@ Infers the types for the following expressions:
      - Call(expr func, expr* args, keyword* keywords)
      - Attribute(expr value, identifier attr, expr_co0ontext ctx)
      - Starred(expr value, expr_context ctx)
-
-     TODO:
-     - Infer (or narrow) types based on context. For example, in the following expression:
-        (x + 2) * 3
-        if the type of x is still not inferred (or inferred to be a union type), we can infer (narrow) that x
-        is a numeric value (TBool, TInt or TFloat)
-        Affected inference functions:
-            - infer_subscript
-            - infer_compare
 """
 
 import ast, sys, predicates as pred
@@ -73,25 +64,27 @@ def infer_numeric(node):
         return TInt()
     if type(node.n) == float:
         return TFloat()
+    if type(node.n) == complex:
+        return TComplex()
 
-def _get_common_supertype(elts, context):
+def _get_elements_types(elts, context):
     if len(elts) == 0:
         return TNone()
-    supertype = infer(elts[0], context)
-    for i in range(1, len(elts)):
+    types = UnionTypes()
+    for i in range(0, len(elts)):
         cur_type = infer(elts[i], context)
-        if supertype.is_subtype(cur_type): # get the most generic type
-            supertype = cur_type
-        elif not cur_type.is_subtype(supertype): # make sure the list is homogeneous
-            raise HomogeneousTypesConflict(supertype, cur_type)
-    return supertype
+        types.union(cur_type)
+
+    if len(types.types) == 1:
+        return list(types.types)[0]
+    return types
 
 def infer_list(node, context):
     """Infer the type of a homogeneous list
 
     Returns: TList(Type t), where t is the type of the list elements
     """
-    return TList(_get_common_supertype(node.elts, context))
+    return TList(_get_elements_types(node.elts, context))
 
 def infer_dict(node, context):
     """Infer the type of a dictionary with homogeneous key set and value set
@@ -100,8 +93,8 @@ def infer_dict(node, context):
             k_t is the type of dictionary keys
             v_t is the type of dictionary values
     """
-    keys_type = _get_common_supertype(node.keys, context)
-    values_type = _get_common_supertype(node.values, context)
+    keys_type = _get_elements_types(node.keys, context)
+    values_type = _get_elements_types(node.values, context)
     return TDictionary(keys_type, values_type)
 
 def infer_tuple(node, context):
@@ -129,76 +122,86 @@ def infer_set(node, context):
 
     Returns: TSet(Type t), where t is the type of the set elements
     """
-    return TSet(_get_common_supertype(node.elts, context))
+    return TSet(_get_elements_types(node.elts, context))
+
+def _get_stronger_numeric(num1, num2):
+    return num1 if num1.strength > num2.strength else num2
+
+def _infer_add(left_type, right_type):
+    if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
+        # arithmatic addition
+        return _get_stronger_numeric(left_type, right_type)
+
+    if isinstance(left_type, TSequence) and isinstance(right_type, TSequence):
+        # sequence concatenation
+        if isinstance(left_type, TTuple) and isinstance(right_type, TTuple):
+            new_tuple_types = left_type.types + right_type.types
+            return TTuple(new_tuple_types)
+        if isinstance(left_type, TString) and isinstance(right_type, TString):
+            return TString()
+        if isinstance(left_type, TBytesString) and isinstance(right_type, TBytesString):
+            return TBytesString()
+        if isinstance(left_type, TList) and isinstance(right_type, TList):
+            list_types = UnionTypes()
+            list_types.union(left_type.type)
+            list_types.union(right_type.type)
+            return TList(list_types if len(list_types.types) > 1 else list(list_types.types)[0])
+
+    raise TypeError("Cannot perform operation + on two types {} and {}".format(left_type, right_type))
+
+def _infer_mult(left_type, right_type):
+    if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
+        return _get_stronger_numeric(left_type, right_type)
+    # TODO handle tuple multiplication
+    if isinstance(left_type, TSequence) and right_type.is_subtype(TInt()):
+        return left_type
+    if isinstance(right_type, TSequence) and left_type.is_subtype(TInt()):
+        return right_type
+
+    raise TypeError("Cannot perform operation * on two types {} and {}".format(left_type, right_type))
+
+def _infer_div(left_type, right_type):
+    if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
+        return TFloat()
+    raise TypeError("Cannot perform operation / on two types {} and {}".format(left_type, right_type))
+
+def _infer_arithmatic(left_type, right_type):
+    if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
+        return _get_stronger_numeric(left_type, right_type)
+    raise TypeError("Cannot perform arithmatic operation on two types {} and {}".format(left_type, right_type))
+
+def _infer_bitwise(left_type, right_type):
+    if left_type.is_subtype(TInt()) and right_type.is_subtype(TInt()):
+        return _get_stronger_numeric(left_type, right_type)
+    raise TypeError("Cannot perform bitwise operation on two types {} and {}".format(left_type, right_type))
 
 def binary_operation_type(left_type, op, right_type):
-    op_type = UnionTypes()
-    if isinstance(op, ast.Mult):
-        # Handle sequence multiplication. Ex.:
-        # [1,2,3] * 2 --> [1,2,3,1,2,3]
-        # 2 * "abc" -- > "abcabc"
-        try:
-            narrowed_left = narrow_types(left_type, UnionTypes({TInt()}), pred.is_sequence)
-            narrowed_right = narrow_types(right_type, UnionTypes({TInt()}), pred.is_sequence)
-            if pred.has_subtype(narrowed_left, TInt()) and pred.has_sequence(right_type):
-                op_type.union(narrow_types(right_type, UnionTypes(), pred.is_sequence))
-            elif pred.has_subtype(narrowed_right, TInt()) and pred.has_sequence(left_type):
-                op_type.union(narrow_types(left_type, UnionTypes(), pred.is_sequence))
-        except TypeError:
-            pass
+    left_type = UnionTypes({left_type})
+    right_type = UnionTypes({right_type})
 
-    if isinstance(op, ast.Add): # Check if it is a concatenation operation between sequences
-        if pred.has_instance(left_type, TTuple) and pred.has_instance(right_type, TTuple):
-            # Handle tuples concatenation:
-            # (1, 2.0, "string") + (True, X()) --> (1, 2.0, "string", True, X())
-            # The result type is the concatenation of both tuples' types
-            left_tuples = UnionTypes()
-            right_tuples = UnionTypes()
-            left_tuples.union(narrow_types(left_type, UnionTypes(), pred.is_tuple))
-            right_tuples.union(narrow_types(right_type, UnionTypes(), pred.is_tuple))
-
-            for tup1 in left_tuples.types:
-                for tup2 in right_tuples.types:
-                    new_tuple_types = tup1.types + tup2.types
-                    op_type.union(TTuple(new_tuple_types))
-
-
-        elif pred.has_sequence(left_type) and pred.has_sequence(right_type):
-            left_sequences = UnionTypes()
-            right_sequences = UnionTypes()
-            left_sequences.union(narrow_types(left_type, UnionTypes(), pred.is_sequence))
-            right_sequences.union(narrow_types(right_type, UnionTypes(), pred.is_sequence))
-
-            for seq1 in left_sequences.types:
-                for seq2 in right_sequences.types:
-                    if seq1.is_subtype(seq2):
-                        op_type.union(seq2)
-                    elif seq2.is_subtype(seq1):
-                        op_type.union(seq1)
-
-    if isinstance(op, ast.Div): # Check if it is a float division operation
-        if pred.has_subtype(left_type, TFloat()) and pred.has_subtype(right_type, TFloat()):
-            op_type.union(TFloat())
-
-    if pred.has_subtype(left_type, TFloat()) and pred.has_subtype(right_type, TFloat()): # Normal arithmatic or bitwise operation
-        # TODO: Prevent floats from doing bitwise operations
-        left_numeric = UnionTypes()
-        right_numeric = UnionTypes()
-        left_numeric.union(narrow_types(left_type, UnionTypes({TFloat()})))
-        right_numeric.union(narrow_types(right_type, UnionTypes({TFloat()})))
-        for num1 in left_numeric.types:
-            for num2 in right_numeric.types:
-                if num1.is_subtype(num2):
-                    op_type.union(num2)
-                elif num2.is_subtype(num1):
-                    op_type.union(num1)
-
-    if len(op_type.types) == 0:
-        raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(op).__name__, left_type, right_type))
-    elif len(op_type.types) == 1:
-        return list(op_type.types)[0]
+    if isinstance(op, ast.Add):
+        inference_func = _infer_add
+    elif isinstance(op, ast.Mult):
+        inference_func = _infer_mult
+    elif isinstance(op, ast.Div):
+        inference_func = _infer_div
+    elif isinstance(op, (ast.BitOr, ast.BitXor, ast.BitAnd)):
+        inference_func = _infer_bitwise
     else:
-        return op_type
+        inference_func = _infer_arithmatic
+
+    result_type = UnionTypes()
+    for l_t in left_type.types:
+        for r_t in right_type.types:
+            result_type.union(inference_func(l_t, r_t))
+
+    print(result_type)
+
+    if len(result_type.types) == 0:
+        raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(op).__name__, left_type, right_type))
+    elif len(result_type.types) == 1:
+        return list(result_type.types)[0]
+    return result_type
 
 def infer_binary_operation(node, context):
     """Infer the type of binary operations
@@ -221,7 +224,25 @@ def infer_unary_operation(node, context):
     if isinstance(node.op, ast.Not): # (not expr) always gives bool type
         return TBool()
 
-    unary_type = infer(node.operand, context)
+    unary_type = UnionTypes({infer(node.operand, context)})
+    result_type = UnionTypes()
+    for t in unary_type.types:
+        if isinstance(node.op, ast.Invert):
+            if t.is_subtype(TInt()):
+                result_type.union(TInt())
+            else:
+                raise TypeError("Cannot perform ~ operation on type {}.".format(t))
+        else:
+            if isinstance(t, TNumber):
+                if isinstance(t, TBool):
+                    result_type.union(TInt())
+                else:
+                    result_type.union(t)
+            else:
+                raise TypeError("Cannot perform unary operation on type {}.".format(t))
+    if len(result_type.types) == 1:
+        return list(result_type.types)[0]
+    return result_type
 
     try:
         unary_type = narrow_types(unary_type, UnionTypes({TInt() if isinstance(node.op, ast.Invert) else TFloat()}))
@@ -244,47 +265,72 @@ def infer_if_expression(node, context):
         return result_type
 
 def infer_subscript(node, context):
-	"""Infer expressions like: x[1], x["a"], x[1:2], x[1:].
-	Where x	may be: a list, dict, tuple, str
+    """Infer expressions like: x[1], x["a"], x[1:2], x[1:].
+    Where x	may be: a list, dict, tuple, str
 
-	Attributes:
-		node: the subscript node to be inferred
-	"""
+    Attributes:
+        node: the subscript node to be inferred
+    """
 
-	indexed_type = infer(node.value, context)
-	if not pred.can_be_indexed(indexed_type):
-		raise TypeError("Cannot perform subscripting on {}.".format(indexed_type))
+    indexed_type = infer(node.value, context)
+    if not pred.can_be_indexed(indexed_type):
+        raise TypeError("Cannot perform subscripting on {}.".format(indexed_type))
 
-	if isinstance(node.slice, ast.Index):
+    subscript_type = UnionTypes()
+    if isinstance(node.slice, ast.Index):
         # Indexing
-		index_type = infer(node.slice.value, context)
-		if pred.is_sequence(indexed_type):
-			if not index_type.is_subtype(TInt()):
-				raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type))
-			if isinstance(indexed_type, TString):
-				return TString()
-			elif isinstance(indexed_type, TList):
-				return indexed_type.type
-			elif isinstance(indexed_type, TTuple):
-				return UnionTypes(indexed_type.types)
-		elif isinstance(indexed_type, TDictionary):
-			if not index_type.is_subtype(indexed_type.key_type):
-				raise KeyError("Cannot index a dictionary of type {} with an index of type {}.".format(indexed_type, index_type))
-			return indexed_type.value_type
-	elif isinstance(node.slice, ast.Slice):
-        # Slicing
-		if not pred.is_sequence(indexed_type):
-			raise TypeError("Cannot slice {}.".format(indexed_type))
-		lower_type = infer(node.slice.lower, context)
-		upper_type = infer(node.slice.upper, context)
-		step_type = infer(node.slice.step, context)
+        index_type = infer(node.slice.value, context)
+        if pred.has_sequence(indexed_type):
+            if not pred.has_subtype(index_type, TInt()):
+                raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type))
 
-		if not (lower_type.is_subtype(TInt()) and upper_type.is_subtype(TInt()) and step_type.is_subtype(TInt())):
-			raise KeyError("Slicing bounds and step should be integers.")
-		if isinstance(indexed_type, TTuple):
-			return indexed_type.get_possible_tuple_slicings()
-		else:
-			return indexed_type
+        if pred.has_instance(indexed_type, TString):
+            subscript_type.union(TString())
+
+        if pred.has_instance(indexed_type, TList):
+            lists = UnionTypes()
+            lists.union(narrow_types(indexed_type, UnionTypes(), pred.is_list))
+            for l in lists.types:
+                subscript_type.union(l.type)
+
+        if pred.has_instance(indexed_type, TTuple):
+            tuples = UnionTypes()
+            tuples.union(narrow_types(indexed_type, UnionTypes(), pred.is_tuple))
+            for t in tuples.types:
+                subscript_type.union(UnionTypes(t.types))
+
+        if pred.has_instance(indexed_type, TDictionary):
+            dicts = UnionTypes()
+            dicts.union(narrow_types(indexed_type, UnionTypes(), pred.is_dict))
+            for d in dicts.types:
+                if pred.has_subtype(index_type, d.key_type):
+                    subscript_type.union(d.value_type)
+        if len(subscript_type.types) == 0:
+            raise TypeError("Couldn't subscript {} with index {}".format(indexed_type, index_type))
+    elif isinstance(node.slice, ast.Slice):
+        # Slicing
+        if not pred.has_sequence(indexed_type):
+            raise TypeError("Cannot slice {}.".format(indexed_type))
+        lower_type = infer(node.slice.lower, context)
+        upper_type = infer(node.slice.upper, context)
+        step_type = infer(node.slice.step, context)
+
+        if not (pred.has_subtype(lower_type, TInt()) and pred.has_subtype(upper_type, TInt()) and pred.has_subtype(step_type, TInt())):
+            raise KeyError("Slicing bounds and step should be integers.")
+        if pred.has_instance(indexed_type, TTuple):
+            tuples = UnionTypes()
+            tuples.union(narrow_types(indexed_type, UnionTypes(), pred.is_tuple))
+            for t in tuples.types:
+                subscript_type.union(t.get_possible_tuple_slicings())
+        else:
+            seq = narrow_types(indexed_type, UnionTypes, pred.is_sequence)
+            subscript_type.union(seq)
+        if len(subscript_type.types) == 0:
+            raise TypeError("Couldn't slice {}".format(indexed_type))
+
+    if len(subscript_type.types) == 1:
+        return list(subscript_type.types)[0]
+    return subscript_type
 
 def infer_compare(node):
     return TBool()
@@ -400,4 +446,4 @@ def infer(node, context):
         return infer_sequence_comprehension(node, TSet, context)
     elif isinstance(node, ast.DictComp):
         return infer_dict_comprehension(node, context)
-    return TNone()
+    raise NotImplementedError("Inference for expression {} is not implemented yet.".format(type(node).__name__))
