@@ -325,8 +325,11 @@ class UnionTypes(Type):
 
     def __init__(self, t=set()):
         self.types = set()
-        for ti in t:
-            self.union(ti)
+        if isinstance(t, Type):
+            self.union(t)
+        else:
+            for ti in t:
+                self.union(ti)
 
     def is_subtype(self, t):
         if len(self.types) == 1: # return true if there's only one type in the set, and this type is a subtype of the passed argument
