@@ -362,7 +362,6 @@ class UnionTypes(Type):
             to_remove = set()
             for t in self.types:
                 if other_type.is_subtype(t): # Ignore union if supertype already exists in the set
-                    print(str(t) + str(other_type))
                     return
                 elif t.is_subtype(other_type): # Remove subtypes of added type
                     to_remove.add(t)

@@ -344,10 +344,19 @@ def infer_name(node, context):
 
 def infer_generators(generators, local_context):
     for gen in generators:
-        iter_type = infer(gen.iter, local_context)
-        if not (isinstance(iter_type, TList) or isinstance(iter_type, TSet)):
-            raise TypeError("The iterable should be only a list or a set. Found {}.", iter_type)
-        target_type = iter_type.type # Get the type of list/set elements
+        iter_type = UnionTypes(infer(gen.iter, local_context))
+        if not (pred.all_instance(iter_type, (TList, TSet, TDictionary))):
+            raise TypeError("The iterable should be only a list, a set or a dict. Found {}.", iter_type)
+
+        target_type = UnionTypes()
+        for i_t in iter_type.types:
+            if isinstance(i_t, (TList, TSet)):
+                target_type.union(i_t.type)
+            elif isinstance(i_t, TDictionary):
+                target_type.union(i_t.key_type)
+
+        if len(target_type.types) == 1:
+            target_type = list(target_type.types)[0]
 
         if not isinstance(gen.target, ast.Name):
             if not isinstance(gen.target, (ast.Tuple, ast.List)):
@@ -397,7 +406,6 @@ def infer_dict_comprehension(node, context):
     key_type = infer(node.key, local_context)
     val_type = infer(node.value, local_context)
     return TDictionary(key_type, val_type)
-
 
 def infer(node, context):
     """Infer the type of a given AST node"""

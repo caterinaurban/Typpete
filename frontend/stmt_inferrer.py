@@ -42,7 +42,7 @@ def _infer_assignment_target(target, context, value_type):
     Limitation:
         - In case of tuple/list assignments, there are no guarantees for correct number of unpacked values.
             Because the length of the list/tuple may not be resolved statically.
-    TODO: Attributes assignment
+    TODO: Attributes assignment, UnionTypes assignment
     """
     if isinstance(target, ast.Name):
         if context.has_variable(target.id): # Check if variable is already inferred before
@@ -141,8 +141,6 @@ def _infer_augmented_assign(node, context):
         # TODO: Implement after classes inference
         pass
     return TNone()
-
-
 
 def _delete_element(target, context):
     """Remove (if needed) a target from the context

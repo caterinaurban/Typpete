@@ -2,15 +2,6 @@
 
 from i_types import *
 
-def is_tuple(t):
-	return isinstance(t, TTuple)
-
-def is_list(t):
-	return isinstance(t, TList)
-
-def is_dict(t):
-	return isinstance(t, TDictionary)
-
 def is_sequence(t):
 	return isinstance(t, TSequence)
 
@@ -33,6 +24,16 @@ def has_instance(types, cl):
 		if isinstance(ti, cl):
 			return True
 	return False
+
+def all_instance(types, cl):
+	if isinstance(types, cl):
+		return True
+	if not isinstance(types, UnionTypes):
+		return False
+	for ti in types.types:
+		if not isinstance(ti, cl):
+			return False
+	return True
 
 def can_be_indexed(t):
     return has_sequence(t) or has_instance(t, TDictionary)
