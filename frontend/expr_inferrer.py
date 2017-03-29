@@ -195,8 +195,6 @@ def binary_operation_type(left_type, op, right_type):
         for r_t in right_type.types:
             result_type.union(inference_func(l_t, r_t))
 
-    print(result_type)
-
     if len(result_type.types) == 0:
         raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(op).__name__, left_type, right_type))
     elif len(result_type.types) == 1:
@@ -244,12 +242,6 @@ def infer_unary_operation(node, context):
         return list(result_type.types)[0]
     return result_type
 
-    try:
-        unary_type = narrow_types(unary_type, UnionTypes({TInt() if isinstance(node.op, ast.Invert) else TFloat()}))
-    except TypeError:
-        raise TypeError("Cannot perform unary operation ({}) on type {}.".format(type(node.op).__name__, unary_type))
-    return unary_type
-
 def infer_if_expression(node, context):
     """Infer expressions like: {(a) if (test) else (b)}.
 
@@ -264,6 +256,42 @@ def infer_if_expression(node, context):
     else:
         return result_type
 
+def _infer_index_subscript(indexed_type, index_type):
+    if pred.is_sequence(indexed_type):
+        if not index_type.is_subtype(TInt()):
+            raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type))
+
+    if isinstance(indexed_type, TString):
+        return TString()
+    if isinstance(indexed_type, TList):
+        return indexed_type.type
+    if isinstance(indexed_type, TTuple):
+        tuple_types = UnionTypes(indexed_type.types)
+        return tuple_types
+    if isinstance(indexed_type, TDictionary):
+        # Dictionaries may have union key set
+        keys_types = UnionTypes(indexed_type.key_type)
+        for k in keys_types.types:
+            if index_type.is_subtype(k):
+                return indexed_type.value_type
+        raise KeyError("Cannot index a dict of type {} with an index of type {}.".format(indexed_type, index_type))
+    raise TypeError("Cannot index {}.".format(indexed_type))
+
+def _infer_slice_subscript(sliced_type):
+    if not pred.is_sequence(sliced_type):
+        raise TypeError("Cannot slice a non sequence.")
+    if isinstance(sliced_type, TTuple):
+        return sliced_type.get_possible_tuple_slicings()
+    if pred.is_sequence(sliced_type):
+        return sliced_type
+    raise TypeError("Cannot slice a non sequence.")
+
+def _all_int(union):
+    for t in union.types:
+        if not t.is_subtype(TInt()):
+            return False
+    return True
+
 def infer_subscript(node, context):
     """Infer expressions like: x[1], x["a"], x[1:2], x[1:].
     Where x	may be: a list, dict, tuple, str
@@ -272,61 +300,31 @@ def infer_subscript(node, context):
         node: the subscript node to be inferred
     """
 
-    indexed_type = infer(node.value, context)
-    if not pred.can_be_indexed(indexed_type):
-        raise TypeError("Cannot perform subscripting on {}.".format(indexed_type))
+    indexed_types = UnionTypes(infer(node.value, context))
 
     subscript_type = UnionTypes()
     if isinstance(node.slice, ast.Index):
-        # Indexing
-        index_type = infer(node.slice.value, context)
-        if pred.has_sequence(indexed_type):
-            if not pred.has_subtype(index_type, TInt()):
-                raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type))
+        index_types = UnionTypes(infer(node.slice.value, context))
+        for index_t in index_types.types:
+            for indexed_t in indexed_types.types:
+                subscript_type.union(_infer_index_subscript(indexed_t, index_t))
+    else:
+        if node.slice.lower:
+            lower_type = UnionTypes(infer(node.slice.lower, context))
+            if not _all_int(lower_type):
+                raise KeyError("Slicing lower bound should be integer.")
+        if node.slice.upper:
+            upper_type = UnionTypes(infer(node.slice.upper, context))
+            if not _all_int(upper_type):
+                raise KeyError("Slicing upper bound should be integer.")
+        if node.slice.step:
+            step_type = UnionTypes(infer(node.slice.step, context))
+            if not _all_int(step_type):
+                raise KeyError("Slicing step should be integer.")
 
-        if pred.has_instance(indexed_type, TString):
-            subscript_type.union(TString())
+        for indexed_t in indexed_types.types:
+            subscript_type.union(indexed_t)
 
-        if pred.has_instance(indexed_type, TList):
-            lists = UnionTypes()
-            lists.union(narrow_types(indexed_type, UnionTypes(), pred.is_list))
-            for l in lists.types:
-                subscript_type.union(l.type)
-
-        if pred.has_instance(indexed_type, TTuple):
-            tuples = UnionTypes()
-            tuples.union(narrow_types(indexed_type, UnionTypes(), pred.is_tuple))
-            for t in tuples.types:
-                subscript_type.union(UnionTypes(t.types))
-
-        if pred.has_instance(indexed_type, TDictionary):
-            dicts = UnionTypes()
-            dicts.union(narrow_types(indexed_type, UnionTypes(), pred.is_dict))
-            for d in dicts.types:
-                if pred.has_subtype(index_type, d.key_type):
-                    subscript_type.union(d.value_type)
-        if len(subscript_type.types) == 0:
-            raise TypeError("Couldn't subscript {} with index {}".format(indexed_type, index_type))
-    elif isinstance(node.slice, ast.Slice):
-        # Slicing
-        if not pred.has_sequence(indexed_type):
-            raise TypeError("Cannot slice {}.".format(indexed_type))
-        lower_type = infer(node.slice.lower, context)
-        upper_type = infer(node.slice.upper, context)
-        step_type = infer(node.slice.step, context)
-
-        if not (pred.has_subtype(lower_type, TInt()) and pred.has_subtype(upper_type, TInt()) and pred.has_subtype(step_type, TInt())):
-            raise KeyError("Slicing bounds and step should be integers.")
-        if pred.has_instance(indexed_type, TTuple):
-            tuples = UnionTypes()
-            tuples.union(narrow_types(indexed_type, UnionTypes(), pred.is_tuple))
-            for t in tuples.types:
-                subscript_type.union(t.get_possible_tuple_slicings())
-        else:
-            seq = narrow_types(indexed_type, UnionTypes, pred.is_sequence)
-            subscript_type.union(seq)
-        if len(subscript_type.types) == 0:
-            raise TypeError("Couldn't slice {}".format(indexed_type))
 
     if len(subscript_type.types) == 1:
         return list(subscript_type.types)[0]
@@ -346,10 +344,19 @@ def infer_name(node, context):
 
 def infer_generators(generators, local_context):
     for gen in generators:
-        iter_type = infer(gen.iter, local_context)
-        if not (isinstance(iter_type, TList) or isinstance(iter_type, TSet)):
-            raise TypeError("The iterable should be only a list or a set. Found {}.", iter_type)
-        target_type = iter_type.type # Get the type of list/set elements
+        iter_type = UnionTypes(infer(gen.iter, local_context))
+        if not (pred.all_instance(iter_type, (TList, TSet, TDictionary))):
+            raise TypeError("The iterable should be only a list, a set or a dict. Found {}.", iter_type)
+
+        target_type = UnionTypes()
+        for i_t in iter_type.types:
+            if isinstance(i_t, (TList, TSet)):
+                target_type.union(i_t.type)
+            elif isinstance(i_t, TDictionary):
+                target_type.union(i_t.key_type)
+
+        if len(target_type.types) == 1:
+            target_type = list(target_type.types)[0]
 
         if not isinstance(gen.target, ast.Name):
             if not isinstance(gen.target, (ast.Tuple, ast.List)):
@@ -399,7 +406,6 @@ def infer_dict_comprehension(node, context):
     key_type = infer(node.key, local_context)
     val_type = infer(node.value, local_context)
     return TDictionary(key_type, val_type)
-
 
 def infer(node, context):
     """Infer the type of a given AST node"""
