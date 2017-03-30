@@ -158,7 +158,7 @@ def _delete_element(target, context):
     elif isinstance(target, ast.Name):
         context.delete_type(target.id)
     elif isinstance(target, ast.Subscript):
-        indexed_type = expr.infer(target.value)
+        indexed_type = expr.infer(target.value, context)
         if isinstance(indexed_type, TString):
             raise TypeError("String objects don't support item deletion.")
         elif isinstance(indexed_type, TTuple):
@@ -176,7 +176,7 @@ def _infer_body(body, context):
     body_type = TNone()
     for stmt in body:
         stmt_type = infer(stmt, context)
-        if body_type.is_subtype(stmt_type):
+        if body_type.is_subtype(stmt_type) or isinstance(body_type, TNone):
             body_type = stmt_type
         elif not stmt_type.is_subtype(body_type):
             if isinstance(body_type, UnionTypes):
@@ -208,9 +208,9 @@ def _infer_control_flow(node, context):
     body_type = _infer_body(node.body, context)
     else_type = _infer_body(node.orelse, context)
 
-    if body_type.is_subtype(else_type):
+    if body_type.is_subtype(else_type) or isinstance(body_type, TNone):
         return else_type
-    elif else_type.is_subtype(body_type):
+    elif else_type.is_subtype(body_type) or isinstance(else_type, TNone):
         return body_type
 
     if isinstance(body_type, UnionTypes):
@@ -232,7 +232,7 @@ def _infer_for(node, context):
     """
     iter_type = expr.infer(node.iter, context)
     if not isinstance(iter_type, (TList, TSet, TIterator, TBytesString, TDictionary, TString)):
-        raise TypeError("The iterable should only be a set, list or iterator. Found {}.".format(iter_type))
+        raise TypeError("{} is not iterable.".format(iter_type))
 
     # Infer the target in the loop, inside the global context
     # Cases:
@@ -261,15 +261,25 @@ def _infer_try(node, context):
     """Infer the types for a try/except/else block"""
     try_type = UnionTypes()
 
-    try_type.union(_infer_body(node.body, context))
-    try_type.union(_infer_body(node.orelse, context))
-    try_type.union(_infer_body(node.finalbody, context))
+    body_type = _infer_body(node.body, context)
+    else_type = _infer_body(node.orelse, context)
+    final_type = _infer_body(node.finalbody, context)
+    if not isinstance(body_type, TNone):
+        try_type.union(body_type)
+    if not isinstance(else_type, TNone):
+        try_type.union(else_type)
+    if not isinstance(final_type, TNone):
+        try_type.union(final_type)
     # TODO: Infer exception handlers as classes
 
     for handler in node.handlers:
-        try_type.union(_infer_body(handler.body, context))
+        handler_body_type = _infer_body(handler.body, context)
+        if not isinstance(handler_body_type, TNone):
+            try_type.union(handler_body_type)
 
-    if len(try_type.types) == 1:
+    if len(try_type.types) == 0:
+        return TNone()
+    elif len(try_type.types) == 1:
         return list(try_type.types)[0]
     return try_type
 
