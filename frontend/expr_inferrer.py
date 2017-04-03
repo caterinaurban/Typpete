@@ -1,45 +1,47 @@
-"""Inferrer for python expressions.
+"""Inference for python expressions.
 
 Infers the types for the following expressions:
-     - BinOp(expr left, operator op, expr right)
-     - UnaryOp(unaryop op, expr operand)
-     - Dict(expr* keys, expr* values)
-     - Set(expr* elts)
-     - Num(object n)
-     - Str(string s)
-     - NameConstant(singleton value)
-     - List(expr* elts, expr_context ctx)
-     - Tuple(expr* elts, expr_context ctx)
-     - Bytes(bytes s)
-     - IfExp(expr test, expr body, expr orelse)
-	 - Subscript(expr value, slice slice, expr_context ctx)
-	 - Await(expr value) --> Python 3.5+
-	 - Yield(expr? value)
-     - Compare(expr left, cmpop* ops, expr* comparators)
-     - Name(identifier id, expr_context ctx)
-     - FormattedValue(expr value, int? conversion, expr? format_spec) --> Python 3.6+
-     - JoinedStr(expr* values) --> Python 3.6+
-     - ListComp(expr elt, comprehension* generators)
-     - SetComp(expr elt, comprehension* generators)
-     - DictComp(expr key, expr value, comprehension* generators)
+    - BinOp(expr left, operator op, expr right)
+    - UnaryOp(unaryop op, expr operand)
+    - Dict(expr* keys, expr* values)
+    - Set(expr* elts)
+    - Num(object n)
+    - Str(string s)
+    - NameConstant(singleton value)
+    - List(expr* elts, expr_context ctx)
+    - Tuple(expr* elts, expr_context ctx)
+    - Bytes(bytes s)
+    - IfExp(expr test, expr body, expr orelse)
+    - Subscript(expr value, slice slice, expr_context ctx)
+    - Await(expr value) --> Python 3.5+
+    - Yield(expr? value)
+    - Compare(expr left, cmpop* ops, expr* comparators)
+    - Name(identifier id, expr_context ctx)
+    - FormattedValue(expr value, int? conversion, expr? format_spec) --> Python 3.6+
+    - JoinedStr(expr* values) --> Python 3.6+
+    - ListComp(expr elt, comprehension* generators)
+    - SetComp(expr elt, comprehension* generators)
+    - DictComp(expr key, expr value, comprehension* generators)
 
-     TODO:
-     - Lambda(arguments args, expr body)
-     - GeneratorExp(expr elt, comprehension* generators)
-     - YieldFrom(expr value)
-     - Call(expr func, expr* args, keyword* keywords)
-     - Attribute(expr value, identifier attr, expr_co0ontext ctx)
-     - Starred(expr value, expr_context ctx)
+TODO:
+    - Lambda(arguments args, expr body)
+    - GeneratorExp(expr elt, comprehension* generators)
+    - YieldFrom(expr value)
+    - Call(expr func, expr* args, keyword* keywords)
+    - Attribute(expr value, identifier attr, expr_co0ontext ctx)
+    - Starred(expr value, expr_context ctx)
 """
 
-import ast, sys, predicates as pred
-from i_types import *
-from context import Context
-from abc import ABCMeta, abstractmethod
-from exceptions import HomogeneousTypesConflict
+import ast
+import frontend.predicates as pred
+import sys
+
+from frontend.i_types import *
+
 
 def _filter_types(types, types_filter, *preds):
     return {t for t in types if (pred.has_supertype(types_filter, t) or pred.satisfies_predicates(t, *preds))}
+
 
 def narrow_types(original, types_filter, *preds):
     if not isinstance(original, UnionTypes):
@@ -52,11 +54,12 @@ def narrow_types(original, types_filter, *preds):
         intersection = _filter_types(original.types, types_filter, *preds)
         if len(intersection) == 0:
             TypeError("Cannot narrow types. The original types set {} doesn't intersect with the types filter {}."
-                            .format(original, types_filter))
+                      .format(original, types_filter))
         elif len(intersection) == 1:
             return list(intersection)[0]
         else:
             return UnionTypes(intersection)
+
 
 def infer_numeric(node):
     """Infer the type of a numeric node"""
@@ -66,6 +69,7 @@ def infer_numeric(node):
         return TFloat()
     if type(node.n) == complex:
         return TComplex()
+
 
 def _get_elements_types(elts, context):
     if len(elts) == 0:
@@ -79,12 +83,14 @@ def _get_elements_types(elts, context):
         return list(types.types)[0]
     return types
 
+
 def infer_list(node, context):
     """Infer the type of a homogeneous list
 
     Returns: TList(Type t), where t is the type of the list elements
     """
     return TList(_get_elements_types(node.elts, context))
+
 
 def infer_dict(node, context):
     """Infer the type of a dictionary with homogeneous key set and value set
@@ -96,6 +102,7 @@ def infer_dict(node, context):
     keys_type = _get_elements_types(node.keys, context)
     values_type = _get_elements_types(node.values, context)
     return TDictionary(keys_type, values_type)
+
 
 def infer_tuple(node, context):
     """Infer the type of a tuple
@@ -109,13 +116,15 @@ def infer_tuple(node, context):
 
     return TTuple(tuple_types)
 
+
 def infer_name_constant(node):
     """Infer the type of name constants like: True, False, None"""
-    if node.value == True or node.value == False:
+    if isinstance(node.value, bool):
         return TBool()
     elif node.value is None:
         return TNone()
     raise NotImplementedError("The inference for {} is not supported.".format(node.value))
+
 
 def infer_set(node, context):
     """Infer the type of a homogeneous set
@@ -124,12 +133,14 @@ def infer_set(node, context):
     """
     return TSet(_get_elements_types(node.elts, context))
 
+
 def _get_stronger_numeric(num1, num2):
     return num1 if num1.strength > num2.strength else num2
 
+
 def _infer_add(left_type, right_type):
     if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
-        # arithmatic addition
+        # arithmetic addition
         return _get_stronger_numeric(left_type, right_type)
 
     if isinstance(left_type, TSequence) and isinstance(right_type, TSequence):
@@ -149,6 +160,7 @@ def _infer_add(left_type, right_type):
 
     raise TypeError("Cannot perform operation + on two types {} and {}".format(left_type, right_type))
 
+
 def _infer_mult(left_type, right_type):
     if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
         return _get_stronger_numeric(left_type, right_type)
@@ -160,20 +172,24 @@ def _infer_mult(left_type, right_type):
 
     raise TypeError("Cannot perform operation * on two types {} and {}".format(left_type, right_type))
 
+
 def _infer_div(left_type, right_type):
     if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
         return TFloat()
     raise TypeError("Cannot perform operation / on two types {} and {}".format(left_type, right_type))
 
-def _infer_arithmatic(left_type, right_type):
+
+def _infer_arithmetic(left_type, right_type):
     if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
         return _get_stronger_numeric(left_type, right_type)
-    raise TypeError("Cannot perform arithmatic operation on two types {} and {}".format(left_type, right_type))
+    raise TypeError("Cannot perform arithmetic operation on two types {} and {}".format(left_type, right_type))
+
 
 def _infer_bitwise(left_type, right_type):
     if left_type.is_subtype(TInt()) and right_type.is_subtype(TInt()):
         return _get_stronger_numeric(left_type, right_type)
     raise TypeError("Cannot perform bitwise operation on two types {} and {}".format(left_type, right_type))
+
 
 def binary_operation_type(left_type, op, right_type):
     left_type = UnionTypes({left_type})
@@ -188,7 +204,7 @@ def binary_operation_type(left_type, op, right_type):
     elif isinstance(op, (ast.BitOr, ast.BitXor, ast.BitAnd)):
         inference_func = _infer_bitwise
     else:
-        inference_func = _infer_arithmatic
+        inference_func = _infer_arithmetic
 
     result_type = UnionTypes()
     for l_t in left_type.types:
@@ -196,10 +212,12 @@ def binary_operation_type(left_type, op, right_type):
             result_type.union(inference_func(l_t, r_t))
 
     if len(result_type.types) == 0:
-        raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(op).__name__, left_type, right_type))
+        raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(op).__name__,
+                                                                                       left_type, right_type))
     elif len(result_type.types) == 1:
         return list(result_type.types)[0]
     return result_type
+
 
 def infer_binary_operation(node, context):
     """Infer the type of binary operations
@@ -207,19 +225,20 @@ def infer_binary_operation(node, context):
     Handled cases:
         - Sequence multiplication, ex: [1,2,3] * 2 --> [1,2,3,1,2,3]
         - Sequence concatenation, ex: [1,2,3] + [4,5,6] --> [1,2,3,4,5,6]
-        - Arithmatic and bitwise operations, ex: (1 + 2) * 7 & (2 | -123) / 3
+        - Arithmetic and bitwise operations, ex: (1 + 2) * 7 & (2 | -123) / 3
     """
     left_type = infer(node.left, context)
     right_type = infer(node.right, context)
 
     return binary_operation_type(left_type, node.op, right_type)
 
+
 def infer_unary_operation(node, context):
     """Infer the type for unary operations
 
     Examples: -5, not 1, ~2
     """
-    if isinstance(node.op, ast.Not): # (not expr) always gives bool type
+    if isinstance(node.op, ast.Not):  # (not expr) always gives bool type
         return TBool()
 
     unary_type = UnionTypes({infer(node.operand, context)})
@@ -242,6 +261,7 @@ def infer_unary_operation(node, context):
         return list(result_type.types)[0]
     return result_type
 
+
 def infer_if_expression(node, context):
     """Infer expressions like: {(a) if (test) else (b)}.
 
@@ -255,6 +275,7 @@ def infer_if_expression(node, context):
         return list(result_type.types)[0]
     else:
         return result_type
+
 
 def _infer_index_subscript(indexed_type, index_type):
     if pred.is_sequence(indexed_type):
@@ -277,6 +298,7 @@ def _infer_index_subscript(indexed_type, index_type):
         raise KeyError("Cannot index a dict of type {} with an index of type {}.".format(indexed_type, index_type))
     raise TypeError("Cannot index {}.".format(indexed_type))
 
+
 def _infer_slice_subscript(sliced_type):
     if not pred.is_sequence(sliced_type):
         raise TypeError("Cannot slice a non sequence.")
@@ -286,11 +308,13 @@ def _infer_slice_subscript(sliced_type):
         return sliced_type
     raise TypeError("Cannot slice a non sequence.")
 
+
 def _all_int(union):
     for t in union.types:
         if not t.is_subtype(TInt()):
             return False
     return True
+
 
 def infer_subscript(node, context):
     """Infer expressions like: x[1], x["a"], x[1:2], x[1:].
@@ -325,13 +349,15 @@ def infer_subscript(node, context):
         for indexed_t in indexed_types.types:
             subscript_type.union(indexed_t)
 
-
     if len(subscript_type.types) == 1:
         return list(subscript_type.types)[0]
     return subscript_type
 
+
 def infer_compare(node):
+    # TODO: verify that types in comparison are comparable
     return TBool()
+
 
 def infer_name(node, context):
     """Infer the type of a variable
@@ -341,6 +367,7 @@ def infer_name(node, context):
         context: The context to look in for the variable type
     """
     return context.get_type(node.id)
+
 
 def infer_generators(generators, local_context):
     for gen in generators:
@@ -365,6 +392,7 @@ def infer_generators(generators, local_context):
                 raise NotImplementedError("The inference doesn't support lists or tuples as iteration targets yet.")
         local_context.set_type(gen.target.id, target_type)
 
+
 def infer_sequence_comprehension(node, sequence_type, context):
     """Infer the type of a list comprehension
 
@@ -385,6 +413,7 @@ def infer_sequence_comprehension(node, sequence_type, context):
     local_context = Context(parent_context=context)
     infer_generators(node.generators, local_context)
     return sequence_type(infer(node.elt, local_context))
+
 
 def infer_dict_comprehension(node, context):
     """Infer the type of a dictionary comprehension
@@ -407,6 +436,7 @@ def infer_dict_comprehension(node, context):
     val_type = infer(node.value, local_context)
     return TDictionary(key_type, val_type)
 
+
 def infer(node, context):
     """Infer the type of a given AST node"""
     if isinstance(node, ast.Num):
@@ -414,8 +444,8 @@ def infer(node, context):
     elif isinstance(node, ast.Str):
         return TString()
     elif (sys.version_info[0] >= 3 and sys.version_info[1] >= 6 and
-         (isinstance(node, ast.FormattedValue) or isinstance(node, ast.JoinedStr))):
-         # Formatted strings were introduced in Python 3.6
+              (isinstance(node, ast.FormattedValue) or isinstance(node, ast.JoinedStr))):
+        # Formatted strings were introduced in Python 3.6
         return TString()
     elif isinstance(node, ast.Bytes):
         return TBytesString()

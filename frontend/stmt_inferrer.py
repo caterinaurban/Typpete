@@ -20,9 +20,13 @@ Infers the types for the following expressions:
     - Nonlocal(identifier* names)
 """
 
-import expr_inferrer as expr, ast, sys, predicates as pred
-from context import Context
-from i_types import *
+import ast
+import frontend.expr_inferrer as expr
+import frontend.predicates as pred
+import sys
+
+from frontend.i_types import *
+
 
 def _infer_assignment_target(target, context, value_type):
     """Infer the type of a target in an assignment
@@ -45,17 +49,15 @@ def _infer_assignment_target(target, context, value_type):
     TODO: Attributes assignment, UnionTypes assignment
     """
     if isinstance(target, ast.Name):
-        if context.has_variable(target.id): # Check if variable is already inferred before
+        if context.has_variable(target.id):  # Check if variable is already inferred before
             var_type = context.get_type(target.id)
             if var_type.is_subtype(value_type):
                 context.set_type(target.id, value_type)
             elif not value_type.is_subtype(var_type):
-                raise TypeError("The type of {} is {}. Cannot assign it to {}.".format(target.id,
-                                                                                    var_type,
-                                                                                    value_type))
+                raise TypeError("The type of {} is {}. Cannot assign it to {}.".format(target.id, var_type, value_type))
         else:
             context.set_type(target.id, value_type)
-    elif isinstance(target, ast.Tuple) or isinstance(target, ast.List): # Tuple/List assignment
+    elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):  # Tuple/List assignment
         if not pred.is_sequence(value_type):
             raise ValueError("Cannot unpack a non sequence.")
         for i in range(len(target.elts)):
@@ -66,8 +68,8 @@ def _infer_assignment_target(target, context, value_type):
                 _infer_assignment_target(seq_elem, context, value_type.type)
             elif isinstance(value_type, TTuple):
                 _infer_assignment_target(seq_elem, context, value_type.types[i])
-    elif isinstance(target, ast.Subscript): # Subscript assignment
-        subscript_type = expr.infer(target, context)
+    elif isinstance(target, ast.Subscript):  # Subscript assignment
+        expr.infer(target, context)
         indexed_type = expr.infer(target.value, context)
         if isinstance(indexed_type, TString):
             raise TypeError("String objects don't support item assignment.")
@@ -75,35 +77,40 @@ def _infer_assignment_target(target, context, value_type):
             raise TypeError("Tuple objects don't support item assignment.")
         elif isinstance(indexed_type, TList):
             if isinstance(target.slice, ast.Index):
-                if indexed_type.type.is_subtype(value_type): # Update the type of the list with the more generic type
+                if indexed_type.type.is_subtype(value_type):  # Update the type of the list with the more generic type
                     if isinstance(target.value, ast.Name):
                         context.set_type(target.value.id, TList(value_type))
                 elif not value_type.is_subtype(indexed_type.type):
                     raise TypeError("Cannot assign {} to {}.".format(value_type, indexed_type.type))
-            else: # Slice subscripting
+            else:  # Slice subscription
                 if indexed_type.is_subtype(value_type):
-                    if isinstance(target.value, ast.Name): # Update the type of the list with the more generic type
+                    if isinstance(target.value, ast.Name):  # Update the type of the list with the more generic type
                         context.set_type(target.value.id, value_type)
                 elif not (isinstance(value_type, TList) and value_type.type.is_subtype(indexed_type.type)):
                     raise TypeError("Cannot assign {} to {}.".format(value_type, indexed_type))
         elif isinstance(indexed_type, TDictionary):
             if indexed_type.value_type.is_subtype(value_type):
-                if isinstance(target.value, ast.Name): # Update the type of the dictionary values with the more generic type
+                if isinstance(target.value,
+                              ast.Name):  # Update the type of the dictionary values with the more generic type
                     context.get_type(target.value.id).value_type = value_type
             elif not value_type.is_subtype(indexed_type.value_type):
-                raise TypeError("Cannot assign {} to a dictionary item of type {}.".format(value_type, indexed_type.value_type))
+                raise TypeError(
+                    "Cannot assign {} to a dictionary item of type {}.".format(value_type, indexed_type.value_type))
         else:
             raise NotImplementedError("The inference for {} subscripting is not supported.".format(indexed_type))
     else:
         raise NotImplementedError("The inference for {} assignment is not supported.".format(type(target).__name__))
 
+
 def _infer_assign(node, context):
     """Infer the types of target variables in an assignment node."""
-    value_type = expr.infer(node.value, context) # The type of the value assigned to the targets in the assignment statement.
+    value_type = expr.infer(node.value,
+                            context)  # The type of the value assigned to the targets in the assignment statement.
     for target in node.targets:
         _infer_assignment_target(target, context, value_type)
 
     return TNone()
+
 
 def _infer_augmented_assign(node, context):
     """Infer the types for augmented assignments
@@ -127,13 +134,13 @@ def _infer_augmented_assign(node, context):
         elif isinstance(indexed_type, TTuple):
             raise TypeError("Tuple objects don't support item assignment.")
         elif isinstance(indexed_type, TDictionary):
-            if not type(result_type) is type(indexed_type.value_type):
+            if not isinstance(result_type, type(indexed_type.value_type)):
                 raise TypeError("Cannot convert the dictionary value from {} to {}.".format(indexed_type.value_type,
                                                                                             result_type))
         elif isinstance(indexed_type, TList):
-            if not type(result_type) is type(indexed_type.type):
+            if not isinstance(result_type, type(indexed_type.type)):
                 raise TypeError("Cannot convert the list values from {} to {}.".format(indexed_type.type,
-                                                                                            result_type))
+                                                                                       result_type))
         else:
             # This block should never be executed.
             raise TypeError("Unknown subscript type.")
@@ -142,17 +149,18 @@ def _infer_augmented_assign(node, context):
         pass
     return TNone()
 
+
 def _delete_element(target, context):
     """Remove (if needed) a target from the context
 
     Cases:
-        - del var_name: remove its type mappingfrom the context directly.
+        - del var_name: remove its type mapping from the context directly.
         - del subscript:
                     * Tuple/String --> Immutable. Raise exception.
                     * List/Dict --> Do nothing to the context.
     TODO: Attribute deletion
     """
-    if isinstance(target, (ast.Tuple, ast.List)): # Multiple deletions
+    if isinstance(target, (ast.Tuple, ast.List)):  # Multiple deletions
         for elem in target.elts:
             _delete_element(elem, context)
     elif isinstance(target, ast.Name):
@@ -164,12 +172,14 @@ def _delete_element(target, context):
         elif isinstance(indexed_type, TTuple):
             raise TypeError("Tuple objects don't support item deletion.")
 
+
 def _infer_delete(node, context):
     """Remove (if needed) the type of the deleted items in the current context"""
     for target in node.targets:
         _delete_element(target, context)
 
     return TNone()
+
 
 def _infer_body(body, context):
     """Infer the type of a code block containing multiple statements"""
@@ -188,6 +198,7 @@ def _infer_body(body, context):
                 union = {body_type, stmt_type}
                 body_type = UnionTypes(union)
     return body_type
+
 
 def _infer_control_flow(node, context):
     """Infer the type(s) for an if/while/for statements block.
@@ -221,6 +232,7 @@ def _infer_control_flow(node, context):
         return else_type
     return UnionTypes({body_type, else_type})
 
+
 def _infer_for(node, context):
     """Infer the type for a for loop node
 
@@ -248,6 +260,7 @@ def _infer_for(node, context):
 
     return _infer_control_flow(node, context)
 
+
 def _infer_with(node, context):
     """Infer the types for a with block"""
     for item in node.items:
@@ -256,6 +269,7 @@ def _infer_with(node, context):
             _infer_assignment_target(item.optional_vars, context, item_type)
 
     return _infer_body(node.body, context)
+
 
 def _infer_try(node, context):
     """Infer the types for a try/except/else block"""
@@ -283,6 +297,7 @@ def _infer_try(node, context):
         return list(try_type.types)[0]
     return try_type
 
+
 def infer(node, context):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context)
@@ -297,12 +312,12 @@ def infer(node, context):
     elif isinstance(node, ast.For):
         return _infer_for(node, context)
     elif sys.version_info[0] >= 3 and sys.version_info[1] >= 5 and isinstance(node, ast.AsyncFor):
-        # AsyncFor is instroduced in Python 3.5
+        # AsyncFor is introduced in Python 3.5
         return _infer_for(node, context)
     elif isinstance(node, ast.With):
         return _infer_with(node, context)
     elif sys.version_info[0] >= 3 and sys.version_info[1] >= 5 and isinstance(node, ast.AsyncWith):
-        # AsyncWith is instroduced in Python 3.5
+        # AsyncWith is introduced in Python 3.5
         return _infer_with(node, context)
     elif isinstance(node, ast.Try):
         return _infer_try(node, context)
