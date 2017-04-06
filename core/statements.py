@@ -10,15 +10,32 @@ class ProgramPoint(object):
         :param line: line of the program
         :param column: column of the program
         """
-        self.line = line
-        self.column = column
+        self._line = line
+        self._column = column
+
+    @property
+    def line(self):
+        return self._line
+
+    @property
+    def column(self):
+        return self._column
+
+    def __eq__(self, other: 'ProgramPoint'):
+        return (self.line, self.column) == (other.line, other.column)
+
+    def __hash__(self):
+        return hash((self.line, self.column))
+
+    def __ne__(self, other: 'ProgramPoint'):
+        return not (self == other)
 
     def __str__(self):
         """Program point string representation
 
         :return: string representing the program point
         """
-        return "<line:{0.line}, column:{0.column}>".format(self)
+        return "[line:{0.line}, column:{0.column}]".format(self)
 
 
 class Statement(ABC):
@@ -27,11 +44,24 @@ class Statement(ABC):
         
         :param pp: program point associated with the statement  
         """
-        self.pp = pp
+        self._pp = pp
+
+    @property
+    def pp(self):
+        return self._pp
+
+    def __eq__(self, other: 'Statement'):
+        return self.pp == other.pp
+
+    def __hash__(self):
+        return hash(self.pp)
+
+    def __ne__(self, other: 'Statement'):
+        return not (self == other)
 
     @abstractmethod
     def __str__(self):
-        """Statement string representation
+        """Statement string representation.
         
         :return: string representing the statement
         """
@@ -41,7 +71,7 @@ class Statement(ABC):
         """Abstract forward semantics of the statement. 
         
         :param state: state before the statement
-        :return: state after the statement
+        :return: modified state after the statement
         """
 
     @abstractmethod
@@ -49,7 +79,7 @@ class Statement(ABC):
         """Abstract backward semantics of the statement.
         
         :param state: state after the statement
-        :return: state before the statement
+        :return: modified state before the statement
         """
 
 
@@ -61,10 +91,14 @@ class ConstantEvaluation(Statement):
         :param val: constant being evaluated
         """
         super().__init__(pp)
-        self.val = val
+        self._val = val
+
+    @property
+    def val(self):
+        return self._val
 
     def __str__(self):
-        return str(self.val)
+        return "{0.pp} {0.val}".format(self)
 
     def semantic(self, state: State) -> State:
         return state.evaluate_constant(self.val)
@@ -84,10 +118,14 @@ class VariableAccess(Statement):
         :param var: variable being accessed
         """
         super().__init__(pp)
-        self.var = var
+        self._var = var
+
+    @property
+    def var(self):
+        return self._var
 
     def __str__(self):
-        return str(self.var)
+        return "{0.pp} {0.var}".format(self)
 
     def semantics(self, state: State) -> State:
         return state.access_variable(self.var)
@@ -108,24 +146,32 @@ class Assignment(Statement):
         :param right: right-hand side of the assignment
         """
         super().__init__(pp)
-        self.left = left
-        self.right = right
+        self._left = left
+        self._right = right
+
+    @property
+    def left(self):
+        return self._left
+
+    @property
+    def right(self):
+        return self._right
 
     def __str__(self):
-        return "{0.left} = {0.right}".format(self)
+        return "{0.pp} {0.left} = {0.right}".format(self)
 
     def forward_semantics(self, state: State) -> State:
-        lhs = self.left.forward_semantics(state)  # lhs evaluation
-        rhs = self.right.forward_semantics(lhs)  # rhs evaluation
+        lhs = self.left.forward_semantics(state).result    # lhs evaluation
+        rhs = self.right.forward_semantics(state).result   # rhs evaluation
         if isinstance(self.left, VariableAccess):
-            return rhs.assign_variable(lhs.expression, rhs.expression)
+            return state.assign_variable(lhs, rhs)
         else:
             NotImplementedError("Forward semantics for assignment {0!s} not yet implemented!".format(self))
 
     def backward_semantics(self, state: State) -> State:
-        lhs = self.left.backward_semantics(state)  # lhs evaluation
-        rhs = self.right.backward_semantics(lhs)  # rhs evaluation
+        lhs = self.left.backward_semantics(state).result    # lhs evaluation
+        rhs = self.right.backward_semantics(state).result   # rhs evaluation
         if isinstance(self.left, VariableAccess):
-            return rhs.substitute_variable(lhs.expression, rhs.expression)
+            return rhs.substitute_variable(lhs, rhs)
         else:
             NotImplementedError("Backward semantics for assignment {0!s} not yet implemented!".format(self))

@@ -8,7 +8,14 @@ class Expression(ABC):
         
         :param typ: type of the expression 
         """
-        self.typ = typ
+        self._typ = typ
+
+    @property
+    def typ(self):
+        return self._typ
+
+    def __ne__(self, other: 'Expression'):
+        return not (self == other)
 
     @abstractmethod
     def __str__(self):
@@ -26,7 +33,17 @@ class Constant(Expression):
         :param val: value of the constant
         """
         super().__init__(typ)
-        self.val = val
+        self._val = val
+
+    @property
+    def val(self):
+        return self._val
+
+    def __eq__(self, other: 'Constant'):
+        return (self.typ, self.val) == (other.typ, other.val)
+
+    def __hash__(self):
+        return hash((self.typ, self.val))
 
     def __str__(self):
         return self.val
@@ -40,7 +57,17 @@ class Identifier(Expression):
         :param name: name of the identifier
         """
         super().__init__(typ)
-        self.name = name
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
+
+    def __eq__(self, other: 'Identifier'):
+        return (self.typ, self.name) == (other.typ, other.name)
+
+    def __hash__(self):
+        return hash((self.typ, self.name))
 
     def __str__(self):
         return self.name
