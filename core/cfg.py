@@ -31,6 +31,9 @@ class Node(ABC):
     def __ne__(self, other: 'Node'):
         return not (self == other)
 
+    def __repr__(self):
+        return str(self)
+
     @abstractmethod
     def __str__(self):
         """Node string representation.  
@@ -66,7 +69,7 @@ class Edge(ABC):
         Default = 0
         In = 1  # loop entry edge
 
-    def __init__(self, source: Node, target: Node, kind=Kind.Default):
+    def __init__(self, source: Node, target: Node, kind: Kind = Kind.Default):
         """Edge of a control flow graph.
         
         :param source: source node of the edge
@@ -98,6 +101,16 @@ class Edge(ABC):
     def __ne__(self, other: 'Edge'):
         return not (self == other)
 
+    def __repr__(self):
+        return str(self)
+
+    @abstractmethod
+    def __str__(self):
+        """Edge string representation.  
+
+        :return: string representing the edge
+        """
+
     def is_in(self):
         return self.kind is Edge.Kind.In
 
@@ -115,6 +128,9 @@ class Unconditional(Edge):
         """
         super().__init__(source, target, kind)
 
+    def __str__(self):
+        return "{0.source} -- {0.target}".format(self)
+
 
 class Conditional(Edge):
     def __init__(self, source: Node, target: Node, condition: Statement, kind=Edge.Kind.Default):
@@ -131,6 +147,9 @@ class Conditional(Edge):
     @property
     def condition(self):
         return self._condition
+
+    def __str__(self):
+        return "{0.source} -{0.condition}- {0.target}".format(self)
 
 
 class ControlFlowGraph(object):
@@ -169,7 +188,7 @@ class ControlFlowGraph(object):
         :param identifier: identifier of the node
         :return: set of ingoing edges of the node
         """
-        return {edge for edge in self.edges if edge.target == identifier}
+        return {edge for edge in self.edges if edge[1].identifier == identifier}
 
     def out_edges(self, identifier: int) -> Set[Edge]:
         """Outgoing edges of a given node.
@@ -177,4 +196,4 @@ class ControlFlowGraph(object):
         :param identifier: identifier of the node
         :return: set of outgoing edges of the node
         """
-        return {edge for edge in self.edges if edge.source == identifier}
+        return {edge for edge in self.edges if edge[0].identifier == identifier}

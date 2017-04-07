@@ -30,6 +30,9 @@ class ProgramPoint(object):
     def __ne__(self, other: 'ProgramPoint'):
         return not (self == other)
 
+    def __repr__(self):
+        return str(self)
+
     def __str__(self):
         """Program point string representation
 
@@ -50,14 +53,8 @@ class Statement(ABC):
     def pp(self):
         return self._pp
 
-    def __eq__(self, other: 'Statement'):
-        return self.pp == other.pp
-
-    def __hash__(self):
-        return hash(self.pp)
-
-    def __ne__(self, other: 'Statement'):
-        return not (self == other)
+    def __repr__(self):
+        return str(self)
 
     @abstractmethod
     def __str__(self):
@@ -98,7 +95,7 @@ class ConstantEvaluation(Statement):
         return self._val
 
     def __str__(self):
-        return "{0.pp} {0.val}".format(self)
+        return "{0.val}".format(self)
 
     def semantic(self, state: State) -> State:
         return state.evaluate_constant(self.val)
@@ -125,7 +122,7 @@ class VariableAccess(Statement):
         return self._var
 
     def __str__(self):
-        return "{0.pp} {0.var}".format(self)
+        return "{0.var}".format(self)
 
     def semantics(self, state: State) -> State:
         return state.access_variable(self.var)

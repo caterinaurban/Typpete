@@ -1,133 +1,49 @@
-from abc import ABC, abstractmethod
-from copy import copy
-from enum import Enum
+from abc import abstractmethod
+from copy import deepcopy
 from expressions import Expression, Constant, VariableIdentifier
+from lattice import Lattice
 from typing import Set
 
 
-class Lattice(ABC):
-    class Kind(Enum):
-        """Kind of a lattice element."""
-        Bottom = -1     # bottom element
-        Default = 0
-        Top = 1         # top element
+class State(Lattice):
+    class Internal(Lattice.Internal):
+        def __init__(self, kind: Lattice.Kind, result: Set[Expression]):
+            """Analysis state internal representation.
+            
+            :param kind: kind of lattice element
+            :param result: set of expressions representing the result of the previously analyzed statement
+            """
+            super().__init__(kind)
+            self._result = result
 
-    def __init__(self, kind: Kind):
-        """Lattice structure representation.
-        Account for lattice operations by creating a new lattice element.
-        
-        :param kind: kind of lattice element
-        """
-        self._kind = kind
+        @property
+        def result(self):
+            return self._result
 
-    @property
-    def kind(self):
-        return self._kind
+        @result.setter
+        def result(self, result: Set[Expression]):
+            self._result = result
 
-    def is_bottom(self):
-        """Test whether the lattice element is bottom.
-        
-        :return: whether the lattice element is bottom
-        """
-        return self.kind == Lattice.Kind.Bottom
-
-    def is_top(self):
-        """Test whether the lattice element is top.
-
-        :return: whether the lattice element is top
-        """
-        return self.kind == Lattice.Kind.Top
-
-    @abstractmethod
-    def less_equal_default(self, other: 'Lattice') -> bool:
-        """Partial order between default lattice elements.
-
-        :param other: other lattice element
-        :return: whether the current lattice element is less than or equal to the other lattice element 
-        """
-
-    def less_equal(self, other: 'Lattice') -> bool:
-        """Partial order between lattice elements.
-        
-        :param other: other lattice element
-        :return: whether the current lattice element is less than or equal to the other lattice element 
-        """
-        return self.is_bottom() or other.is_top() or self.less_equal_default(other)
-
-    @abstractmethod
-    def join_default(self, other: 'Lattice') -> 'Lattice':
-        """Least upper bound between default lattice elements.
-
-        :param other: other lattice element
-        :return: new lattice element which is the least upper bound of the two lattice elements
-        """
-
-    def join(self, other: 'Lattice') -> 'Lattice':
-        """Least upper bound between lattice elements.
-        
-        :param other: other lattice element
-        :return: new lattice element which is the least upper bound of the two lattice elements
-        """
-        if self.is_bottom() or other.is_top():
-            return copy(other)
-        elif other.is_bottom() or self.is_top():
-            return copy(self)
-        else:
-            return self.join_default(other)
-
-    @abstractmethod
-    def meet_default(self, other: 'Lattice'):
-        """Greatest lower bound between default lattice elements.
-
-        :param other: other lattice element 
-        :return: new lattice element which is the greatest lower bound of the two lattice elements
-        """
-
-    def meet(self, other: 'Lattice'):
-        """Greatest lower bound between lattice elements.
-        
-        :param other: other lattice element 
-        :return: new lattice element which is the greatest lower bound of the two lattice elements
-        """
-        if self.is_top() or other.is_bottom():
-            return copy(other)
-        elif other.is_top() or self.is_bottom():
-            return copy(self)
-        else:
-            return self.meet_default(other)
-
-    @abstractmethod
-    def widening_default(self, other: 'Lattice'):
-        """Widening between default lattice elements.
-
-        :param other: other lattice element 
-        :return: new lattice element which is the widening of the two lattice elements
-        """
-
-    def widening(self, other: 'Lattice'):
-        """Widening between lattice elements.
-        
-        :param other: other lattice element 
-        :return: new lattice element which is the widening of the two lattice elements
-        """
-        if self.is_bottom() or other.is_top():
-            return copy(other)
-        else:
-            return self.widening_default(other)
-
-
-class State(ABC):
-    def __init__(self, result: Set[Expression]):
+    def __init__(self, kind: Lattice.Kind = Lattice.Kind.Default, result: Set[Expression] = set()):
         """Analysis state representation. 
-        Account for statement effects by modifying the current state.
+        Account for lattice operations and statement effects by modifying the current internal representation.
         
         :param result: set of expressions representing the result of the previously analyzed statement 
         """
-        self._result = result
+        super().__init__(kind)
+        self._internal = State.Internal(kind, result)
+
+    @property
+    def internal(self):
+        return self._internal
 
     @property
     def result(self):
-        return self._result
+        return self.internal.result
+
+    @result.setter
+    def result(self, result):
+        self.internal.result = result
 
     @abstractmethod
     def __str__(self):
@@ -150,17 +66,28 @@ class State(ABC):
         :param variable: variable to be accesses
         :return: current state modified by the variable access
         """
-        self._result = self.access_variable_value(variable)
+        self.result = self.access_variable_value(variable)
         return self
 
     @abstractmethod
-    def assign_variable(self, left: Set[Expression], right: Set[Expression]):
-        """Assign an expression to a variable
+    def assign_variable_expression(self, left: Expression, right: Expression) -> 'State':
+        """Assign an expression to a variable.
         
-        :param left: 
-        :param right: 
-        :return: 
+        :param left: expression representing the variable to be assigned to 
+        :param right: expression representing the expression to assign
+        :return: current state modified by the variable assignment
         """
+
+    def assign_variable(self, left: Set[Expression], right: Set[Expression]) -> 'State':
+        """Assign an expression to a variable.
+        
+        :param left: set of expressions representing the variable to be assigned to
+        :param right: set of expressions representing the expression to assign
+        :return: current state modified by the variable assignment
+        """
+        self.big_join([deepcopy(self).assign_variable_expression(lhs, rhs) for lhs in left for rhs in right])
+        self.result = set()     # assignments have no result, only side-effects
+        return self
 
     @abstractmethod
     def evaluate_constant_value(self, constant: Constant) -> Set[Expression]:
@@ -176,14 +103,25 @@ class State(ABC):
         :param constant: constant to be evaluated
         :return: current state modified by the constant evaluation
         """
-        self._result = self.evaluate_constant_value(constant)
+        self.result = self.evaluate_constant_value(constant)
         return self
 
     @abstractmethod
-    def substitute_variable(self, left: Set[Expression], right: Set[Expression]):
+    def substitute_variable_expression(self, left: Expression, right: Expression) -> 'State':
+        """Substitute an expression to a variable.
+
+        :param left: set of expressions representing the variable to be substituted
+        :param right: set of expressions representing the expression to substitute
+        :return: current state modified by the variable substitution
         """
+
+    def substitute_variable(self, left: Set[Expression], right: Set[Expression]) -> 'State':
+        """Substitute an expression to a variable.
         
-        :param left: 
-        :param right: 
-        :return: 
+        :param left: set of expressions representing the variable to be substituted
+        :param right: set of expressions representing the expression to substitute
+        :return: current state modified by the variable substitution
         """
+        self.big_join([deepcopy(self).substitute_variable_expression(lhs, rhs) for lhs in left for rhs in right])
+        self.result = set()  # assignments have no result, only side-effects
+        return self
