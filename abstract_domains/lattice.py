@@ -23,6 +23,26 @@ class Lattice(ABC):
         def kind(self):
             return self._kind
 
+        @kind.setter
+        def kind(self, kind: 'Lattice.Kind'):
+            self._kind = kind
+
+        def bottom(self):
+            """Return the bottom lattice element internal representation.
+            
+            :return: current internal representation modified to be the bottom lattice element
+            """
+            self.kind = Lattice.Kind.Bottom
+            return self
+
+        def top(self):
+            """Return the top lattice element internal representation.
+            
+            :return: current internal representation modified to be the top lattice element
+            """
+            self.kind = Lattice.Kind.Top
+            return self
+
     def __init__(self, kind: Kind = Kind.Default):
         """Lattice representation.
         Account for lattice operations by modifying the current internal representation.
@@ -39,30 +59,30 @@ class Lattice(ABC):
     def kind(self):
         return self.internal.kind
 
-    @classmethod
-    def bottom(cls):
-        """Create a new bottom lattice element. 
+    def bottom(self) -> 'Lattice':
+        """Return the bottom lattice element. 
 
-        :return: new bottom lattice element
+        :return: current lattice element modified to be the bottom lattice element
         """
-        return type(cls)(Lattice.Kind.Bottom)
+        self.internal.bottom()
+        return self
 
-    @classmethod
-    def top(cls):
-        """Create a new top lattice element.
+    def top(self) -> 'Lattice':
+        """Return the top lattice element.
 
-        :return: new top lattice element
+        :return: current lattice element modified to be the top lattice element
         """
-        return type(cls)(Lattice.Kind.Top)
+        self.internal.top()
+        return self
 
-    def is_bottom(self):
+    def is_bottom(self) -> bool:
         """Test whether the lattice element is bottom.
 
         :return: whether the lattice element is bottom
         """
         return self.kind == Lattice.Kind.Bottom
 
-    def is_top(self):
+    def is_top(self) -> bool:
         """Test whether the lattice element is top.
 
         :return: whether the lattice element is top
@@ -90,7 +110,7 @@ class Lattice(ABC):
         """Least upper bound between default lattice elements.
 
         :param other: other lattice element
-        :return: current lattice element modified to the least upper bound of the two lattice elements
+        :return: current lattice element modified to be the least upper bound of the two lattice elements
         """
 
     def join(self, other: 'Lattice') -> 'Lattice':
@@ -112,7 +132,7 @@ class Lattice(ABC):
         :param elements: lattice elements to compute the least upper bound of
         :return: current lattice element modified to be the least upper bound of the lattice elements
         """
-        return reduce(lambda s1, s2: s1.join(s2), elements, self.replace(self.bottom()))
+        return reduce(lambda s1, s2: s1.join(s2), elements, self.bottom())
 
     @abstractmethod
     def meet_default(self, other: 'Lattice'):
@@ -141,7 +161,7 @@ class Lattice(ABC):
         :param elements: lattice elements to compute the greatest lower bound of
         :return: current lattice element modified to be the least upper bound of the lattice elements
         """
-        return reduce(lambda s1, s2: s1.meet(s2), elements, self.replace(self.top()))
+        return reduce(lambda s1, s2: s1.meet(s2), elements, self.top())
 
     @abstractmethod
     def widening_default(self, other: 'Lattice'):
