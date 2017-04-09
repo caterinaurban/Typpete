@@ -1,6 +1,7 @@
 from cfg import Basic, Unconditional, ControlFlowGraph
 from copy import deepcopy
 from lattice import Lattice
+from result import AnalysisResult
 from statements import ProgramPoint, ConstantEvaluation, VariableAccess, Assignment
 from expressions import Expression, Constant, VariableIdentifier
 from state import State
@@ -82,7 +83,7 @@ class DummyState(State):
         self.internal.variables = variables
 
     def __str__(self):
-        result = "".join("{}".format(expression) for expression in self.result)
+        result = ", ".join("{}".format(expression) for expression in self.result)
         variables = "".join("\n{} -> {} ".format(variable, value) for variable, value in self.variables.items())
         return "[{}] {}".format(result, variables)
 
@@ -143,4 +144,13 @@ print("s3: {}\n".format(s3))
 
 s4 = deepcopy(s3)
 stmt3.forward_semantics(s4)
-print("s4: {}\n".format(s4))
+print("s4: {}".format(s4))
+
+# Analysis Result
+print("\nAnalysis Result\n")
+
+analysis = AnalysisResult(cfg)
+analysis.set_block_result(1, [s1])
+analysis.set_block_result(2, [s1, s2, s3, s4])
+analysis.set_block_result(3, [s4])
+print("{}".format(analysis))

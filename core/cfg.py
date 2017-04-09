@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List, Set
+from typing import Dict, List, Set, Tuple
 from statements import Statement
 
 
@@ -167,19 +167,19 @@ class ControlFlowGraph(object):
         self._edges = {(edge.source, edge.target): edge for edge in edges}
 
     @property
-    def nodes(self):
+    def nodes(self) -> Dict[int, Node]:
         return self._nodes
 
     @property
-    def in_node(self):
+    def in_node(self) -> Node:
         return self._in_node
 
     @property
-    def out_node(self):
+    def out_node(self) -> Node:
         return self._out_node
 
     @property
-    def edges(self):
+    def edges(self) -> Dict[Tuple[Node, Node], Edge]:
         return self._edges
 
     def in_edges(self, identifier: int) -> Set[Edge]:
@@ -188,7 +188,7 @@ class ControlFlowGraph(object):
         :param identifier: identifier of the node
         :return: set of ingoing edges of the node
         """
-        return {edge for edge in self.edges if edge[1].identifier == identifier}
+        return {self.edges[(source, target)] for (source, target) in self.edges if target == identifier}
 
     def out_edges(self, identifier: int) -> Set[Edge]:
         """Outgoing edges of a given node.
@@ -196,4 +196,4 @@ class ControlFlowGraph(object):
         :param identifier: identifier of the node
         :return: set of outgoing edges of the node
         """
-        return {edge for edge in self.edges if edge[0].identifier == identifier}
+        return {self.edges[(source, target)] for (source, target) in self.edges if source == identifier}
