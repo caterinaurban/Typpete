@@ -1,4 +1,4 @@
-from cfg import ControlFlowGraph
+from cfg import Node, ControlFlowGraph
 from itertools import zip_longest
 from state import State
 from typing import List
@@ -21,21 +21,21 @@ class AnalysisResult(object):
     def result(self):
         return self._result
 
-    def get_block_result(self, identifier: int) -> List[State]:
-        """Get the analysis result for a block.
+    def get_node_result(self, node: Node) -> List[State]:
+        """Get the analysis result for a node.
         
-        :param identifier: identifier of the analyzed block
+        :param node: analyzed node
         :return: list of states representing the result of the analysis for the block
         """
-        return self.result[identifier]
+        return self.result[node]
 
-    def set_block_result(self, identifier: int, states: List[State]) -> None:
-        """Set the analysis result for a block.
+    def set_node_result(self, node: Node, states: List[State]) -> None:
+        """Set the analysis result for a node.
         
-        :param identifier: identifier of the analyzed block
+        :param node: analyzed node
         :param states: list of states representing the result of the analysis for the block
         """
-        self.result[identifier] = states
+        self.result[node] = states
 
     def __str__(self):
         """Analysis result string representation.
@@ -46,7 +46,7 @@ class AnalysisResult(object):
         for identifier in self.cfg.nodes:
             node = self.cfg.nodes[identifier]
             result.append("********* {} *********".format(node))
-            states = self.get_block_result(identifier)
-            block = [elm for pair in zip_longest(states, node.stmts) for elm in pair if elm is not None]
-            result.append("\n".join("{}".format(elm) for elm in block))
+            states = self.get_node_result(self.cfg.nodes[identifier])
+            node = [item for items in zip_longest(states, node.stmts) for item in items if item is not None]
+            result.append("\n".join("{}".format(item) for item in node))
         return "\n".join(res for res in result)

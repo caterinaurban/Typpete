@@ -1,5 +1,7 @@
 from cfg import Basic, Unconditional, ControlFlowGraph
 from copy import deepcopy
+
+from forward import ForwardInterpreter
 from lattice import Lattice
 from result import AnalysisResult
 from statements import ProgramPoint, ConstantEvaluation, VariableAccess, Assignment
@@ -88,13 +90,18 @@ class DummyState(State):
         return "[{}] {}".format(result, variables)
 
     def less_equal_default(self, other: 'DummyState') -> bool:
-        return True
+        result = True
+        for var in self.variables:
+            l = self.variables[var]
+            r = other.variables[var]
+            result = result and int(l.val) < int(r.val)
+        return result
 
     def join_default(self, other: 'DummyState') -> 'DummyState':
         for var in self.variables:
             l = self.variables[var]
             r = other.variables[var]
-            if int(r) > int(l):
+            if int(r.val) > int(l.val):
                 self.variables[var] = r
         return self
 
@@ -132,25 +139,23 @@ class DummyState(State):
 
 
 s1 = DummyState([x, y])
-print("s1: {}\n".format(s1))
-
+# print("s1: {}\n".format(s1))
 s2 = deepcopy(s1)
 stmt1.forward_semantics(s2)
-print("s2: {}\n".format(s2))
-
+# print("s2: {}\n".format(s2))
 s3 = deepcopy(s2)
 stmt2.forward_semantics(s3)
-print("s3: {}\n".format(s3))
-
+# print("s3: {}\n".format(s3))
 s4 = deepcopy(s3)
 stmt3.forward_semantics(s4)
-print("s4: {}".format(s4))
-
-# Analysis Result
-print("\nAnalysis Result\n")
+# print("s4: {}".format(s4))
 
 analysis = AnalysisResult(cfg)
-analysis.set_block_result(1, [s1])
-analysis.set_block_result(2, [s1, s2, s3, s4])
-analysis.set_block_result(3, [s4])
+analysis.set_node_result(n1, [s1])
+analysis.set_node_result(n2, [s1, s2, s3, s4])
+analysis.set_node_result(n3, [s4])
+# print("{}".format(analysis))
+
+interpreter = ForwardInterpreter(cfg, 3)
+analysis = interpreter.analyze(DummyState([x, y]))
 print("{}".format(analysis))

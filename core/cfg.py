@@ -53,6 +53,19 @@ class Basic(Node):
     def __init__(self, identifier: int, stmts: List[Statement]):
         """Basic node of a control flow graph.
         
+        :param identifier: identifier associated with the node  
+        :param stmts: list of statements stored in the node 
+        """
+        super().__init__(identifier, stmts)
+
+    def __str__(self):
+        return str(self.identifier)
+
+
+class Loop(Node):
+    def __init__(self, identifier: int, stmts: List[Statement] = list()):
+        """Loop head node of a control flow graph.
+
         :param identifier: identifier associated with the block  
         :param stmts: list of statements stored in the block 
         """
@@ -182,18 +195,34 @@ class ControlFlowGraph(object):
     def edges(self) -> Dict[Tuple[Node, Node], Edge]:
         return self._edges
 
-    def in_edges(self, identifier: int) -> Set[Edge]:
+    def in_edges(self, node: Node) -> Set[Edge]:
         """Ingoing edges of a given node.
         
-        :param identifier: identifier of the node
+        :param node: given node
         :return: set of ingoing edges of the node
         """
-        return {self.edges[(source, target)] for (source, target) in self.edges if target == identifier}
+        return {self.edges[(source, target)] for (source, target) in self.edges if target == node}
 
-    def out_edges(self, identifier: int) -> Set[Edge]:
+    def predecessors(self, node: Node) -> Set[Node]:
+        """Predecessors of a given node.
+
+        :param node: given node
+        :return: set of predecessors of the node
+        """
+        return {edge.source for edge in self.in_edges(node)}
+
+    def out_edges(self, node: Node) -> Set[Edge]:
         """Outgoing edges of a given node.
 
-        :param identifier: identifier of the node
+        :param node: given node
         :return: set of outgoing edges of the node
         """
-        return {self.edges[(source, target)] for (source, target) in self.edges if source == identifier}
+        return {self.edges[(source, target)] for (source, target) in self.edges if source == node}
+
+    def successors(self, node: Node) -> Set[Node]:
+        """Successors of a given node.
+        
+        :param node: given node
+        :return: set of successors of the node
+        """
+        return {edge.target for edge in self.out_edges(node)}
