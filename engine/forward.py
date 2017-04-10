@@ -1,9 +1,9 @@
 from copy import deepcopy
-from cfg import Basic, Loop, Conditional, ControlFlowGraph
-from interpreter import Interpreter
+from core.cfg import Basic, Loop, Conditional, ControlFlowGraph
+from engine.interpreter import Interpreter
 from queue import Queue
-from result import AnalysisResult
-from state import State
+from engine.result import AnalysisResult
+from abstract_domains.state import State
 
 
 class ForwardInterpreter(Interpreter):
