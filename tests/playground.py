@@ -1,12 +1,12 @@
-from cfg import Basic, Unconditional, ControlFlowGraph
+from core.cfg import Basic, Unconditional, ControlFlowGraph
 from copy import deepcopy
 
-from forward import ForwardInterpreter
-from lattice import Lattice
-from result import AnalysisResult
-from statements import ProgramPoint, ConstantEvaluation, VariableAccess, Assignment
-from expressions import Expression, Constant, VariableIdentifier
-from state import State
+from engine.forward import ForwardInterpreter
+from abstract_domains.lattice import Lattice
+from engine.result import AnalysisResult
+from core.statements import ProgramPoint, ConstantEvaluation, VariableAccess, Assignment
+from core.expressions import Expression, Constant, VariableIdentifier
+from abstract_domains.state import State
 from typing import Dict, List, Set
 
 # Statements

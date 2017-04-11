@@ -1,6 +1,6 @@
-from cfg import Node, ControlFlowGraph
+from core.cfg import Node, ControlFlowGraph
 from itertools import zip_longest
-from state import State
+from abstract_domains.state import State
 from typing import List
 
 

@@ -1,7 +1,7 @@
-from cfg import ControlFlowGraph
-from interpreter import Interpreter
-from result import AnalysisResult
-from state import State
+from core.cfg import ControlFlowGraph
+from engine.interpreter import Interpreter
+from engine.result import AnalysisResult
+from abstract_domains.state import State
 
 
 class BackwardInterpreter(Interpreter):

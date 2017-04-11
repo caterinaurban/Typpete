@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from state import State
-from expressions import Constant, VariableIdentifier
+from abstract_domains.state import State
+from core.expressions import Constant, VariableIdentifier
 
 
 class ProgramPoint(object):

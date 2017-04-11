@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from cfg import ControlFlowGraph
-from result import AnalysisResult
-from state import State
+from core.cfg import ControlFlowGraph
+from engine.result import AnalysisResult
+from abstract_domains.state import State
 
 
 class Interpreter(ABC):

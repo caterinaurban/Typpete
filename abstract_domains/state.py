@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from copy import deepcopy
-from expressions import Expression, Constant, VariableIdentifier
-from lattice import Lattice
+from core.expressions import Expression, Constant, VariableIdentifier
+from abstract_domains.lattice import Lattice
 from typing import Set
 
 
