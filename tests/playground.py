@@ -1,6 +1,8 @@
+from abstract_domains.live_dead import LiveDead
 from core.cfg import Basic, Unconditional, ControlFlowGraph
 from copy import deepcopy
 
+from engine.backward import BackwardInterpreter
 from engine.forward import ForwardInterpreter
 from abstract_domains.lattice import Lattice
 from engine.result import AnalysisResult
@@ -126,16 +128,16 @@ class DummyState(State):
             elif isinstance(right, VariableIdentifier):
                 self.variables[left] = self.variables[right]
             else:
-                NotImplementedError("")
+                raise NotImplementedError("")
             return self
         else:
-            NotImplementedError("")
+            raise NotImplementedError("")
 
     def evaluate_constant_value(self, constant: Constant):
         return {constant}
 
     def substitute_variable_expression(self, left: Expression, right: Expression):
-        NotImplementedError("")
+        raise NotImplementedError("")
 
 
 s1 = DummyState([x, y])
@@ -159,3 +161,10 @@ analysis.set_node_result(n3, [s4])
 interpreter = ForwardInterpreter(cfg, 3)
 analysis = interpreter.analyze(DummyState([x, y]))
 print("{}".format(analysis))
+
+# Live/Dead Analysis
+print("\nLive/Dead Analysis\n")
+
+binterpreter = BackwardInterpreter(cfg, 3)
+banalysis = binterpreter.analyze(LiveDead([x, y]))
+print("{}".format(banalysis))

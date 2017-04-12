@@ -163,12 +163,12 @@ class Assignment(Statement):
         if isinstance(self.left, VariableAccess):
             return state.assign_variable(lhs, rhs)
         else:
-            NotImplementedError("Forward semantics for assignment {0!s} not yet implemented!".format(self))
+            raise NotImplementedError("Forward semantics for assignment {0!s} not yet implemented!".format(self))
 
     def backward_semantics(self, state: State) -> State:
         lhs = self.left.backward_semantics(state).result    # lhs evaluation
         rhs = self.right.backward_semantics(state).result   # rhs evaluation
         if isinstance(self.left, VariableAccess):
-            return rhs.substitute_variable(lhs, rhs)
+            return state.substitute_variable(lhs, rhs)
         else:
-            NotImplementedError("Backward semantics for assignment {0!s} not yet implemented!".format(self))
+            raise NotImplementedError("Backward semantics for assignment {0!s} not yet implemented!".format(self))

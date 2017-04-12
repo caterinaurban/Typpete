@@ -1,3 +1,4 @@
+from collections import deque
 from copy import deepcopy
 from core.cfg import Basic, Loop, Conditional, ControlFlowGraph
 from engine.interpreter import Interpreter
@@ -50,7 +51,7 @@ class ForwardInterpreter(Interpreter):
 
             # check for termination and execute block
             if not entry.less_equal(previous):
-                states = [entry]
+                states = deque([entry])
                 if isinstance(current, Basic):
                     successor = entry
                     for stmt in current.stmts:
@@ -59,7 +60,7 @@ class ForwardInterpreter(Interpreter):
                 elif isinstance(current, Loop):
                     # nothing to be done
                     pass
-                self.result.set_node_result(current, states)
+                self.result.set_node_result(current, list(states))
                 # update worklist and iteration count
                 for node in self.cfg.successors(current):
                     worklist.put(node)

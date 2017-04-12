@@ -103,7 +103,12 @@ class Lattice(ABC):
         :param other: other lattice element
         :return: whether the current lattice element is less than or equal to the other lattice element 
         """
-        return self.is_bottom() or other.is_top() or self.less_equal_default(other)
+        if self.is_bottom() or other.is_top():
+            return True
+        elif other.is_bottom() or self.is_top():
+            return False
+        else:
+            return self.less_equal_default(other)
 
     @abstractmethod
     def join_default(self, other: 'Lattice') -> 'Lattice':
