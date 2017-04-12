@@ -9,6 +9,8 @@ from core.expressions import Expression, Constant, VariableIdentifier
 from abstract_domains.state import State
 from typing import Dict, List, Set
 
+from visualization.graph_renderer import CfgRenderer
+
 # Statements
 print("\nStatements\n")
 
@@ -47,6 +49,9 @@ e23 = Unconditional(n2, n3)
 print("e23: {}".format(e23))
 
 cfg = ControlFlowGraph({n1, n2, n3}, n1, n3, {e12, e23})
+
+# render cfg graph
+CfgRenderer().render(cfg, label="playground")
 
 # Analysis
 print("\nAnalysis\n")

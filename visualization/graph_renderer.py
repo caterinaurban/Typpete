@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import graphviz as gv
 import subprocess
 import numbers
@@ -5,28 +6,23 @@ from uuid import uuid4 as uuid
 
 
 class GraphRenderer:
-    """
-    this class is capable of rendering data structures consisting of
-    dicts and lists as a graph using graphviz
-    """
-
     graphattrs = {
         'labelloc': 't',
-        'fontcolor': 'white',
-        'bgcolor': '#333333',
+        'fontcolor': 'black',
+        'bgcolor': '#FFFFFF',
         'margin': '0',
     }
 
     nodeattrs = {
-        'color': 'white',
-        'fontcolor': 'white',
+        'color': 'black',
+        'fontcolor': 'black',
         'style': 'filled',
-        'fillcolor': '#006699',
+        'fillcolor': '#70a6ff',
     }
 
     edgeattrs = {
-        'color': 'white',
-        'fontcolor': 'white',
+        'color': 'black',
+        'fontcolor': 'black',
     }
 
     _graph = None
@@ -43,7 +39,49 @@ class GraphRenderer:
             return string[:halflen] + "..." + string[-halflen:]
         return string
 
+    @abstractmethod
+    def _render_graph(self, data):
+        """
+        Entry point for rendering graph represented by data.
+        :param data: the whole data necessary to render graph
+        :return:
+        """
+
+    def render(self, data, *, label=None):
+        # create the graph
+        graphattrs = self.graphattrs.copy()
+        if label is not None:
+            graphattrs['label'] = self._escape_dot_label(label)
+        graph = gv.Digraph(graph_attr=graphattrs, node_attr=self.nodeattrs, edge_attr=self.edgeattrs)
+
+        # recursively draw all the nodes and edges
+        self._graph = graph
+        self._rendered_nodes = set()
+        self._render_graph(data)
+        self._graph = None
+        self._rendered_nodes = None
+
+        # display the graph
+        graph.format = "pdf"
+        graph.view()
+        subprocess.Popen(['xdg-open', "test.pdf"])
+
+
+class ListDictTreeRenderer(GraphRenderer):
+    """
+    this class is capable of rendering data structures consisting of
+    dicts and lists as a graph using graphviz
+    """
+
+    def _render_graph(self, data):
+        self._render_node(data)
+
     def _render_node(self, node):
+        """
+        Renders a node. Recursive callee for node rendering.
+        :param node: the representation of a node (dependent of rendered data structure)
+        :return: node id of created node
+        """
         if isinstance(node, (str, numbers.Number)) or node is None:
             node_id = uuid()
         else:
@@ -75,21 +113,23 @@ class GraphRenderer:
             child_node_id = self._render_node(value)
             self._graph.edge(node_id, child_node_id, label=self._escape_dot_label(str(idx)))
 
-    def render(self, data, *, label=None):
-        # create the graph
-        graphattrs = self.graphattrs.copy()
-        if label is not None:
-            graphattrs['label'] = self._escape_dot_label(label)
-        graph = gv.Digraph(graph_attr=graphattrs, node_attr=self.nodeattrs, edge_attr=self.edgeattrs)
 
-        # recursively draw all the nodes and edges
-        self._graph = graph
-        self._rendered_nodes = set()
-        self._render_node(data)
-        self._graph = None
-        self._rendered_nodes = None
+class CfgRenderer(GraphRenderer):
+    """
+    this class is capable of rendering a cfg
+    """
 
-        # display the graph
-        graph.format = "pdf"
-        graph.view()
-        subprocess.Popen(['xdg-open', "test.pdf"])
+    def _render_graph(self, cfg):
+        for node_id, node in cfg.nodes.items():
+            fillcolor = self.nodeattrs['fillcolor']
+            if node is cfg.in_node:
+                fillcolor = '#24bf26'
+            elif node is cfg.out_node:
+                fillcolor = '#ce3538'
+
+            self._graph.node(str(node_id), label=self._escape_dot_label(self._shorten_string(repr(node))),
+                             fillcolor=fillcolor)
+
+        for edge in cfg.edges.values():
+            self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
+                             label=self._escape_dot_label(repr(edge)))

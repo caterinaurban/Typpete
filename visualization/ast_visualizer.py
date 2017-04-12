@@ -1,7 +1,7 @@
 import re
 import optparse
 import sys
-from visualization.graph_renderer import GraphRenderer
+from visualization.graph_renderer import ListDictTreeRenderer
 
 
 def main(args):
@@ -28,7 +28,7 @@ def main(args):
 
     code_ast = generate_pyast(code)
 
-    renderer = GraphRenderer()
+    renderer = ListDictTreeRenderer()
     renderer.render(code_ast, label=label)
 
 
