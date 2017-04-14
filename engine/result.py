@@ -1,5 +1,3 @@
-from queue import Queue
-
 from abstract_domains.state import State
 from core.cfg import Node, ControlFlowGraph, Edge
 from itertools import zip_longest
