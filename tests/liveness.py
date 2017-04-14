@@ -1,19 +1,18 @@
 from abstract_domains.liveness import LiveDead
 from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional
-from core.expressions import Literal, VariableIdentifier, BinaryComparisonOperation, \
-    BinaryArithmeticOperation, UnaryBooleanOperation
+import core.expressions
 from core.statements import ProgramPoint, ExpressionEvaluation, VariableAccess, Assignment
 from engine.backward import BackwardInterpreter
 
 # Expressions and Statements
 print("\nExpressions and Statements\n")
 
-x = VariableIdentifier(int, "x")
-y = VariableIdentifier(int, "y")
-z = VariableIdentifier(int, "z")
-one = Literal(int, "1")
-two = Literal(int, "2")
-four = Literal(int, "4")
+x = core.expressions.VariableIdentifier(int, "x")
+y = core.expressions.VariableIdentifier(int, "y")
+z = core.expressions.VariableIdentifier(int, "z")
+one = core.expressions.Literal(int, "1")
+two = core.expressions.Literal(int, "2")
+four = core.expressions.Literal(int, "4")
 
 # 1: x := 2
 # 2: y := 4
@@ -44,15 +43,15 @@ stmt2 = Assignment(p21, VariableAccess(p21, y), ExpressionEvaluation(p23, four))
 print("stmt2: {}".format(stmt2))
 stmt3 = Assignment(p31, VariableAccess(p31, x), ExpressionEvaluation(p33, one))         # x := 1
 print("stmt3: {}".format(stmt3))
-expr4 = BinaryComparisonOperation(int, y, BinaryComparisonOperation.Operator.Gt, x)     # y > x
-stmt4 = ExpressionEvaluation(p42, expr4)
+expr4 = core.expressions.BinaryComparisonOperation(int, y, core.expressions.BinaryComparisonOperation.Operator.Gt, x)
+stmt4 = ExpressionEvaluation(p42, expr4)                                                # y > x
 print("stmt4: {}".format(expr4))
 stmt5 = Assignment(p52, VariableAccess(p52, z), VariableAccess(p54, y))                 # z := y
 print("stmt5: {}".format(stmt5))
-neg_expr4 = UnaryBooleanOperation(bool, UnaryBooleanOperation.Operator.Neg, expr4)      # !(y > x)
-neg_stmt4 = ExpressionEvaluation(p42, neg_expr4)
+neg_expr4 = core.expressions.UnaryBooleanOperation(bool, core.expressions.UnaryBooleanOperation.Operator.Neg, expr4)
+neg_stmt4 = ExpressionEvaluation(p42, neg_expr4)                                        # !(y > x)
 print("!stmt4: {}".format(neg_stmt4))
-expr6 = BinaryArithmeticOperation(int, y, BinaryArithmeticOperation.Operator.Mul, y)
+expr6 = core.expressions.BinaryArithmeticOperation(int, y, core.expressions.BinaryArithmeticOperation.Operator.Mul, y)
 stmt6 = Assignment(p62, VariableAccess(p62, z), ExpressionEvaluation(p64, expr6))       # z := y * y
 print("stmt6: {}".format(stmt6))
 stmt7 = Assignment(p71, VariableAccess(p71, x), VariableAccess(p73, z))                 # x := z
