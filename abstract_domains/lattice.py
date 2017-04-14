@@ -90,7 +90,7 @@ class Lattice(ABC):
         return self.kind == Lattice.Kind.Top
 
     @abstractmethod
-    def less_equal_default(self, other: 'Lattice') -> bool:
+    def _less_equal(self, other: 'Lattice') -> bool:
         """Partial order between default lattice elements.
 
         :param other: other lattice element
@@ -108,10 +108,10 @@ class Lattice(ABC):
         elif other.is_bottom() or self.is_top():
             return False
         else:
-            return self.less_equal_default(other)
+            return self._less_equal(other)
 
     @abstractmethod
-    def join_default(self, other: 'Lattice') -> 'Lattice':
+    def _join(self, other: 'Lattice') -> 'Lattice':
         """Least upper bound between default lattice elements.
 
         :param other: other lattice element
@@ -129,7 +129,7 @@ class Lattice(ABC):
         elif other.is_bottom() or self.is_top():
             return self
         else:
-            return self.join_default(other)
+            return self._join(other)
 
     def big_join(self, elements: List['Lattice']) -> 'Lattice':
         """Least upper bound between multiple lattice elements
@@ -140,7 +140,7 @@ class Lattice(ABC):
         return reduce(lambda s1, s2: s1.join(s2), elements, self.bottom())
 
     @abstractmethod
-    def meet_default(self, other: 'Lattice'):
+    def _meet(self, other: 'Lattice'):
         """Greatest lower bound between default lattice elements.
 
         :param other: other lattice element 
@@ -158,7 +158,7 @@ class Lattice(ABC):
         elif other.is_top() or self.is_bottom():
             return self
         else:
-            return self.meet_default(other)
+            return self._meet(other)
 
     def big_meet(self, elements: List['Lattice']) -> 'Lattice':
         """Greatest lower bound between multiple lattice elements
@@ -169,7 +169,7 @@ class Lattice(ABC):
         return reduce(lambda s1, s2: s1.meet(s2), elements, self.top())
 
     @abstractmethod
-    def widening_default(self, other: 'Lattice'):
+    def _widening(self, other: 'Lattice'):
         """Widening between default lattice elements.
 
         :param other: other lattice element 
@@ -185,7 +185,7 @@ class Lattice(ABC):
         if self.is_bottom() or other.is_top():
             return self.replace(other)
         else:
-            return self.widening_default(other)
+            return self._widening(other)
 
     def replace(self, other: 'Lattice') -> 'Lattice':
         """Replace the current internal representation with the internal representation of another lattice element.

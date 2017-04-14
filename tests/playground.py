@@ -1,14 +1,11 @@
-from abstract_domains.live_dead import LiveDead
+from abstract_domains.lattice import Lattice
+from abstract_domains.state import State
+from abstract_domains.liveness import LiveDead
 from core.cfg import Basic, Unconditional, ControlFlowGraph
-from copy import deepcopy
-
+from core.expressions import Expression, Literal, VariableIdentifier
+from core.statements import ProgramPoint, ExpressionEvaluation, VariableAccess, Assignment
 from engine.backward import BackwardInterpreter
 from engine.forward import ForwardInterpreter
-from abstract_domains.lattice import Lattice
-from engine.result import AnalysisResult
-from core.statements import ProgramPoint, ConstantEvaluation, VariableAccess, Assignment
-from core.expressions import Expression, Constant, VariableIdentifier
-from abstract_domains.state import State
 from typing import Dict, List, Set
 
 # Statements
@@ -16,8 +13,8 @@ print("\nStatements\n")
 
 x = VariableIdentifier(int, 'x')
 y = VariableIdentifier(int, 'y')
-o = Constant(int, '1')
-t = Constant(int, '3')
+o = Literal(int, '1')
+t = Literal(int, '3')
 
 p11 = ProgramPoint(1, 1)
 p13 = ProgramPoint(1, 3)
@@ -26,9 +23,9 @@ p23 = ProgramPoint(2, 3)
 p31 = ProgramPoint(3, 1)
 p33 = ProgramPoint(3, 3)
 
-stmt1 = Assignment(p11, VariableAccess(p11, x), ConstantEvaluation(p13, o))    # x = 1
+stmt1 = Assignment(p11, VariableAccess(p11, x), ExpressionEvaluation(p13, o))    # x = 1
 print("s1: {}".format(stmt1))
-stmt2 = Assignment(p21, VariableAccess(p21, y), ConstantEvaluation(p23, t))    # y = 3
+stmt2 = Assignment(p21, VariableAccess(p21, y), ExpressionEvaluation(p23, t))    # y = 3
 print("s2: {}".format(stmt2))
 stmt3 = Assignment(p31, VariableAccess(p31, x), VariableAccess(p33, y))        # x = y
 print("s3: {}".format(stmt3))
@@ -57,9 +54,9 @@ print("\nAnalysis\n")
 class DummyState(State):
 
     class Internal(State.Internal):
-        def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind, result: Set[Expression]):
-            super().__init__(kind, result)
-            self._variables = {variable: Constant(int, '0') for variable in variables}
+        def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind):
+            super().__init__(kind)
+            self._variables = {variable: Literal(int, '0') for variable in variables}
 
         @property
         def variables(self):
@@ -69,10 +66,9 @@ class DummyState(State):
         def variables(self, variables):
             self._variables = variables
 
-    def __init__(self, variables: List[VariableIdentifier],
-                 kind: Lattice.Kind = Lattice.Kind.Default, result: Set[Expression] = set()):
-        super().__init__(kind, result)
-        self._internal = DummyState.Internal(variables, kind, result)
+    def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind = Lattice.Kind.Default):
+        super().__init__(kind)
+        self._internal = DummyState.Internal(variables, kind)
 
     @property
     def internal(self):
@@ -83,7 +79,7 @@ class DummyState(State):
         return self.internal.variables
 
     @variables.setter
-    def variables(self, variables: Dict[VariableIdentifier, Constant]):
+    def variables(self, variables: Dict[VariableIdentifier, Literal]):
         self.internal.variables = variables
 
     def __str__(self):
@@ -91,7 +87,7 @@ class DummyState(State):
         variables = "".join("\n{} -> {} ".format(variable, value) for variable, value in self.variables.items())
         return "[{}] {}".format(result, variables)
 
-    def less_equal_default(self, other: 'DummyState') -> bool:
+    def _less_equal(self, other: 'DummyState') -> bool:
         result = True
         for var in self.variables:
             l = self.variables[var]
@@ -99,7 +95,7 @@ class DummyState(State):
             result = result and int(l.val) < int(r.val)
         return result
 
-    def join_default(self, other: 'DummyState') -> 'DummyState':
+    def _join(self, other: 'DummyState') -> 'DummyState':
         for var in self.variables:
             l = self.variables[var]
             r = other.variables[var]
@@ -107,7 +103,7 @@ class DummyState(State):
                 self.variables[var] = r
         return self
 
-    def meet_default(self, other: 'DummyState') -> 'DummyState':
+    def _meet(self, other: 'DummyState') -> 'DummyState':
         for var in self.variables:
             l = self.variables[var]
             r = other.variables[var]
@@ -115,56 +111,59 @@ class DummyState(State):
                 self.variables[var] = r
         return self
 
-    def widening_default(self, other: 'DummyState') -> 'DummyState':
-        return self.join_default(other)
+    def _widening(self, other: 'DummyState') -> 'DummyState':
+        return self._join(other)
 
-    def access_variable_value(self, variable: VariableIdentifier) -> Set[Expression]:
+    def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return {variable}
 
-    def assign_variable_expression(self, left: Expression, right: Expression) -> 'DummyState':
+    def _assign_variable(self, left: Expression, right: Expression) -> 'DummyState':
         if isinstance(left, VariableIdentifier):
-            if isinstance(right, Constant):
+            if isinstance(right, Literal):
                 self.variables[left] = right
             elif isinstance(right, VariableIdentifier):
                 self.variables[left] = self.variables[right]
             else:
                 raise NotImplementedError("")
-            return self
         else:
             raise NotImplementedError("")
+        return self
 
-    def evaluate_constant_value(self, constant: Constant):
-        return {constant}
+    def _assume(self, condition: Expression) -> 'DummyState':
+        pass
 
-    def substitute_variable_expression(self, left: Expression, right: Expression):
+    def _evaluate_expression(self, expression: Expression):
+        return {expression}
+
+    def _substitute_variable(self, left: Expression, right: Expression):
         raise NotImplementedError("")
 
 
-s1 = DummyState([x, y])
+# s1 = DummyState([x, y])
 # print("s1: {}\n".format(s1))
-s2 = deepcopy(s1)
-stmt1.forward_semantics(s2)
+# s2 = deepcopy(s1)
+# stmt1.forward_semantics(s2)
 # print("s2: {}\n".format(s2))
-s3 = deepcopy(s2)
-stmt2.forward_semantics(s3)
+# s3 = deepcopy(s2)
+# stmt2.forward_semantics(s3)
 # print("s3: {}\n".format(s3))
-s4 = deepcopy(s3)
-stmt3.forward_semantics(s4)
+# s4 = deepcopy(s3)
+# stmt3.forward_semantics(s4)
 # print("s4: {}".format(s4))
 
-analysis = AnalysisResult(cfg)
-analysis.set_node_result(n1, [s1])
-analysis.set_node_result(n2, [s1, s2, s3, s4])
-analysis.set_node_result(n3, [s4])
+# dummy_analysis = AnalysisResult(cfg)
+# dummy_analysis.set_node_result(n1, [s1])
+# dummy_analysis.set_node_result(n2, [s1, s2, s3, s4])
+# dummy_analysis.set_node_result(n3, [s4])
 # print("{}".format(analysis))
 
-interpreter = ForwardInterpreter(cfg, 3)
-analysis = interpreter.analyze(DummyState([x, y]))
-print("{}".format(analysis))
+forward_interpreter = ForwardInterpreter(cfg, 3)
+dummy_analysis = forward_interpreter.analyze(DummyState([x, y]))
+print("{}".format(dummy_analysis))
 
 # Live/Dead Analysis
 print("\nLive/Dead Analysis\n")
 
-binterpreter = BackwardInterpreter(cfg, 3)
-banalysis = binterpreter.analyze(LiveDead([x, y]))
-print("{}".format(banalysis))
+backward_interpreter = BackwardInterpreter(cfg, 3)
+liveness_analysis = backward_interpreter.analyze(LiveDead([x, y]))
+print("{}".format(liveness_analysis))

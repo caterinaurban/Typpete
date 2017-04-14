@@ -1,10 +1,10 @@
+from abstract_domains.state import State
 from collections import deque
 from copy import deepcopy
 from core.cfg import Basic, Loop, Conditional, ControlFlowGraph
 from engine.interpreter import Interpreter
-from queue import Queue
 from engine.result import AnalysisResult
-from abstract_domains.state import State
+from queue import Queue
 
 
 class BackwardInterpreter(Interpreter):
@@ -28,7 +28,7 @@ class BackwardInterpreter(Interpreter):
             iteration = iterations[current.identifier]
 
             # retrieve the previous exit state of the node
-            if current.identifier in self.result.result:
+            if current in self.result.result:
                 previous = deepcopy(self.result.get_node_result(current)[-1])
             else:
                 previous = deepcopy(initial).bottom()
@@ -43,7 +43,7 @@ class BackwardInterpreter(Interpreter):
                     successor = deepcopy(self.result.get_node_result(edge.target)[0])
                     # handle conditional edges
                     if isinstance(edge, Conditional):
-                        successor = edge.condition.backward_semantics(successor)
+                        successor = edge.condition.backward_semantics(successor).filter()
                     entry = entry.join(successor)
                 # widening
                 if isinstance(current, Loop) and self.widening < iteration:

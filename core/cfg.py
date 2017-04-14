@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
+from core.statements import Statement
 from enum import Enum
 from typing import Dict, List, Set, Tuple
-from core.statements import Statement
 
 
 class Node(ABC):
@@ -146,7 +146,7 @@ class Unconditional(Edge):
 
 
 class Conditional(Edge):
-    def __init__(self, source: Node, target: Node, condition: Statement, kind=Edge.Kind.Default):
+    def __init__(self, source: Node, condition: Statement, target: Node, kind=Edge.Kind.Default):
         """Conditional edge of a control flow graph.
         
         :param source: source node of the edge
@@ -162,7 +162,7 @@ class Conditional(Edge):
         return self._condition
 
     def __str__(self):
-        return "{0.source} -{0.condition}- {0.target}".format(self)
+        return "{0.source} -- {0.condition} -- {0.target}".format(self)
 
 
 class ControlFlowGraph(object):
