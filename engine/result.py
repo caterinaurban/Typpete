@@ -1,6 +1,6 @@
-from core.cfg import Node, ControlFlowGraph
-from itertools import zip_longest
 from abstract_domains.state import State
+from core.cfg import Node, ControlFlowGraph, Edge
+from itertools import zip_longest
 from typing import List
 
 
@@ -42,11 +42,25 @@ class AnalysisResult(object):
         
         :return: string representing the result of the analysis
         """
+        visited, pending = set(), list()
+        pending.append(self.cfg.in_node)
         result = []
-        for identifier in self.cfg.nodes:
-            node = self.cfg.nodes[identifier]
-            result.append("********* {} *********".format(node))
-            states = self.get_node_result(self.cfg.nodes[identifier])
-            node = [item for items in zip_longest(states, node.stmts) for item in items if item is not None]
-            result.append("\n".join("{}".format(item) for item in node))
+        while pending:
+            current = pending.pop()    # retrieve the current pending item
+            if current not in visited:
+                if isinstance(current, Node):   # print a node
+                    result.append("********* {} *********".format(current))
+                    states = self.get_node_result(current)
+                    node = [item for items in zip_longest(states, current.stmts) for item in items if item is not None]
+                    result.append("\n".join("{}".format(item) for item in node))
+                    # retrieve out edges of the node and add them to the pending items
+                    for edge in self.cfg.out_edges(current):
+                        if edge not in visited:
+                            pending.append(edge)
+                elif isinstance(current, Edge):
+                    result.append("\n{0!s}\n".format(current))
+                    # retrieve target of the edge and add it to the pending items
+                    if current.target not in visited:
+                        pending.append(current.target)
+                visited.add(current)
         return "\n".join(res for res in result)

@@ -443,8 +443,8 @@ def infer(node, context):
         return infer_numeric(node)
     elif isinstance(node, ast.Str):
         return TString()
-    elif (sys.version_info[0] >= 3 and sys.version_info[1] >= 6 and
-              (isinstance(node, ast.FormattedValue) or isinstance(node, ast.JoinedStr))):
+    elif (sys.version_info[0] >= 3 and sys.version_info[1] >= 6
+          and (isinstance(node, ast.FormattedValue) or isinstance(node, ast.JoinedStr))):
         # Formatted strings were introduced in Python 3.6
         return TString()
     elif isinstance(node, ast.Bytes):

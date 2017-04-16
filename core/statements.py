@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from abstract_domains.state import State
-from core.expressions import Constant, VariableIdentifier
+from core.expressions import VariableIdentifier, Expression
 
 
 class ProgramPoint(object):
@@ -80,37 +80,10 @@ class Statement(ABC):
         """
 
 
-class ConstantEvaluation(Statement):
-    def __init__(self, pp: ProgramPoint, val: Constant):
-        """Constant evaluation representation.
-
-        :param pp: program point associated with the constant evaluation
-        :param val: constant being evaluated
-        """
-        super().__init__(pp)
-        self._val = val
-
-    @property
-    def val(self):
-        return self._val
-
-    def __str__(self):
-        return "{0.val}".format(self)
-
-    def semantic(self, state: State) -> State:
-        return state.evaluate_constant(self.val)
-
-    def forward_semantics(self, state: State) -> State:
-        return self.semantic(state)
-
-    def backward_semantics(self, state: State) -> State:
-        return self.semantic(state)
-
-
 class VariableAccess(Statement):
     def __init__(self, pp: ProgramPoint, var: VariableIdentifier):
         """Variable access representation.
-        
+
         :param pp: program point associated with the variable access
         :param var: variable being accessed
         """
@@ -132,6 +105,33 @@ class VariableAccess(Statement):
 
     def backward_semantics(self, state: State) -> State:
         return self.semantics(state)
+
+
+class ExpressionEvaluation(Statement):
+    def __init__(self, pp: ProgramPoint, expression: Expression):
+        """Constant evaluation representation.
+
+        :param pp: program point associated with the constant evaluation
+        :param expression: expression being evaluated
+        """
+        super().__init__(pp)
+        self._expression = expression
+
+    @property
+    def expression(self):
+        return self._expression
+
+    def __str__(self):
+        return "{0.expression}".format(self)
+
+    def semantic(self, state: State) -> State:
+        return state.evaluate_expression(self.expression)
+
+    def forward_semantics(self, state: State) -> State:
+        return self.semantic(state)
+
+    def backward_semantics(self, state: State) -> State:
+        return self.semantic(state)
 
 
 class Assignment(Statement):
@@ -163,12 +163,12 @@ class Assignment(Statement):
         if isinstance(self.left, VariableAccess):
             return state.assign_variable(lhs, rhs)
         else:
-            NotImplementedError("Forward semantics for assignment {0!s} not yet implemented!".format(self))
+            raise NotImplementedError("Forward semantics for assignment {0!s} not yet implemented!".format(self))
 
     def backward_semantics(self, state: State) -> State:
         lhs = self.left.backward_semantics(state).result    # lhs evaluation
         rhs = self.right.backward_semantics(state).result   # rhs evaluation
         if isinstance(self.left, VariableAccess):
-            return rhs.substitute_variable(lhs, rhs)
+            return state.substitute_variable(lhs, rhs)
         else:
-            NotImplementedError("Backward semantics for assignment {0!s} not yet implemented!".format(self))
+            raise NotImplementedError("Backward semantics for assignment {0!s} not yet implemented!".format(self))
