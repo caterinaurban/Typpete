@@ -3,6 +3,7 @@ import graphviz as gv
 import subprocess
 import numbers
 from uuid import uuid4 as uuid
+from core.cfg import *
 
 
 class GraphRenderer:
@@ -39,6 +40,9 @@ class GraphRenderer:
             return string[:halflen] + "..." + string[-halflen:]
         return string
 
+    def _list2lines(self, l):
+        return self._escape_dot_label("\n".join(map(str, l)))
+
     @abstractmethod
     def _render_graph(self, data):
         """
@@ -64,7 +68,7 @@ class GraphRenderer:
         # display the graph
         graph.format = "pdf"
         graph.view()
-        subprocess.Popen(['xdg-open', "test.pdf"])
+        # subprocess.Popen(['xdg-open', "test.pdf"])
 
 
 class ListDictTreeRenderer(GraphRenderer):
@@ -127,9 +131,23 @@ class CfgRenderer(GraphRenderer):
             elif node is cfg.out_node:
                 fillcolor = '#ce3538'
 
-            self._graph.node(str(node_id), label=self._escape_dot_label(self._shorten_string(repr(node))),
-                             fillcolor=fillcolor)
+            if isinstance(node, Basic):
+                self._graph.node(str(node), label=self._list2lines(node.stmts),
+                                 fillcolor=fillcolor, shape='box')
+            elif isinstance(node, Loop):
+                self._graph.node(str(node), label=self._list2lines(node.stmts),
+                                 fillcolor=fillcolor, shape='box')
+            else:
+                self._graph.node(str(node), label=self._escape_dot_label(self._shorten_string(str(node))),
+                                 fillcolor=fillcolor, shape='circle')
 
         for edge in cfg.edges.values():
-            self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                             label=self._escape_dot_label(repr(edge)))
+            if isinstance(edge, Conditional):
+                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
+                                 label=self._escape_dot_label(str(edge.condition)))
+            elif isinstance(edge, Unconditional):
+                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
+                                 label=self._escape_dot_label(""))
+            else:
+                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
+                                 label=self._escape_dot_label(str(edge)))

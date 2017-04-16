@@ -50,7 +50,7 @@ print("e23: {}".format(e23))
 cfg = ControlFlowGraph({n1, n2, n3}, n1, n3, {e12, e23})
 
 # render cfg graph
-CfgRenderer().render(cfg, label="playground")
+CfgRenderer().render(cfg, label=__file__)
 
 # Analysis
 print("\nAnalysis\n")
