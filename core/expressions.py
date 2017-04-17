@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Set
 
-
 """
 Expressions.
 https://docs.python.org/3.4/reference/expressions.html
@@ -355,3 +354,30 @@ class BinaryComparisonOperation(BinaryOperation):
         :param right: right expression of the operation
         """
         super().__init__(typ, left, operator, right)
+
+
+class Print(Expression):
+    def __init__(self, typ, expression: Expression):
+        """Unary operation expression representation.
+
+        :param typ: type of the operation
+        :param expression: expression of the operation
+        """
+        super().__init__(typ)
+        self._expression = expression
+
+    @property
+    def expression(self):
+        return self._expression
+
+    def __eq__(self, other: 'UnaryOperation'):
+        return self.expression == other.expression
+
+    def __hash__(self):
+        return hash(("print", self.expression))
+
+    def __str__(self):
+        return f"print({self.expression})"
+
+    def ids(self):
+        return self.expression.ids()
