@@ -1,6 +1,4 @@
-from abc import abstractmethod
 import graphviz as gv
-import subprocess
 import numbers
 from uuid import uuid4 as uuid
 from core.cfg import *
@@ -31,8 +29,8 @@ class GraphRenderer:
     _max_label_len = 100
 
     @staticmethod
-    def _escape_dot_label(str):
-        return str.replace("\\", "\\\\").replace("|", "\\|").replace("<", "\\<").replace(">", "\\>")
+    def _escape_dot_label(label):
+        return label.replace("\\", "\\\\").replace("|", "\\|").replace("<", "\\<").replace(">", "\\>")
 
     def _shorten_string(self, string):
         if len(string) > self._max_label_len - 3:
