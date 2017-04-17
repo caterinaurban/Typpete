@@ -59,17 +59,18 @@ class UsedLattice(Lattice):
         def used(self) -> 'Used':
             return self._used
 
-    def __init__(self, kind: Lattice.Kind = Lattice.Kind.Default):
+    def __init__(self, used: Used):
         """Used variable analysis core abstract domain representation.
         
         :param kind: kind of lattice element
         """
+        kind = Lattice.Kind.Default
+        if used == N:
+            kind = Lattice.Kind.Bottom
+        elif used == U:
+            kind = Lattice.Kind.Top
         super().__init__(kind)
-        self._internal = UsedLattice.Internal(kind)
-
-    @property
-    def internal(self):
-        return self._internal
+        self.used = used
 
     @property
     def used(self):
@@ -83,7 +84,7 @@ class UsedLattice(Lattice):
             return True
         elif (self.used == UU and other.used == UN) or (
                         self.used == UN and other.used == UU):
-            return None
+            return False
         else:
             return other.used == UsedLattice.U
 
@@ -95,10 +96,13 @@ class UsedLattice(Lattice):
         self.used |= other.used
         return self
 
-    def descend(self):
+    def _widening(self, other: 'UsedLattice'):
+        return self._join(other)
+
+    def descend(self) -> 'UsedLattice':
         self.used = UsedLattice._DESCEND[self.used]
         return self
 
-    def combine(self, other):
+    def combine(self, other: 'UsedLattice') -> 'UsedLattice':
         self.used = UsedLattice._COMBINE[(self.used, other.used)]
         return self
