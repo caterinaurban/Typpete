@@ -4,6 +4,8 @@ import core.expressions
 from core.statements import ProgramPoint, ExpressionEvaluation, VariableAccess, Assignment
 from engine.backward import BackwardInterpreter
 
+from visualization.graph_renderer import CfgRenderer
+
 # Expressions and Statements
 print("\nExpressions and Statements\n")
 
@@ -87,6 +89,9 @@ e56 = Unconditional(n5, n6)
 print("e56: {}".format(e56))
 
 cfg = ControlFlowGraph({n1, n2, n3, n4, n5, n6}, n1, n6, {e12, e23, e35, e24, e45, e56})
+
+# render cfg graph
+CfgRenderer().render(cfg, label=__file__)
 
 # Live/Dead Analysis
 print("\nLive/Dead Analysis\n")
