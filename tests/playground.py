@@ -137,8 +137,14 @@ class DummyState(State):
     def _assume(self, condition: Expression) -> 'DummyState':
         pass
 
+    def enter_loop(self):
+        return self     # nothing to be done
+
     def _evaluate_expression(self, expression: Expression):
         return {expression}
+
+    def exit_loop(self):
+        return self     # nothing to be done
 
     def _substitute_variable(self, left: Expression, right: Expression):
         raise NotImplementedError("")
@@ -165,10 +171,3 @@ class DummyState(State):
 forward_interpreter = ForwardInterpreter(cfg, 3)
 dummy_analysis = forward_interpreter.analyze(DummyState([x, y]))
 print("{}".format(dummy_analysis))
-
-# Live/Dead Analysis
-print("\nLive/Dead Analysis\n")
-
-backward_interpreter = BackwardInterpreter(cfg, 3)
-liveness_analysis = backward_interpreter.analyze(LiveDead([x, y]))
-print("{}".format(liveness_analysis))

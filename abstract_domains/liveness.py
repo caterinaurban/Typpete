@@ -78,8 +78,14 @@ class LiveDead(State):
                 self.variables[identifier] = LiveDead.Liveness.Live
         return self
 
+    def enter_loop(self):
+        return self     # nothing to be done
+
     def _evaluate_expression(self, expression: Expression) -> Set[Expression]:
         return {expression}
+
+    def exit_loop(self):
+        return self     # nothing to be done
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'LiveDead':
         if isinstance(left, VariableIdentifier):

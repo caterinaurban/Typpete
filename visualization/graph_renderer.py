@@ -65,7 +65,7 @@ class GraphRenderer:
 
         # display the graph
         graph.format = "pdf"
-        graph.view()
+        gv.Digraph.view(graph)
         # subprocess.Popen(['xdg-open', "test.pdf"])
 
 
