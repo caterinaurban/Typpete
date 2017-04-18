@@ -44,6 +44,11 @@ class ForwardInterpreter(Interpreter):
                     # handle conditional edges
                     if isinstance(edge, Conditional):
                         predecessor = edge.condition.forward_semantics(predecessor).filter()
+                    # handle loop edges
+                    if edge.is_in():
+                        predecessor = predecessor.enter_loop()
+                    elif edge.is_out():
+                        predecessor = predecessor.exit_loop()
                     entry = entry.join(predecessor)
                 # widening
                 if isinstance(current, Loop) and self.widening < iteration:

@@ -104,6 +104,13 @@ class State(Lattice):
         return self
 
     @abstractmethod
+    def enter_loop(self):
+        """Enter a loop.
+        
+        :return: current state modified to enter a loop
+        """
+
+    @abstractmethod
     def _evaluate_expression(self, expression: Expression) -> Set[Expression]:
         """Retrieve a constant value. Account for side-effects by modifying the current state.
         
@@ -119,6 +126,13 @@ class State(Lattice):
         """
         self.result = self._evaluate_expression(expression)
         return self
+
+    @abstractmethod
+    def exit_loop(self):
+        """Exit a loop.
+
+        :return: current state modified to exit a loop
+        """
 
     def filter(self) -> 'State':
         """Assume that the current result holds in the current state.

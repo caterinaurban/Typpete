@@ -41,6 +41,11 @@ class BackwardInterpreter(Interpreter):
                 edges = self.cfg.out_edges(current)
                 for edge in edges:
                     successor = deepcopy(self.result.get_node_result(edge.target)[0])
+                    # handle loop edges
+                    if edge.is_in():
+                        successor = successor.exit_loop()
+                    elif edge.is_out():
+                        successor = successor.enter_loop()
                     # handle conditional edges
                     if isinstance(edge, Conditional):
                         successor = edge.condition.backward_semantics(successor).filter()

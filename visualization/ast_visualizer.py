@@ -39,8 +39,10 @@ def generate_pyast(code):
     :return: a structure of lists and dicts only, representing the ast of code
     """
     import ast
+
     def transform_ast(code_ast):
         if isinstance(code_ast, ast.AST):
+            # noinspection PyProtectedMember
             node = {to_camelcase(k): transform_ast(getattr(code_ast, k)) for k in code_ast._fields}
             node['node_type'] = to_camelcase(code_ast.__class__.__name__)
             return node

@@ -41,6 +41,12 @@ class ProgramPoint(object):
         return "[line:{0.line}, column:{0.column}]".format(self)
 
 
+"""
+Statements.
+https://docs.python.org/3.4/reference/simple_stmts.html
+"""
+
+
 class Statement(ABC):
     def __init__(self, pp: ProgramPoint):
         """Statement representation.
@@ -107,11 +113,17 @@ class VariableAccess(Statement):
         return self.semantics(state)
 
 
+"""
+Expression Statements.
+https://docs.python.org/3.4/reference/simple_stmts.html#expression-statements
+"""
+
+
 class ExpressionEvaluation(Statement):
     def __init__(self, pp: ProgramPoint, expression: Expression):
-        """Constant evaluation representation.
+        """Expression evaluation representation.
 
-        :param pp: program point associated with the constant evaluation
+        :param pp: program point associated with the expression evaluation
         :param expression: expression being evaluated
         """
         super().__init__(pp)
@@ -124,14 +136,20 @@ class ExpressionEvaluation(Statement):
     def __str__(self):
         return "{0.expression}".format(self)
 
-    def semantic(self, state: State) -> State:
+    def semantics(self, state: State) -> State:
         return state.evaluate_expression(self.expression)
 
     def forward_semantics(self, state: State) -> State:
-        return self.semantic(state)
+        return self.semantics(state)
 
     def backward_semantics(self, state: State) -> State:
-        return self.semantic(state)
+        return self.semantics(state)
+
+
+"""
+Assignment Statements.
+https://docs.python.org/3.4/reference/simple_stmts.html#assignment-statements
+"""
 
 
 class Assignment(Statement):

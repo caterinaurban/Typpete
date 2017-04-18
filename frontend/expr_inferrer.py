@@ -354,7 +354,7 @@ def infer_subscript(node, context):
     return subscript_type
 
 
-def infer_compare(node):
+def infer_compare(_):
     # TODO: verify that types in comparison are comparable
     return TBool()
 
