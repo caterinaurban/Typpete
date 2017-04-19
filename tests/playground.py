@@ -4,9 +4,8 @@ from core.cfg import Basic, Unconditional, ControlFlowGraph
 from core.expressions import Expression, Literal, VariableIdentifier
 from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment
 from engine.forward import ForwardInterpreter
-from typing import Dict, List, Set
-
 from semantics.forward import DefaultForwardSemantics
+from typing import Dict, List, Set
 from visualization.graph_renderer import CfgRenderer
 
 # Statements

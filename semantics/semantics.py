@@ -1,8 +1,8 @@
-from functools import reduce
-
 from abstract_domains.state import State
-from core.expressions import BinaryArithmeticOperation, BinaryOperation, BinaryComparisonOperation
+from core.expressions import BinaryArithmeticOperation, BinaryOperation, BinaryComparisonOperation, UnaryOperation, \
+    UnaryArithmeticOperation, UnaryBooleanOperation
 from core.statements import Statement, VariableAccess, LiteralEvaluation, Call
+from functools import reduce
 import re
 
 _first1 = re.compile(r'(.)([A-Z][a-z]+)')
@@ -84,6 +84,35 @@ class CallSemantics(Semantics):
 class BuiltInCallSemantics(CallSemantics):
     """Semantics of built-in function/method calls."""
 
+    def unary_operation(self, stmt: Call, operator: UnaryOperation.Operator, state: State) -> State:
+        """
+        
+        :param stmt: 
+        :param operator: 
+        :param state: 
+        :return: 
+        """
+        assert len(stmt.arguments) == 1     # unary operations have exactly one argument
+        argument = self.semantics(stmt.arguments[0], state).result      # argument evaluation
+        result = set()
+        if isinstance(operator, UnaryArithmeticOperation.Operator):
+            expression = set(UnaryArithmeticOperation(stmt.typ, operator, expr) for expr in argument)
+            result = result.union(expression)
+        elif isinstance(operator, UnaryBooleanOperation.Operator):
+            expression = set(UnaryBooleanOperation(stmt.typ, operator, expr) for expr in argument)
+            result = result.union(expression)
+        state.result = result
+        return state
+
+    def not_call_semantics(self, stmt: Call, state: State) -> State:
+        """Semantics of a call to '!' (negation).
+        
+        :param stmt: call to '!' to be executed
+        :param state: state before executing the call statement
+        :return: state modified by the call statement
+        """
+        return self.unary_operation(stmt, UnaryBooleanOperation.Operator.Neg, state)
+
     def binary_operation(self, stmt: Call, operator: BinaryOperation.Operator, state: State) -> State:
         arguments = [self.semantics(argument, state).result for argument in stmt.arguments]   # argument evaluation
         result = set()
@@ -91,12 +120,12 @@ class BuiltInCallSemantics(CallSemantics):
             expression = reduce(lambda lhs, rhs: set(
                 BinaryArithmeticOperation(stmt.typ, left, operator, right) for left in lhs for right in rhs
             ), arguments)
-            result.union(expression)
+            result = result.union(expression)
         elif isinstance(operator, BinaryComparisonOperation.Operator):
             expression = reduce(lambda lhs, rhs: set(
                 BinaryComparisonOperation(stmt.typ, left, operator, right) for left in lhs for right in rhs
             ), arguments)
-            result.union(expression)
+            result = result.union(expression)
         state.result = result
         return state
 
