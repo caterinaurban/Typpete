@@ -4,8 +4,7 @@ import core.expressions
 from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment, Call
 from engine.backward import BackwardInterpreter
 from semantics.backward import DefaultBackwardSemantics
-
-from visualization.graph_renderer import CfgRenderer
+from visualization.graph_renderer import AnalysisResultRenderer
 
 # Expressions and Statements
 print("\nExpressions and Statements\n")
@@ -88,12 +87,9 @@ print("e56: {}".format(e56))
 
 cfg = ControlFlowGraph({n1, n2, n3, n4, n5, n6}, n1, n6, {e12, e23, e35, e24, e45, e56})
 
-# render cfg graph
-CfgRenderer().render(cfg, label=__file__)
-
 # Live/Dead Analysis
 print("\nLive/Dead Analysis\n")
 
 backward_interpreter = BackwardInterpreter(cfg, DefaultBackwardSemantics(), 3)
 liveness_analysis = backward_interpreter.analyze(LiveDead([x, y, z]))
-print("{}".format(liveness_analysis))
+AnalysisResultRenderer().render((cfg, liveness_analysis), label=__file__)

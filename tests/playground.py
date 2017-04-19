@@ -6,7 +6,7 @@ from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Ass
 from engine.forward import ForwardInterpreter
 from semantics.forward import DefaultForwardSemantics
 from typing import Dict, List, Set
-from visualization.graph_renderer import CfgRenderer
+from visualization.graph_renderer import AnalysisResultRenderer
 
 # Statements
 print("\nStatements\n")
@@ -52,9 +52,6 @@ print("e23: {}".format(e23))
 
 cfg = ControlFlowGraph({n1, n2, n3}, n1, n3, {e12, e23})
 
-# render cfg graph
-CfgRenderer().render(cfg, label=__file__)
-
 # Analysis
 print("\nAnalysis\n")
 
@@ -91,9 +88,8 @@ class DummyState(State):
         self.internal.variables = variables
 
     def __str__(self):
-        result = ", ".join("{}".format(expression) for expression in self.result)
-        variables = "".join("\n{} -> {} ".format(variable, value) for variable, value in self.variables.items())
-        return "[{}] {}".format(result, variables)
+        variables = "\n".join("{} -> {} ".format(variable, value) for variable, value in self.variables.items())
+        return "{}".format(variables)
 
     def _less_equal(self, other: 'DummyState') -> bool:
         result = True
@@ -173,4 +169,4 @@ class DummyState(State):
 
 forward_interpreter = ForwardInterpreter(cfg, DefaultForwardSemantics(), 3)
 dummy_analysis = forward_interpreter.analyze(DummyState([x, y]))
-print("{}".format(dummy_analysis))
+AnalysisResultRenderer().render((cfg, dummy_analysis), label=__file__)

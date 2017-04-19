@@ -38,9 +38,8 @@ class LiveDead(State):
         return self.internal.variables
 
     def __str__(self):
-        result = ", ".join("{}".format(expression) for expression in self.result)
-        variables = "".join("\n{} -> {} ".format(variable, value) for variable, value in self.variables.items())
-        return "[{}] {}".format(result, variables)
+        variables = "\n".join("{} -> {} ".format(variable, value) for variable, value in self.variables.items())
+        return "{}".format(variables)
 
     def _less_equal(self, other: 'LiveDead') -> bool:
         result = True
