@@ -1,8 +1,9 @@
 from abstract_domains.liveness import LiveDead
 from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional
 import core.expressions
-from core.statements import ProgramPoint, ExpressionEvaluation, VariableAccess, Assignment
+from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment, Call
 from engine.backward import BackwardInterpreter
+from semantics.backward import DefaultBackwardSemantics
 
 from visualization.graph_renderer import CfgRenderer
 
@@ -39,22 +40,23 @@ p64 = ProgramPoint(6, 4)
 p71 = ProgramPoint(7, 1)
 p73 = ProgramPoint(7, 3)
 
-stmt1 = Assignment(p11, VariableAccess(p11, x), ExpressionEvaluation(p13, two))         # x := 2
+stmt1 = Assignment(p11, VariableAccess(p11, x), LiteralEvaluation(p13, two))         # x := 2
 print("stmt1: {}".format(stmt1))
-stmt2 = Assignment(p21, VariableAccess(p21, y), ExpressionEvaluation(p23, four))        # y := 4
+stmt2 = Assignment(p21, VariableAccess(p21, y), LiteralEvaluation(p23, four))        # y := 4
 print("stmt2: {}".format(stmt2))
-stmt3 = Assignment(p31, VariableAccess(p31, x), ExpressionEvaluation(p33, one))         # x := 1
+stmt3 = Assignment(p31, VariableAccess(p31, x), LiteralEvaluation(p33, one))         # x := 1
 print("stmt3: {}".format(stmt3))
 expr4 = core.expressions.BinaryComparisonOperation(int, y, core.expressions.BinaryComparisonOperation.Operator.Gt, x)
-stmt4 = ExpressionEvaluation(p42, expr4)                                                # y > x
-print("stmt4: {}".format(expr4))
+# stmt4 = LiteralEvaluation(p42, expr4)                                                # y > x
+stmt4 = Call(p42, "gt", [VariableAccess(p42, y), VariableAccess(p42, x)], int)
+print("stmt4: {}".format(stmt4))
 stmt5 = Assignment(p52, VariableAccess(p52, z), VariableAccess(p54, y))                 # z := y
 print("stmt5: {}".format(stmt5))
 neg_expr4 = core.expressions.UnaryBooleanOperation(bool, core.expressions.UnaryBooleanOperation.Operator.Neg, expr4)
-neg_stmt4 = ExpressionEvaluation(p42, neg_expr4)                                        # !(y > x)
+neg_stmt4 = LiteralEvaluation(p42, neg_expr4)                                        # !(y > x)
 print("!stmt4: {}".format(neg_stmt4))
 expr6 = core.expressions.BinaryArithmeticOperation(int, y, core.expressions.BinaryArithmeticOperation.Operator.Mul, y)
-stmt6 = Assignment(p62, VariableAccess(p62, z), ExpressionEvaluation(p64, expr6))       # z := y * y
+stmt6 = Assignment(p62, VariableAccess(p62, z), LiteralEvaluation(p64, expr6))       # z := y * y
 print("stmt6: {}".format(stmt6))
 stmt7 = Assignment(p71, VariableAccess(p71, x), VariableAccess(p73, z))                 # x := z
 print("stmt5: {}".format(stmt5))
@@ -96,6 +98,6 @@ CfgRenderer().render(cfg, label=__file__)
 # Live/Dead Analysis
 print("\nLive/Dead Analysis\n")
 
-backward_interpreter = BackwardInterpreter(cfg, 3)
+backward_interpreter = BackwardInterpreter(cfg, DefaultBackwardSemantics(), 3)
 liveness_analysis = backward_interpreter.analyze(LiveDead([x, y, z]))
 print("{}".format(liveness_analysis))

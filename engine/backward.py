@@ -4,17 +4,22 @@ from copy import deepcopy
 from core.cfg import Basic, Loop, Conditional, ControlFlowGraph
 from engine.interpreter import Interpreter
 from engine.result import AnalysisResult
+from semantics.backward import BackwardSemantics
 from queue import Queue
 
 
 class BackwardInterpreter(Interpreter):
-    def __init__(self, cfg: ControlFlowGraph, widening: int):
+    def __init__(self, cfg: ControlFlowGraph, semantics: BackwardSemantics, widening: int):
         """Backward analysis runner.
 
         :param cfg: control flow graph to analyze
         :param widening: number of iterations before widening 
         """
-        super().__init__(cfg, widening)
+        super().__init__(cfg, semantics, widening)
+
+    @property
+    def semantics(self):
+        return self._semantics
 
     def analyze(self, initial: State) -> AnalysisResult:
 
@@ -48,7 +53,7 @@ class BackwardInterpreter(Interpreter):
                         successor = successor.enter_loop()
                     # handle conditional edges
                     if isinstance(edge, Conditional):
-                        successor = edge.condition.backward_semantics(successor).filter()
+                        successor = self.semantics.semantics(edge.condition, successor).filter()
                     entry = entry.join(successor)
                 # widening
                 if isinstance(current, Loop) and self.widening < iteration:
@@ -60,7 +65,7 @@ class BackwardInterpreter(Interpreter):
                 if isinstance(current, Basic):
                     successor = entry
                     for stmt in reversed(current.stmts):
-                        successor = stmt.backward_semantics(deepcopy(successor))
+                        successor = self.semantics.semantics(stmt, deepcopy(successor))
                         states.appendleft(successor)
                 elif isinstance(current, Loop):
                     # nothing to be done

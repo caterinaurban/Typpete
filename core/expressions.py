@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Set
+from functools import reduce
+from typing import List, Set
 
 
 """
@@ -76,7 +77,7 @@ class Literal(Expression):
     def val(self):
         return self._val
 
-    def __eq__(self, other: 'Literal'):
+    def __eq__(self, other):
         return (self.typ, self.val) == (other.typ, other.val)
 
     def __hash__(self):
@@ -104,7 +105,7 @@ class Identifier(Expression):
     def name(self):
         return self._name
 
-    def __eq__(self, other: 'Identifier'):
+    def __eq__(self, other):
         return (self.typ, self.name) == (other.typ, other.name)
 
     def __hash__(self):
@@ -132,7 +133,7 @@ Primary Expressions
 https://docs.python.org/3.4/reference/expressions.html#primaries
 """
 
-# TODO
+
 
 """
 Unary Operation Expressions
@@ -169,11 +170,11 @@ class UnaryOperation(Expression):
     def expression(self):
         return self._expression
 
-    def __eq__(self, other: 'UnaryOperation'):
-        return (self.operator, self.expression) == (other.operator, other.expression)
+    def __eq__(self, other):
+        return (self.typ, self.operator, self.expression) == (other.typ, other.operator, other.expression)
 
     def __hash__(self):
-        return hash((self.operator, self.expression))
+        return hash((self.typ, self.operator, self.expression))
 
     def __str__(self):
         return "{0.operator}({0.expression})".format(self)
@@ -266,11 +267,11 @@ class BinaryOperation(Expression):
     def right(self):
         return self._right
 
-    def __eq__(self, other: 'BinaryOperation'):
-        return (self.left, self.operator, self.right) == (other.left, other.operator, other.right)
+    def __eq__(self, other):
+        return (self.typ, self.left, self.operator, self.right) == (other.typ, other.left, other.operator, other.right)
 
     def __hash__(self):
-        return hash((self.left, self.operator, self.right))
+        return hash((self.typ, self.left, self.operator, self.right))
 
     def __str__(self):
         return "{0.left} {0.operator} {0.right}".format(self)

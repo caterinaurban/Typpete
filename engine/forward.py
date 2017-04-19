@@ -4,17 +4,18 @@ from copy import deepcopy
 from core.cfg import Basic, Loop, Conditional, ControlFlowGraph
 from engine.interpreter import Interpreter
 from engine.result import AnalysisResult
+from semantics.forward import ForwardSemantics
 from queue import Queue
 
 
 class ForwardInterpreter(Interpreter):
-    def __init__(self, cfg: ControlFlowGraph, widening: int):
+    def __init__(self, cfg: ControlFlowGraph, semantics: ForwardSemantics, widening: int):
         """Forward analysis runner.
 
         :param cfg: control flow graph to analyze 
         :param widening: number of iterations before widening 
         """
-        super().__init__(cfg, widening)
+        super().__init__(cfg, semantics, widening)
 
     def analyze(self, initial: State) -> AnalysisResult:
 
@@ -43,7 +44,7 @@ class ForwardInterpreter(Interpreter):
                     predecessor = deepcopy(self.result.get_node_result(edge.source)[-1])
                     # handle conditional edges
                     if isinstance(edge, Conditional):
-                        predecessor = edge.condition.forward_semantics(predecessor).filter()
+                        predecessor = self.semantics.semantics(edge.condition, predecessor).filter()
                     # handle loop edges
                     if edge.is_in():
                         predecessor = predecessor.enter_loop()
@@ -60,7 +61,7 @@ class ForwardInterpreter(Interpreter):
                 if isinstance(current, Basic):
                     successor = entry
                     for stmt in current.stmts:
-                        successor = stmt.forward_semantics(deepcopy(successor))
+                        successor = self.semantics.semantics(stmt, deepcopy(successor))
                         states.append(successor)
                 elif isinstance(current, Loop):
                     # nothing to be done

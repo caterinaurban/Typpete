@@ -81,8 +81,8 @@ class LiveDead(State):
     def enter_loop(self):
         return self     # nothing to be done
 
-    def _evaluate_expression(self, expression: Expression) -> Set[Expression]:
-        return {expression}
+    def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
+        return {literal}
 
     def exit_loop(self):
         return self     # nothing to be done
