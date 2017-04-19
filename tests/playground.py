@@ -59,7 +59,7 @@ print("\nAnalysis\n")
 class DummyState(State):
 
     class Internal(State.Internal):
-        def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind):
+        def __init__(self, variables: List[VariableIdentifier]):
             super().__init__(kind)
             self._variables = {variable: Literal(int, '0') for variable in variables}
 

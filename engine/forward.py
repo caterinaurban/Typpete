@@ -24,7 +24,7 @@ class ForwardInterpreter(Interpreter):
         iterations = {node: 0 for node in self.cfg.nodes}
 
         while not worklist.empty():
-            current = worklist.get()        # retrieve the current node
+            current = worklist.get()  # retrieve the current node
             iteration = iterations[current.identifier]
 
             # retrieve the previous entry state of the node

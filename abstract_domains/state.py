@@ -6,48 +6,19 @@ from typing import Set
 
 
 class State(Lattice):
-    class Internal(Lattice.Internal):
-        def __init__(self, kind: Lattice.Kind):
-            """Analysis state internal representation.
-            
-            :param kind: kind of lattice element
-            """
-            super().__init__(kind)
-            self._result = set()    # set of expressions representing the result of the previously analyze statement
-
-        @property
-        def result(self):
-            return self._result
-
-        @result.setter
-        def result(self, result: Set[Expression]):
-            self._result = result
-
-    def __init__(self, kind: Lattice.Kind = Lattice.Kind.Default):
+    def __init__(self):
         """Analysis state representation. 
-        Account for lattice operations and statement effects by modifying the current internal representation.
+        Account for lattice operations and statement effects by modifying the current state.
         """
-        super().__init__(kind)
-        self._internal = State.Internal(kind)
-
-    @property
-    def internal(self):
-        return self._internal
+        self._result = set()  # set of expressions representing the result of the previously analyze statement
 
     @property
     def result(self):
-        return self.internal.result
+        return self._result
 
     @result.setter
-    def result(self, result):
-        self.internal.result = result
-
-    @abstractmethod
-    def __str__(self):
-        """Analysis state string representation.
-        
-        :return: string representing the analysis state
-        """
+    def result(self, result: Set[Expression]):
+        self._result = result
 
     @abstractmethod
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
@@ -83,7 +54,7 @@ class State(Lattice):
         :return: current state modified by the variable assignment
         """
         self.big_join([deepcopy(self)._assign_variable(lhs, rhs) for lhs in left for rhs in right])
-        self.result = set()     # assignments have no result, only side-effects
+        self.result = set()  # assignments have no result, only side-effects
         return self
 
     @abstractmethod
@@ -140,7 +111,7 @@ class State(Lattice):
         :return: current state modified to satisfy the current result
         """
         self.assume(self.result)
-        self.result = set()         # filtering has no result, only side-effects
+        self.result = set()  # filtering has no result, only side-effects
         return self
 
     @abstractmethod

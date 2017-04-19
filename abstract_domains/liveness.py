@@ -8,39 +8,42 @@ from typing import List, Set
 class LiveDead(State):
     class Liveness(Enum):
         """Liveness state of a program variable."""
-        Dead = -1   # dead variable
-        Live = 1    # live variable
+        Dead = -1  # dead variable
+        Live = 1  # live variable
 
-    class Internal(State.Internal):
-        def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind):
-            super().__init__(kind)
-            self._variables = {variable: LiveDead.Liveness.Dead for variable in variables}
-
-        @property
-        def variables(self):
-            return self._variables
-
-    def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind = Lattice.Kind.Default):
+    def __init__(self, variables: List[VariableIdentifier]):
         """Live/Dead variable analysis state representation.
         
         :param variables: list of program variables
-        :param kind: kind of lattice element
         """
-        super().__init__(kind)
-        self._internal = LiveDead.Internal(variables, kind)
-
-    @property
-    def internal(self):
-        return self._internal
+        super().__init__()
+        self._variables = {variable: LiveDead.Liveness.Dead for variable in variables}
 
     @property
     def variables(self):
-        return self.internal.variables
+        return self._variables
 
-    def __str__(self):
+    def __repr__(self):
         result = ", ".join("{}".format(expression) for expression in self.result)
         variables = "".join("\n{} -> {} ".format(variable, value) for variable, value in self.variables.items())
         return "[{}] {}".format(result, variables)
+
+    def default(self):
+        return self.bottom()
+
+    def bottom(self):
+        self._variables = {variable: LiveDead.Liveness.Dead for variable in self.variables}
+        return self
+
+    def top(self):
+        self._variables = {variable: LiveDead.Liveness.Live for variable in self.variables}
+        return self
+
+    def is_bottom(self) -> bool:
+        return all(val == LiveDead.Liveness.Dead for val in self.variables.values())
+
+    def is_top(self) -> bool:
+        return all(val == LiveDead.Liveness.Dead for val in self.variables.values())
 
     def _less_equal(self, other: 'LiveDead') -> bool:
         result = True
@@ -79,13 +82,13 @@ class LiveDead(State):
         return self
 
     def enter_loop(self):
-        return self     # nothing to be done
+        return self  # nothing to be done
 
     def _evaluate_expression(self, expression: Expression) -> Set[Expression]:
         return {expression}
 
     def exit_loop(self):
-        return self     # nothing to be done
+        return self  # nothing to be done
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'LiveDead':
         if isinstance(left, VariableIdentifier):

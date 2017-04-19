@@ -5,89 +5,71 @@ from typing import List
 
 
 class Lattice(ABC):
-    class Kind(Enum):
-        """Kind of a lattice element."""
-        Bottom = -1  # bottom element
-        Default = 0
-        Top = 1  # top element
-
-    class Internal(object):
-        def __init__(self, kind: 'Lattice.Kind'):
-            """Lattice internal representation.
-
-            :param kind: kind of lattice element
-            """
-            self._kind = kind
-
-        @property
-        def kind(self):
-            return self._kind
-
-        @kind.setter
-        def kind(self, kind: 'Lattice.Kind'):
-            self._kind = kind
-
-        def bottom(self):
-            """Return the bottom lattice element internal representation.
-            
-            :return: current internal representation modified to be the bottom lattice element
-            """
-            self.kind = Lattice.Kind.Bottom
-            return self
-
-        def top(self):
-            """Return the top lattice element internal representation.
-            
-            :return: current internal representation modified to be the top lattice element
-            """
-            self.kind = Lattice.Kind.Top
-            return self
-
-    def __init__(self, kind: Kind = Kind.Default):
-        """Lattice representation.
-        Account for lattice operations by modifying the current internal representation.
-
-        :param kind: kind of lattice element
+    def __init__(self):
+        """Creates a new lattice element and sets it to the default.
         """
-        self._internal = Lattice.Internal(kind)
+        # initialize with default
+        self.default()
 
-    @property
-    def internal(self):
-        return self._internal
+    def __eq__(self, other: 'Lattice'):
+        if isinstance(other, self.__class__):
+            return repr(self) == repr(other)
+        return False
 
-    @property
-    def kind(self):
-        return self.internal.kind
+    def __hash__(self):
+        return hash(repr(self))
 
-    def bottom(self) -> 'Lattice':
-        """Return the bottom lattice element. 
+    def __ne__(self, other: 'Lattice'):
+        return not (self == other)
+
+    @abstractmethod
+    def __repr__(self):
+        """Unambiguous string representing the current lattice element.
+
+        :return: unambiguous representation string
+        """
+
+    def __str__(self):
+        """Human-readable string representing this internal.
+
+        :return: human-readable string
+        """
+        return repr(self)
+
+    @abstractmethod
+    def default(self):
+        """Set to the default lattice element.
+
+        :return: current lattice element modified to be the default lattice element
+        """
+
+    @abstractmethod
+    def bottom(self):
+        """Set to the bottom lattice element.
 
         :return: current lattice element modified to be the bottom lattice element
         """
-        self.internal.bottom()
-        return self
 
-    def top(self) -> 'Lattice':
-        """Return the top lattice element.
+    @abstractmethod
+    def top(self):
+        """Set to the top lattice element.
 
         :return: current lattice element modified to be the top lattice element
         """
-        self.internal.top()
-        return self
 
+    @abstractmethod
     def is_bottom(self) -> bool:
         """Test whether the lattice element is bottom.
 
         :return: whether the lattice element is bottom
         """
-        return self.kind == Lattice.Kind.Bottom
 
+    @abstractmethod
     def is_top(self) -> bool:
         """Test whether the lattice element is top.
 
         :return: whether the lattice element is top
         """
-        return self.kind == Lattice.Kind.Top
 
     @abstractmethod
     def _less_equal(self, other: 'Lattice') -> bool:
@@ -188,10 +170,11 @@ class Lattice(ABC):
             return self._widening(other)
 
     def replace(self, other: 'Lattice') -> 'Lattice':
-        """Replace the current internal representation with the internal representation of another lattice element.
+        """Replace this instance with another lattice element.
 
         :param other: other lattice element
-        :return: current lattice element with replaced internal representation
+        :return: current lattice element updated to be equal to other
         """
-        self._internal = other._internal
+        self.__dict__.clear().update(other.__dict__)
+        assert self == other
         return self

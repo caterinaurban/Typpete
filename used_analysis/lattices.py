@@ -50,34 +50,31 @@ class UsedLattice(Lattice):
         (U, U): U,
     }
 
-    class Internal(Lattice.Internal):
-        def __init__(self, kind: Lattice.Kind):
-            super().__init__(kind)
-            self._used = U if Lattice.Kind == Lattice.Kind.Top else N
-
-        @property
-        def used(self) -> 'Used':
-            return self._used
-
-    def __init__(self, used: Used):
+    def __init__(self, used: Used = Used.N):
         """Used variable analysis core abstract domain representation.
         
-        :param kind: kind of lattice element
+        :param used: initial lattice element
         """
-        kind = Lattice.Kind.Default
-        if used == N:
-            kind = Lattice.Kind.Bottom
-        elif used == U:
-            kind = Lattice.Kind.Top
-        super().__init__(kind)
-        self.used = used
+        super().__init__()
+        self._used = used
 
     @property
     def used(self):
-        return self.internal.used
+        return self._used
 
-    def __str__(self):
+    def __repr__(self):
         return self.used.name
+
+    def default(self):
+        return self.bottom()
+
+    def bottom(self):
+        self.used = Used.N
+        return self
+
+    def top(self):
+        self.used = Used.T
+        return self
 
     def _less_equal(self, other: 'UsedLattice') -> bool:
         if self.used == other.used or self.used == N:
