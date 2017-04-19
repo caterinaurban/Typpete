@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from functools import reduce
-from typing import List, Set
+from typing import Set
 
 
 """
@@ -133,6 +132,39 @@ Primary Expressions
 https://docs.python.org/3.4/reference/expressions.html#primaries
 """
 
+
+class AttributeReference(Expression):
+    def __init__(self, typ, primary: Expression, attribute: Identifier):
+        """Attribute reference expression representation.
+        https://docs.python.org/3.4/reference/expressions.html#attribute-references
+
+        :param typ: type of the attribute
+        :param primary: object the attribute of which is being referenced
+        :param attribute: attribute being referenced
+        """
+        super().__init__(typ)
+        self._primary = primary
+        self._attribute = attribute
+
+    @property
+    def primary(self):
+        return self._primary
+
+    @property
+    def attribute(self):
+        return self._attribute
+
+    def __eq__(self, other):
+        return (self.typ, self.primary, self.attribute) == (other.typ, other.primary, other.attribute)
+
+    def __hash__(self):
+        return hash((self.typ, self.primary, self.attribute))
+
+    def __str__(self):
+        return "{0.primary}.{0.attribute}".format(self)
+
+    def ids(self):
+        return self.primary.ids() | self.attribute.ids()
 
 
 """
