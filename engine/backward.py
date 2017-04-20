@@ -36,7 +36,7 @@ class BackwardInterpreter(Interpreter):
             if current in self.result.result:
                 previous = deepcopy(self.result.get_node_result(current)[-1])
             else:
-                previous = deepcopy(initial).bottom()
+                previous = None
 
             # compute the current exit state of the current node
             entry = deepcopy(initial)
@@ -57,10 +57,10 @@ class BackwardInterpreter(Interpreter):
                     entry = entry.join(successor)
                 # widening
                 if isinstance(current, Loop) and self.widening < iteration:
-                    entry = deepcopy(previous).widening(entry)
+                    entry = deepcopy(previous or deepcopy(initial).bottom()).widening(entry)
 
             # check for termination and execute block
-            if not entry.less_equal(previous):
+            if previous is None or not entry.less_equal(previous):
                 states = deque([entry])
                 if isinstance(current, Basic):
                     successor = entry
