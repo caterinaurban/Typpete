@@ -7,6 +7,7 @@ from engine.forward import ForwardInterpreter
 from semantics.forward import DefaultForwardSemantics
 from typing import Dict, List, Set
 from visualization.graph_renderer import AnalysisResultRenderer
+from abstract_domains.generic_lattices import TopBottomLattice, StoreLattice
 
 # Statements
 print("\nStatements\n")
@@ -26,11 +27,11 @@ p41 = ProgramPoint(4, 1)
 p43 = ProgramPoint(4, 3)
 p45 = ProgramPoint(4, 5)
 
-stmt1 = Assignment(p11, VariableAccess(p11, x), LiteralEvaluation(p13, o))       # x = 1
+stmt1 = Assignment(p11, VariableAccess(p11, x), LiteralEvaluation(p13, o))  # x = 1
 print("s1: {}".format(stmt1))
-stmt2 = Assignment(p21, VariableAccess(p21, y), LiteralEvaluation(p23, t))       # y = 3
+stmt2 = Assignment(p21, VariableAccess(p21, y), LiteralEvaluation(p23, t))  # y = 3
 print("s2: {}".format(stmt2))
-stmt3 = Assignment(p31, VariableAccess(p31, x), VariableAccess(p33, y))             # x = y
+stmt3 = Assignment(p31, VariableAccess(p31, x), VariableAccess(p33, y))  # x = y
 print("s3: {}".format(stmt3))
 # stmt4 = Call(p41, "foo", [VariableAccess(p43, x), VariableAccess(p45, y)])  # foo(x, y)
 # print("s4: {}".format(stmt4))
@@ -56,67 +57,34 @@ cfg = ControlFlowGraph({n1, n2, n3}, n1, n3, {e12, e23})
 print("\nAnalysis\n")
 
 
-class DummyState(State):
+class DummyLattice(TopBottomLattice):
+    def __init__(self):
+        super().__init__(Literal(int, '0'))  # the default element can be set in superclass constructor
 
-    class Internal(State.Internal):
-        def __init__(self, variables: List[VariableIdentifier]):
-            super().__init__(kind)
-            self._variables = {variable: Literal(int, '0') for variable in variables}
-
-        @property
-        def variables(self):
-            return self._variables
-
-        @variables.setter
-        def variables(self, variables):
-            self._variables = variables
-
-    def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind = Lattice.Kind.Default):
-        super().__init__(kind)
-        self._internal = DummyState.Internal(variables, kind)
-
-    @property
-    def internal(self):
-        return self._internal
-
-    @property
-    def variables(self):
-        return self.internal.variables
-
-    @variables.setter
-    def variables(self, variables: Dict[VariableIdentifier, Literal]):
-        self.internal.variables = variables
-
-    def __str__(self):
-        variables = "\n".join("{} -> {} ".format(variable, value) for variable, value in self.variables.items())
-        return "{}".format(variables)
-
-    def _less_equal(self, other: 'DummyState') -> bool:
-        result = True
-        for var in self.variables:
-            l = self.variables[var]
-            r = other.variables[var]
-            result = result and int(l.val) < int(r.val)
-        return result
-
-    def _join(self, other: 'DummyState') -> 'DummyState':
-        for var in self.variables:
-            l = self.variables[var]
-            r = other.variables[var]
-            if int(r.val) > int(l.val):
-                self.variables[var] = r
+    def default(self):
+        self.element = Literal(int, '0')  # the default element can be set via default method overwrite
         return self
 
-    def _meet(self, other: 'DummyState') -> 'DummyState':
-        for var in self.variables:
-            l = self.variables[var]
-            r = other.variables[var]
-            if int(r) < int(l):
-                self.variables[var] = r
+    def _less_equal(self, other: 'DummyLattice') -> bool:
+        return int(self.element.val) < int(other.element.val)  # compare the values of the literals
+
+    def _meet(self, other: 'DummyLattice'):
+        if int(other.element.val) < int(self.element.val):
+            self.replace(other)
         return self
 
-    def _widening(self, other: 'DummyState') -> 'DummyState':
+    def _join(self, other: 'DummyLattice') -> 'DummyLattice':
+        if int(other.element.val) > int(self.element.val):
+            self.replace(other)
+        return self
+
+    def _widening(self, other: 'DummyLattice'):
         return self._join(other)
+
+
+class DummyState(StoreLattice, State):
+    def __init__(self, variables: List[VariableIdentifier]):
+        super().__init__(variables, DummyLattice)
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return {variable}
@@ -137,13 +105,13 @@ class DummyState(State):
         pass
 
     def enter_loop(self):
-        return self     # nothing to be done
+        return self  # nothing to be done
 
     def _evaluate_literal(self, expression: Expression):
         return {expression}
 
     def exit_loop(self):
-        return self     # nothing to be done
+        return self  # nothing to be done
 
     def _substitute_variable(self, left: Expression, right: Expression):
         raise NotImplementedError("")
