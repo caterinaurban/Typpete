@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from core.statements import Statement
 from enum import Enum
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Generator
 
 
 class Node(ABC):
@@ -194,6 +194,28 @@ class ControlFlowGraph(object):
     @property
     def edges(self) -> Dict[Tuple[Node, Node], Edge]:
         return self._edges
+
+    def nodes_forward(self) -> Generator[Node, None, None]:
+        worklist = [self.in_node]
+        done = set()
+        while worklist:
+            current = worklist.pop()
+            if not current in done:
+                done.add(current)
+                yield current
+                for successor in self.successors(current):
+                    worklist.insert(0, successor)
+
+    def nodes_backward(self) -> Generator[Node, None, None]:
+        worklist = [self.out_node]
+        done = set()
+        while worklist:
+            current = worklist.pop()
+            if not current in done:
+                done.add(current)
+                yield current
+                for predecessor in self.predecessors(current):
+                    worklist.insert(0, predecessor)
 
     def in_edges(self, node: Node) -> Set[Edge]:
         """Ingoing edges of a given node.
