@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from abstract_domains.state import State
-from core.expressions import VariableIdentifier, Expression
+from core.expressions import Literal, VariableIdentifier
+from typing import List
 
 
 class ProgramPoint(object):
@@ -69,21 +69,29 @@ class Statement(ABC):
         :return: string representing the statement
         """
 
-    @abstractmethod
-    def forward_semantics(self, state: State) -> State:
-        """Abstract forward semantics of the statement. 
-        
-        :param state: state before the statement
-        :return: modified state after the statement
-        """
 
-    @abstractmethod
-    def backward_semantics(self, state: State) -> State:
-        """Abstract backward semantics of the statement.
-        
-        :param state: state after the statement
-        :return: modified state before the statement
+"""
+Expression Statements.
+https://docs.python.org/3.4/reference/simple_stmts.html#expression-statements
+"""
+
+
+class LiteralEvaluation(Statement):
+    def __init__(self, pp: ProgramPoint, literal: Literal):
+        """Literal evaluation representation.
+
+        :param pp: program point associated with the literal evaluation
+        :param literal: literal being evaluated
         """
+        super().__init__(pp)
+        self._literal = literal
+
+    @property
+    def literal(self):
+        return self._literal
+
+    def __str__(self):
+        return "{0.literal}".format(self)
 
 
 class VariableAccess(Statement):
@@ -103,47 +111,35 @@ class VariableAccess(Statement):
     def __str__(self):
         return "{0.var}".format(self)
 
-    def semantics(self, state: State) -> State:
-        return state.access_variable(self.var)
 
-    def forward_semantics(self, state: State) -> State:
-        return self.semantics(state)
-
-    def backward_semantics(self, state: State) -> State:
-        return self.semantics(state)
-
-
-"""
-Expression Statements.
-https://docs.python.org/3.4/reference/simple_stmts.html#expression-statements
-"""
-
-
-class ExpressionEvaluation(Statement):
-    def __init__(self, pp: ProgramPoint, expression: Expression):
-        """Expression evaluation representation.
-
-        :param pp: program point associated with the expression evaluation
-        :param expression: expression being evaluated
+class Call(Statement):
+    def __init__(self, pp: ProgramPoint, name: str, arguments: List[Statement], typ):
+        """Call statement representation.
+        
+        :param pp: program point associated with the call
+        :param name: name of the function/method being called
+        :param arguments: list of arguments of the call
+        :param typ: return type of the call
         """
         super().__init__(pp)
-        self._expression = expression
+        self._name = name
+        self._arguments = arguments
+        self._typ = typ
 
     @property
-    def expression(self):
-        return self._expression
+    def name(self):
+        return self._name
+
+    @property
+    def arguments(self):
+        return self._arguments
+
+    @property
+    def typ(self):
+        return self._typ
 
     def __str__(self):
-        return "{0.expression}".format(self)
-
-    def semantics(self, state: State) -> State:
-        return state.evaluate_expression(self.expression)
-
-    def forward_semantics(self, state: State) -> State:
-        return self.semantics(state)
-
-    def backward_semantics(self, state: State) -> State:
-        return self.semantics(state)
+        return "{}({})".format(self.name, ", ".join("{}".format(argument) for argument in self.arguments))
 
 
 """
@@ -174,19 +170,3 @@ class Assignment(Statement):
 
     def __str__(self):
         return "{0.pp} {0.left} = {0.right}".format(self)
-
-    def forward_semantics(self, state: State) -> State:
-        lhs = self.left.forward_semantics(state).result    # lhs evaluation
-        rhs = self.right.forward_semantics(state).result   # rhs evaluation
-        if isinstance(self.left, VariableAccess):
-            return state.assign_variable(lhs, rhs)
-        else:
-            raise NotImplementedError("Forward semantics for assignment {0!s} not yet implemented!".format(self))
-
-    def backward_semantics(self, state: State) -> State:
-        lhs = self.left.backward_semantics(state).result    # lhs evaluation
-        rhs = self.right.backward_semantics(state).result   # rhs evaluation
-        if isinstance(self.left, VariableAccess):
-            return state.substitute_variable(lhs, rhs)
-        else:
-            raise NotImplementedError("Backward semantics for assignment {0!s} not yet implemented!".format(self))

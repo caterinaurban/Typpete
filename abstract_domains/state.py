@@ -82,20 +82,20 @@ class State(Lattice):
         """
 
     @abstractmethod
-    def _evaluate_expression(self, expression: Expression) -> Set[Expression]:
-        """Retrieve a constant value. Account for side-effects by modifying the current state.
+    def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
+        """Retrieve a literal value. Account for side-effects by modifying the current state.
         
-        :param expression: expression to retrieve the value of
-        :return: set of expressions representing the constant value
+        :param literal: literal to retrieve the value of
+        :return: set of expressions representing the literal value
         """
 
-    def evaluate_expression(self, expression: Expression) -> 'State':
-        """Evaluate a constant.
+    def evaluate_literal(self, literal: Expression) -> 'State':
+        """Evaluate a literal.
         
-        :param expression: expression to be evaluated
-        :return: current state modified by the constant evaluation
+        :param literal: expression to be evaluated
+        :return: current state modified by the literal evaluation
         """
-        self.result = self._evaluate_expression(expression)
+        self.result = self._evaluate_literal(literal)
         return self
 
     @abstractmethod

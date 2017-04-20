@@ -24,9 +24,8 @@ class LiveDead(State):
         return self._variables
 
     def __repr__(self):
-        result = ", ".join("{}".format(expression) for expression in self.result)
-        variables = "".join("\n{} -> {} ".format(variable, value) for variable, value in self.variables.items())
-        return "[{}] {}".format(result, variables)
+        variables = "\n".join("{} -> {} ".format(variable, value) for variable, value in self.variables.items())
+        return "{}".format(variables)
 
     def default(self):
         return self.bottom()
@@ -84,8 +83,8 @@ class LiveDead(State):
     def enter_loop(self):
         return self  # nothing to be done
 
-    def _evaluate_expression(self, expression: Expression) -> Set[Expression]:
-        return {expression}
+    def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
+        return {literal}
 
     def exit_loop(self):
         return self  # nothing to be done

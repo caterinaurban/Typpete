@@ -1,14 +1,12 @@
 from abstract_domains.lattice import Lattice
 from abstract_domains.state import State
-from abstract_domains.liveness import LiveDead
 from core.cfg import Basic, Unconditional, ControlFlowGraph
 from core.expressions import Expression, Literal, VariableIdentifier
-from core.statements import ProgramPoint, ExpressionEvaluation, VariableAccess, Assignment
-from engine.backward import BackwardInterpreter
+from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment
 from engine.forward import ForwardInterpreter
+from semantics.forward import DefaultForwardSemantics
 from typing import Dict, List, Set
-
-from visualization.graph_renderer import CfgRenderer
+from visualization.graph_renderer import AnalysisResultRenderer
 
 # Statements
 print("\nStatements\n")
@@ -24,13 +22,18 @@ p21 = ProgramPoint(2, 1)
 p23 = ProgramPoint(2, 3)
 p31 = ProgramPoint(3, 1)
 p33 = ProgramPoint(3, 3)
+p41 = ProgramPoint(4, 1)
+p43 = ProgramPoint(4, 3)
+p45 = ProgramPoint(4, 5)
 
-stmt1 = Assignment(p11, VariableAccess(p11, x), ExpressionEvaluation(p13, o))    # x = 1
+stmt1 = Assignment(p11, VariableAccess(p11, x), LiteralEvaluation(p13, o))       # x = 1
 print("s1: {}".format(stmt1))
-stmt2 = Assignment(p21, VariableAccess(p21, y), ExpressionEvaluation(p23, t))    # y = 3
+stmt2 = Assignment(p21, VariableAccess(p21, y), LiteralEvaluation(p23, t))       # y = 3
 print("s2: {}".format(stmt2))
-stmt3 = Assignment(p31, VariableAccess(p31, x), VariableAccess(p33, y))        # x = y
+stmt3 = Assignment(p31, VariableAccess(p31, x), VariableAccess(p33, y))             # x = y
 print("s3: {}".format(stmt3))
+# stmt4 = Call(p41, "foo", [VariableAccess(p43, x), VariableAccess(p45, y)])  # foo(x, y)
+# print("s4: {}".format(stmt4))
 
 # Control Flow Graph
 print("\nControl Flow Graph\n")
@@ -48,9 +51,6 @@ e23 = Unconditional(n2, n3)
 print("e23: {}".format(e23))
 
 cfg = ControlFlowGraph({n1, n2, n3}, n1, n3, {e12, e23})
-
-# render cfg graph
-CfgRenderer().render(cfg, label=__file__)
 
 # Analysis
 print("\nAnalysis\n")
@@ -88,9 +88,8 @@ class DummyState(State):
         self.internal.variables = variables
 
     def __str__(self):
-        result = ", ".join("{}".format(expression) for expression in self.result)
-        variables = "".join("\n{} -> {} ".format(variable, value) for variable, value in self.variables.items())
-        return "[{}] {}".format(result, variables)
+        variables = "\n".join("{} -> {} ".format(variable, value) for variable, value in self.variables.items())
+        return "{}".format(variables)
 
     def _less_equal(self, other: 'DummyState') -> bool:
         result = True
@@ -140,7 +139,7 @@ class DummyState(State):
     def enter_loop(self):
         return self     # nothing to be done
 
-    def _evaluate_expression(self, expression: Expression):
+    def _evaluate_literal(self, expression: Expression):
         return {expression}
 
     def exit_loop(self):
@@ -168,6 +167,6 @@ class DummyState(State):
 # dummy_analysis.set_node_result(n3, [s4])
 # print("{}".format(analysis))
 
-forward_interpreter = ForwardInterpreter(cfg, 3)
+forward_interpreter = ForwardInterpreter(cfg, DefaultForwardSemantics(), 3)
 dummy_analysis = forward_interpreter.analyze(DummyState([x, y]))
-print("{}".format(dummy_analysis))
+AnalysisResultRenderer().render((cfg, dummy_analysis), label=__file__)

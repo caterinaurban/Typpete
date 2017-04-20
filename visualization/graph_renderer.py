@@ -1,7 +1,8 @@
+from core.cfg import *
 import graphviz as gv
+from itertools import zip_longest
 import numbers
 from uuid import uuid4 as uuid
-from core.cfg import *
 
 
 class GraphRenderer:
@@ -134,6 +135,39 @@ class CfgRenderer(GraphRenderer):
                                  fillcolor=fillcolor, shape='box')
             elif isinstance(node, Loop):
                 self._graph.node(str(node), label=self._list2lines(node.stmts),
+                                 fillcolor=fillcolor, shape='box')
+            else:
+                self._graph.node(str(node), label=self._escape_dot_label(self._shorten_string(str(node))),
+                                 fillcolor=fillcolor, shape='circle')
+
+        for edge in cfg.edges.values():
+            if isinstance(edge, Conditional):
+                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
+                                 label=self._escape_dot_label(str(edge.condition)))
+            elif isinstance(edge, Unconditional):
+                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
+                                 label=self._escape_dot_label(""))
+            else:
+                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
+                                 label=self._escape_dot_label(str(edge)))
+
+
+class AnalysisResultRenderer(GraphRenderer):
+    """Rendering of an analysis result together with the analyzed control flow graph."""
+
+    def _render_graph(self, data):
+        (cfg, result) = data
+        for node_id, node in cfg.nodes.items():
+            fillcolor = self.nodeattrs['fillcolor']
+            if node is cfg.in_node:
+                fillcolor = '#24bf26'
+            elif node is cfg.out_node:
+                fillcolor = '#ce3538'
+
+            if isinstance(node, (Basic, Loop)):
+                states = result.get_node_result(node)
+                node_result = [item for items in zip_longest(states, node.stmts) for item in items if item is not None]
+                self._graph.node(str(node), label=self._list2lines(node_result),
                                  fillcolor=fillcolor, shape='box')
             else:
                 self._graph.node(str(node), label=self._escape_dot_label(self._shorten_string(str(node))),
