@@ -175,6 +175,6 @@ class Lattice(ABC):
         :param other: other lattice element
         :return: current lattice element updated to be equal to other
         """
-        self.__dict__.clear().update(other.__dict__)
+        self.__dict__.update(other.__dict__)
         assert self == other
         return self
