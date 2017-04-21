@@ -1,11 +1,11 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from abstract_domains.lattice import Lattice
 from copy import deepcopy
 from core.expressions import Expression, VariableIdentifier
 from typing import Set
 
 
-class State(Lattice):
+class State(Lattice, ABC):
     def __init__(self):
         """Analysis state representation. 
         Account for lattice operations and statement effects by modifying the current state.
@@ -19,6 +19,9 @@ class State(Lattice):
     @result.setter
     def result(self, result: Set[Expression]):
         self._result = result
+
+    def __repr__(self):
+        return ", ".join("{}".format(expression) for expression in self.result)
 
     @abstractmethod
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:

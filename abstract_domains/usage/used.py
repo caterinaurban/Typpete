@@ -49,7 +49,7 @@ class UsedLattice(Lattice):
         (U, U): U,
     }
 
-    def __init__(self, used: Used = Used.N):
+    def __init__(self, used: Used = N):
         """Used variable analysis core abstract domain representation.
         
         :param used: initial lattice element
@@ -65,15 +65,22 @@ class UsedLattice(Lattice):
         return self.used.name
 
     def default(self):
-        return self.bottom()
+        self._used = N
+        return self
 
     def bottom(self):
-        self.used = Used.N
+        self._used = N
         return self
 
     def top(self):
-        self.used = Used.T
+        self._used = U
         return self
+
+    def is_bottom(self) -> 'bool':
+        return self.used == N
+
+    def is_top(self) -> 'bool':
+        return self.used == U
 
     def _less_equal(self, other: 'UsedLattice') -> bool:
         if self.used == other.used or self.used == N:

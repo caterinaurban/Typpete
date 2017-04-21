@@ -3,36 +3,23 @@ from typing import List, Set
 
 from abstract_domains.lattice import Lattice
 from abstract_domains.state import State
-from abstract_domains.usage.lattices import UsedLattice, Used
+from abstract_domains.generic_lattices import StackLattice
+from abstract_domains.usage.store import UsedStore
 from core.expressions import Expression, VariableIdentifier, Print
 
 
-class UsedStack(State):
-    class Internal(State.Internal):
-        def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind):
-            super().__init__(kind)
-            self._stack = [UsedStore(variables)]
-
-        @property
-        def stack(self):
-            return self._stack
-
-    def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind = Lattice.Kind.Default):
-        """Used variable analysis state representation.
+class UsedStack(StackLattice, State):
+    def __init__(self, variables: List[VariableIdentifier]):
+        """Usage-analysis state representation.
 
         :param variables: list of program variables
-        :param kind: kind of lattice element
         """
-        super().__init__(kind)
-        self._internal = UsedStack.Internal(variables, kind)
+        super().__init__(UsedStore, {'variables': variables})
 
-    @property
-    def stack(self):
-        return self.internal.stack
-
-    def __str__(self):
-        result = ", ".join("{}".format(expression) for expression in self.result)
-        return "[{}] {}".format(result, " | ".join(self.stack))
+    # def __repr__(self):
+    #     result = super(State).__repr__()
+    #     stack = super(StackLattice).__repr__()
+    #     return "[{}]\n{}".format(result, stack)
 
     def push(self):
         self.stack.append(deepcopy(self.stack[-1]).descend())
@@ -43,33 +30,6 @@ class UsedStack(State):
         self.stack[-1].combine(popped)
         return self
 
-    def _less_equal(self, other: 'UsedStack') -> bool:
-        if len(self.stack) != len(other.stack):
-            raise Exception("Stacks must be equally long")
-        result = True
-        for i, _ in enumerate(self.stack):
-            l = self.stack[i]
-            r = other.stack[i]
-            result = result and l.less_equal(r)
-        return result
-
-    def _meet(self, other: 'UsedStack'):
-        if len(self.stack) != len(other.stack):
-            raise Exception("Stacks must be equally long")
-        for i, store in enumerate(self.stack):
-            store.meet(other.stack[i])
-        return self
-
-    def _join(self, other: 'UsedStack') -> 'UsedStack':
-        if len(self.stack) != len(other.stack):
-            raise Exception("Stacks must be equally long")
-        for i, store in enumerate(self.stack):
-            store.join(other.stack[i])
-        return self
-
-    def _widening(self, other: 'UsedStack'):
-        return self._join(other)
-
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return {variable}
 
@@ -78,16 +38,22 @@ class UsedStack(State):
 
     def _assume(self, condition: Expression) -> 'UsedStack':
         self.stack[-1].assume({condition})
-        # TODO pop frame (where to push?)
+        # self.pop()  # activate when we know where to push
         return self
 
-    def _evaluate_expression(self, expression: Expression) -> Set[Expression]:
-        self.stack[-1].evaluate_expression({expression})
-        return {expression}
+    def enter_loop(self):
+        raise NotImplementedError("UsedStore does not support enter_loop")
+
+    def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
+        self.stack[-1].evaluate_literal({literal})
+        return {literal}
+
+    def exit_loop(self):
+        raise NotImplementedError("UsedStore does not support exit_loop")
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStack':
         if isinstance(left, VariableIdentifier):
-            self.stack[-1].substitute_variable({left}, {right})  # correct to use non-underscore interface???
+            self.stack[-1].substitute_variable({left}, {right})  # TODO correct to use non-underscore interface???
         else:
             raise NotImplementedError("Variable substitution for {} is not implemented!".format(left))
         return self

@@ -1,66 +1,18 @@
-from copy import deepcopy
 from typing import List, Set
-
-from abstract_domains.lattice import Lattice
 from abstract_domains.state import State
-from abstract_domains.usage.lattices import UsedLattice, Used
+from abstract_domains.usage.used import UsedLattice, Used
+from abstract_domains.generic_lattices import StoreLattice
 from core.expressions import Expression, VariableIdentifier, Print
 
 
-class UsedStore(State):
-    class Internal(State.Internal):
-        def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind):
-            super().__init__(kind)
-            self._variables = {variable: UsedLattice(Used.N) for variable in variables}
+class UsedStore(StoreLattice, State):
+    def __init__(self, variables: List[VariableIdentifier]):
+        super().__init__(variables, UsedLattice)
 
-        @property
-        def variables(self):
-            return self._variables
-
-    def __init__(self, variables: List[VariableIdentifier], kind: Lattice.Kind = Lattice.Kind.Default):
-        """Used variable analysis state representation.
-        
-        :param variables: list of program variables
-        :param kind: kind of lattice element
-        """
-        super().__init__(kind)
-        self._internal = UsedStore.Internal(variables, kind)
-
-    @property
-    def variables(self):
-        return self.internal.variables
-
-    def __str__(self):
-        result = ", ".join("{}".format(expression) for expression in self.result)
-        variables = "".join("\n{} -> {} ".format(variable, value) for variable, value in self.variables.items())
-        return "[{}] {}".format(result, variables)
-
-    def _less_equal(self, other: 'UsedStore') -> bool:
-        result = True
-        for var in self.variables:
-            l = self.variables[var]
-            r = other.variables[var]
-            result = result and l.less_equal(r)
-        return result
-
-    def _meet(self, other: 'UsedStore'):
-        for var in self.variables:
-            self.variables[var].meet(other.variables[var])
-        return self
-
-    def _join(self, other: 'UsedStore') -> 'UsedStore':
-        for var in self.variables:
-            self.variables[var].join(other.variables[var])
-        return self
-
-    def _widening(self, other: 'UsedStore'):
-        return self._join(other)
-
-    def _use(self, x: VariableIdentifier, e: Expression):
-        if self.variables[x].used in [Used.U, Used.UU]:
-            for identifier in e.ids():
-                self.variables[identifier].used = Used.U
-        return self
+    # def __repr__(self):
+    #     result = super(State).__repr__()
+    #     variables = super(StoreLattice).__repr__()
+    #     return "[{}]\n{}".format(result, variables)
 
     def descend(self) -> 'UsedStore':
         for var in self.variables:
@@ -70,6 +22,12 @@ class UsedStore(State):
     def combine(self, other: 'UsedStore') -> 'UsedStore':
         for i, var in enumerate(self.variables):
             var.combine(other.variables[i])
+        return self
+
+    def _use(self, x: VariableIdentifier, e: Expression):
+        if self.variables[x].used in [Used.U, Used.UU]:
+            for identifier in e.ids():
+                self.variables[identifier].used = Used.U
         return self
 
     def _kill(self, x: VariableIdentifier, e: Expression):
@@ -94,11 +52,17 @@ class UsedStore(State):
                     self.variables[identifier].used = Used.U
         return self
 
-    def _evaluate_expression(self, expression: Expression) -> Set[Expression]:
-        if isinstance(expression, Print):
-            for identifier in expression.ids():
+    def enter_loop(self):
+        raise NotImplementedError("UsedStore does not support enter_loop")
+
+    def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
+        if isinstance(literal, Print):
+            for identifier in literal.ids():
                 self.variables[identifier].used = Used.U
-        return {expression}
+        return {literal}
+
+    def exit_loop(self):
+        raise NotImplementedError("UsedStore does not support exit_loop")
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStore':
         if isinstance(left, VariableIdentifier):
