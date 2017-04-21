@@ -1,4 +1,4 @@
-from abstract_domains.liveness import LiveDead
+from abstract_domains.liveness.livedead import LiveDead
 from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional
 import core.expressions
 from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment, Call

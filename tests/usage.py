@@ -1,10 +1,9 @@
-from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional
 import core.expressions
+from abstract_domains.used_analysis.states import UsedStack
+from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional
 from core.statements import ProgramPoint, ExpressionEvaluation, VariableAccess, Assignment
 from engine.backward import BackwardInterpreter
-
 from visualization.graph_renderer import CfgRenderer
-from used_analysis.states import UsedStack
 
 # Expressions and Statements
 print("\nExpressions and Statements\n")

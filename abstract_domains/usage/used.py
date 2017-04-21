@@ -1,8 +1,5 @@
 from abstract_domains.lattice import Lattice
-from abstract_domains.state import State
-from core.expressions import Expression, VariableIdentifier
 from enum import Flag
-from typing import List, Set
 
 
 class Used(Flag):
@@ -21,6 +18,8 @@ N = Used.N
 
 
 class UsedLattice(Lattice):
+    """Used variable analysis core abstract domain representation."""
+
     _DESCEND = {
         U: UU,
         UU: UU,
