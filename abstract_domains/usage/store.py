@@ -8,20 +8,33 @@ from core.expressions import Expression, VariableIdentifier
 class UsedStore(StoreLattice, State):
     def __init__(self, variables: List[VariableIdentifier]):
         super().__init__(variables, UsedLattice)
+        self._inside_print = False
 
     # def __repr__(self):
     #     result = super(State).__repr__()
     #     variables = super(StoreLattice).__repr__()
     #     return "[{}]\n{}".format(result, variables)
 
+    @property
+    def inside_print(self):
+        return self._inside_print
+
+    @inside_print.setter
+    def inside_print(self, flag: bool):
+        self._inside_print = flag
+
+    def __repr__(self):
+        variables = ", ".join("{} -> {}".format(variable, value) for variable, value in self.variables.items())
+        return variables
+
     def descend(self) -> 'UsedStore':
-        for var in self.variables:
+        for var in self.variables.values():
             var.descend()
         return self
 
     def combine(self, other: 'UsedStore') -> 'UsedStore':
-        for i, var in enumerate(self.variables):
-            var.combine(other.variables[i])
+        for var, used in self.variables.items():
+            used.combine(other.variables[var])
         return self
 
     def _use(self, x: VariableIdentifier, e: Expression):
@@ -31,13 +44,16 @@ class UsedStore(StoreLattice, State):
         return self
 
     def _kill(self, x: VariableIdentifier, e: Expression):
-        if set([lat.used for id, lat in self.variables.items() if id in e.ids()]).intersection([Used.U, Used.UU]):
-            self.variables[x].used = Used.U  # x is still used since it is used in assigned expression
-        elif self.variables[x].used in [Used.U, Used.UU]:
-            self.variables[x].used = Used.UN  # x is overwritten
+        if self.variables[x].used in [Used.U, Used.UU]:
+            if x in [v for v, u in self.variables.items() if v in e.ids()]:
+                self.variables[x].used = Used.U  # x is still used since it is used in assigned expression
+            else:
+                self.variables[x].used = Used.UN  # x is overwritten
         return self
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
+        if self._inside_print:
+            self.variables[variable].used = Used.U
         return {variable}
 
     def _assign_variable(self, left: Expression, right: Expression) -> 'UsedStore':
@@ -52,14 +68,20 @@ class UsedStore(StoreLattice, State):
                     self.variables[identifier].used = Used.U
         return self
 
-    def enter_loop(self):
-        raise NotImplementedError("UsedStore does not support enter_loop")
-
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
         return {literal}
 
+    def enter_loop(self):
+        raise NotImplementedError("UsedStore does not support enter_loop")
+
     def exit_loop(self):
         raise NotImplementedError("UsedStore does not support exit_loop")
+
+    def enter_if(self):
+        raise NotImplementedError("UsedStore does not support enter_if")
+
+    def exit_if(self):
+        raise NotImplementedError("UsedStore does not support exit_if")
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStore':
         if isinstance(left, VariableIdentifier):

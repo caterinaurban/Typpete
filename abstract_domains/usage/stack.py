@@ -15,6 +15,17 @@ class UsedStack(StackLattice, State):
         :param variables: list of program variables
         """
         super().__init__(UsedStore, {'variables': variables})
+        self._inside_print = False
+
+    @property
+    def inside_print(self):
+        return self._inside_print
+
+    @inside_print.setter
+    def inside_print(self, flag: bool):
+        self._inside_print = flag
+        for store in self.stack:
+            store.inside_print = flag
 
     # def __repr__(self):
     #     result = super(State).__repr__()
@@ -31,6 +42,7 @@ class UsedStack(StackLattice, State):
         return self
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
+        self.stack[-1].access_variable(variable)
         return {variable}
 
     def _assign_variable(self, left: Expression, right: Expression) -> 'UsedStack':
@@ -38,18 +50,25 @@ class UsedStack(StackLattice, State):
 
     def _assume(self, condition: Expression) -> 'UsedStack':
         self.stack[-1].assume({condition})
-        # self.pop()  # activate when we know where to push
         return self
 
-    def enter_loop(self):
-        raise NotImplementedError("UsedStore does not support enter_loop")
-
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
-        self.stack[-1].evaluate_literal({literal})
+        self.stack[-1].evaluate_literal(literal)
         return {literal}
 
+    def enter_loop(self):
+        raise NotImplementedError("UsedStack does not support enter_loop")
+
     def exit_loop(self):
-        raise NotImplementedError("UsedStore does not support exit_loop")
+        raise NotImplementedError("UsedStack does not support exit_loop")
+
+    def enter_if(self):
+        self.push()
+        return self
+
+    def exit_if(self):
+        self.pop()
+        return self
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStack':
         if isinstance(left, VariableIdentifier):

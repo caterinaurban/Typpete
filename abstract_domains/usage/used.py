@@ -61,6 +61,10 @@ class UsedLattice(Lattice):
     def used(self):
         return self._used
 
+    @used.setter
+    def used(self, used: Used):
+        self._used = used
+
     def __repr__(self):
         return self.used.name
 
@@ -103,9 +107,9 @@ class UsedLattice(Lattice):
         return self._join(other)
 
     def descend(self) -> 'UsedLattice':
-        self.used = UsedLattice._DESCEND[self.used]
+        self._used = UsedLattice._DESCEND[self.used]
         return self
 
     def combine(self, other: 'UsedLattice') -> 'UsedLattice':
-        self.used = UsedLattice._COMBINE[(self.used, other.used)]
+        self._used = UsedLattice._COMBINE[(self.used, other.used)]
         return self

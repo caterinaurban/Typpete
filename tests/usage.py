@@ -1,6 +1,8 @@
+from abstract_domains.state import State
 from abstract_domains.usage.stack import UsedStack
-from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional
+from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional, Edge
 import core.expressions
+import core.statements
 from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment, Call
 from engine.backward import BackwardInterpreter
 from semantics.backward import DefaultBackwardSemantics
@@ -74,13 +76,13 @@ print("exit: {}".format(n6))
 
 e12 = Unconditional(n1, n2)
 print("e12: {}".format(e12))
-e23 = Conditional(n2, stmt4, n3)
+e23 = Conditional(n2, stmt4, n3, Edge.Kind.IfIn)
 print("e23: {}".format(e23))
-e35 = Unconditional(n3, n5)
+e35 = Unconditional(n3, n5, Edge.Kind.IfOut)
 print("e35: {}".format(e35))
-e24 = Conditional(n2, neg_stmt4, n4)
+e24 = Conditional(n2, neg_stmt4, n4, Edge.Kind.IfIn)
 print("e24: {}".format(e24))
-e45 = Unconditional(n4, n5)
+e45 = Unconditional(n4, n5, Edge.Kind.IfOut)
 print("e45: {}".format(e45))
 e56 = Unconditional(n5, n6)
 print("e56: {}".format(e56))
@@ -89,9 +91,24 @@ cfg = ControlFlowGraph({n1, n2, n3, n4, n5, n6}, n1, n6, {e12, e23, e35, e24, e4
 
 CfgRenderer().render(cfg, label=__file__)
 
+
+class UsageSemantics(DefaultBackwardSemantics):
+    def print_call_semantics(self, stmt: Call, state: State) -> State:
+        if len(stmt.arguments) != 1:
+            raise NotImplementedError(f"No semantics implemented for the multiple arguments to print()")
+
+        state.inside_print = True
+        for arg in stmt.arguments:
+            state = self.semantics(arg, state)
+
+        state.inside_print = False
+
+        return state
+
+
 # Usage Analyis
 print("\nUsage Analysis\n")
 
-backward_interpreter = BackwardInterpreter(cfg, DefaultBackwardSemantics(), 3)
+backward_interpreter = BackwardInterpreter(cfg, UsageSemantics(), 3)
 usage_analysis = backward_interpreter.analyze(UsedStack([x, y, z]))
 AnalysisResultRenderer().render((cfg, usage_analysis), label=__file__)
