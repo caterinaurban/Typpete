@@ -143,10 +143,10 @@ class CfgRenderer(GraphRenderer):
         for edge in cfg.edges.values():
             if isinstance(edge, Conditional):
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(str(edge.condition)))
+                                 label=self._escape_dot_label(f"{edge.kind.name}: {str(edge.condition)}"))
             elif isinstance(edge, Unconditional):
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(""))
+                                 label=self._escape_dot_label(edge.kind.name if edge.kind != Edge.Kind.Default else ""))
             else:
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
                                  label=self._escape_dot_label(str(edge)))
@@ -176,10 +176,10 @@ class AnalysisResultRenderer(GraphRenderer):
         for edge in cfg.edges.values():
             if isinstance(edge, Conditional):
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(str(edge.condition)))
+                                 label=self._escape_dot_label(f"{edge.kind.name}: {str(edge.condition)}"))
             elif isinstance(edge, Unconditional):
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(""))
+                                 label=self._escape_dot_label(edge.kind.name if edge.kind != Edge.Kind.Default else ""))
             else:
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
                                  label=self._escape_dot_label(str(edge)))

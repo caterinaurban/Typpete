@@ -78,9 +78,11 @@ class Loop(Node):
 class Edge(ABC):
     class Kind(Enum):
         """Kind of an edge of a control flow graph."""
-        Out = -1  # loop exit edge
+        IfOut = -2  # if exit edge
+        LoopOut = -1  # loop exit edge
         Default = 0
-        In = 1  # loop entry edge
+        LoopIn = 1  # loop entry edge
+        IfIn = 2  # if entry edge
 
     def __init__(self, source: Node, target: Node, kind: Kind = Kind.Default):
         """Edge of a control flow graph.
@@ -123,12 +125,6 @@ class Edge(ABC):
 
         :return: string representing the edge
         """
-
-    def is_in(self):
-        return self.kind is Edge.Kind.In
-
-    def is_out(self):
-        return self.kind is Edge.Kind.Out
 
 
 class Unconditional(Edge):

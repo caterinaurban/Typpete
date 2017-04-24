@@ -1,5 +1,5 @@
 from abstract_domains.liveness.livedead import LiveDead
-from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional
+from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional, Edge
 import core.expressions
 from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment, Call
 from engine.backward import BackwardInterpreter
@@ -74,13 +74,13 @@ print("exit: {}".format(n6))
 
 e12 = Unconditional(n1, n2)
 print("e12: {}".format(e12))
-e23 = Conditional(n2, stmt4, n3)
+e23 = Conditional(n2, stmt4, n3, Edge.Kind.IfIn)
 print("e23: {}".format(e23))
-e35 = Unconditional(n3, n5)
+e35 = Unconditional(n3, n5, Edge.Kind.IfOut)
 print("e35: {}".format(e35))
-e24 = Conditional(n2, neg_stmt4, n4)
+e24 = Conditional(n2, neg_stmt4, n4, Edge.Kind.IfIn)
 print("e24: {}".format(e24))
-e45 = Unconditional(n4, n5)
+e45 = Unconditional(n4, n5, Edge.Kind.IfOut)
 print("e45: {}".format(e45))
 e56 = Unconditional(n5, n6)
 print("e56: {}".format(e56))

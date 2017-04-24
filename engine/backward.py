@@ -1,7 +1,7 @@
 from abstract_domains.state import State
 from collections import deque
 from copy import deepcopy
-from core.cfg import Basic, Loop, Conditional, ControlFlowGraph
+from core.cfg import Basic, Loop, Conditional, ControlFlowGraph, Edge
 from engine.interpreter import Interpreter
 from engine.result import AnalysisResult
 from semantics.backward import BackwardSemantics
@@ -46,10 +46,14 @@ class BackwardInterpreter(Interpreter):
                 edges = self.cfg.out_edges(current)
                 for edge in edges:
                     successor = deepcopy(self.result.get_node_result(edge.target)[0])
-                    # handle loop edges
-                    if edge.is_in():
+                    # handle non-default edges
+                    if edge.kind == Edge.Kind.IfIn:
+                        successor = successor.exit_if()
+                    elif edge.kind == Edge.Kind.IfOut:
+                        successor = successor.enter_if()
+                    elif edge.kind == Edge.Kind.LoopIn:
                         successor = successor.exit_loop()
-                    elif edge.is_out():
+                    elif edge.kind == Edge.Kind.LoopOut:
                         successor = successor.enter_loop()
                     # handle conditional edges
                     if isinstance(edge, Conditional):

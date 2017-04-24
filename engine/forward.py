@@ -1,7 +1,7 @@
 from abstract_domains.state import State
 from collections import deque
 from copy import deepcopy
-from core.cfg import Basic, Loop, Conditional, ControlFlowGraph
+from core.cfg import Basic, Loop, Conditional, ControlFlowGraph, Edge
 from engine.interpreter import Interpreter
 from engine.result import AnalysisResult
 from semantics.forward import ForwardSemantics
@@ -45,11 +45,15 @@ class ForwardInterpreter(Interpreter):
                     # handle conditional edges
                     if isinstance(edge, Conditional):
                         predecessor = self.semantics.semantics(edge.condition, predecessor).filter()
-                    # handle loop edges
-                    if edge.is_in():
-                        predecessor = predecessor.enter_loop()
-                    elif edge.is_out():
-                        predecessor = predecessor.exit_loop()
+                    # handle non-default edges
+                    if edge.kind == Edge.Kind.IfIn:
+                        successor = successor.enter_if()
+                    elif edge.kind == Edge.Kind.IfOut:
+                        successor = successor.exit_if()
+                    elif edge.kind == Edge.Kind.LoopIn:
+                        successor = successor.enter_loop()
+                    elif edge.kind == Edge.Kind.LoopOut:
+                        successor = successor.exit_loop()
                     entry = entry.join(predecessor)
                 # widening
                 if isinstance(current, Loop) and self.widening < iteration:

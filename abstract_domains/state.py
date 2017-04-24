@@ -78,23 +78,16 @@ class State(Lattice, ABC):
         return self
 
     @abstractmethod
-    def enter_loop(self):
-        """Enter a loop.
-        
-        :return: current state modified to enter a loop
-        """
-
-    @abstractmethod
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
         """Retrieve a literal value. Account for side-effects by modifying the current state.
-        
+
         :param literal: literal to retrieve the value of
         :return: set of expressions representing the literal value
         """
 
     def evaluate_literal(self, literal: Expression) -> 'State':
         """Evaluate a literal.
-        
+
         :param literal: expression to be evaluated
         :return: current state modified by the literal evaluation
         """
@@ -102,10 +95,31 @@ class State(Lattice, ABC):
         return self
 
     @abstractmethod
-    def exit_loop(self):
+    def enter_loop(self) -> 'State':
+        """Enter a loop.
+
+        :return: current state modified to enter a loop
+        """
+
+    @abstractmethod
+    def exit_loop(self) -> 'State':
         """Exit a loop.
 
         :return: current state modified to exit a loop
+        """
+
+    @abstractmethod
+    def enter_if(self) -> 'State':
+        """Enter an if-statement.
+
+        :return: current state modified to enter an if-statement
+        """
+
+    @abstractmethod
+    def exit_if(self) -> 'State':
+        """Exit an if-statement.
+
+        :return: current state modified to enter an if-statement
         """
 
     def filter(self) -> 'State':

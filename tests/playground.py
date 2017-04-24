@@ -104,13 +104,19 @@ class DummyState(StoreLattice, State):
     def _assume(self, condition: Expression) -> 'DummyState':
         pass
 
-    def enter_loop(self):
-        return self  # nothing to be done
-
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
         return {literal}
 
+    def enter_loop(self):
+        return self  # nothing to be done
+
     def exit_loop(self):
+        return self  # nothing to be done
+
+    def enter_if(self):
+        return self  # nothing to be done
+
+    def exit_if(self):
         return self  # nothing to be done
 
     def _substitute_variable(self, left: Expression, right: Expression):
