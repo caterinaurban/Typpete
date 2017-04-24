@@ -2,7 +2,7 @@ from typing import List, Set
 from abstract_domains.state import State
 from abstract_domains.usage.used import UsedLattice, Used
 from abstract_domains.generic_lattices import StoreLattice
-from core.expressions import Expression, VariableIdentifier, Print
+from core.expressions import Expression, VariableIdentifier
 
 
 class UsedStore(StoreLattice, State):
@@ -56,9 +56,6 @@ class UsedStore(StoreLattice, State):
         raise NotImplementedError("UsedStore does not support enter_loop")
 
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
-        if isinstance(literal, Print):
-            for identifier in literal.ids():
-                self.variables[identifier].used = Used.U
         return {literal}
 
     def exit_loop(self):

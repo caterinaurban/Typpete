@@ -5,7 +5,7 @@ from abstract_domains.lattice import Lattice
 from abstract_domains.state import State
 from abstract_domains.generic_lattices import StackLattice
 from abstract_domains.usage.store import UsedStore
-from core.expressions import Expression, VariableIdentifier, Print
+from core.expressions import Expression, VariableIdentifier
 
 
 class UsedStack(StackLattice, State):
