@@ -47,13 +47,13 @@ class BackwardInterpreter(Interpreter):
                 for edge in edges:
                     successor = deepcopy(self.result.get_node_result(edge.target)[0])
                     # handle non-default edges
-                    if edge.kind == Edge.Kind.IfIn:
+                    if edge.kind == Edge.Kind.IF_IN:
                         successor = successor.exit_if()
-                    elif edge.kind == Edge.Kind.IfOut:
+                    elif edge.kind == Edge.Kind.IF_OUT:
                         successor = successor.enter_if()
-                    elif edge.kind == Edge.Kind.LoopIn:
+                    elif edge.kind == Edge.Kind.LOOP_IN:
                         successor = successor.exit_loop()
-                    elif edge.kind == Edge.Kind.LoopOut:
+                    elif edge.kind == Edge.Kind.LOOP_OUT:
                         successor = successor.enter_loop()
                     # handle conditional edges
                     if isinstance(edge, Conditional):

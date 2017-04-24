@@ -46,13 +46,13 @@ class ForwardInterpreter(Interpreter):
                     if isinstance(edge, Conditional):
                         predecessor = self.semantics.semantics(edge.condition, predecessor).filter()
                     # handle non-default edges
-                    if edge.kind == Edge.Kind.IfIn:
+                    if edge.kind == Edge.Kind.IF_IN:
                         successor = successor.enter_if()
-                    elif edge.kind == Edge.Kind.IfOut:
+                    elif edge.kind == Edge.Kind.IF_OUT:
                         successor = successor.exit_if()
-                    elif edge.kind == Edge.Kind.LoopIn:
+                    elif edge.kind == Edge.Kind.LOOP_IN:
                         successor = successor.enter_loop()
-                    elif edge.kind == Edge.Kind.LoopOut:
+                    elif edge.kind == Edge.Kind.LOOP_OUT:
                         successor = successor.exit_loop()
                     entry = entry.join(predecessor)
                 # widening

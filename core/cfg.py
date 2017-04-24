@@ -78,11 +78,11 @@ class Loop(Node):
 class Edge(ABC):
     class Kind(Enum):
         """Kind of an edge of a control flow graph."""
-        IfOut = -2  # if exit edge
-        LoopOut = -1  # loop exit edge
+        IF_OUT = -2  # if exit edge
+        LOOP_OUT = -1  # loop exit edge
         Default = 0
-        LoopIn = 1  # loop entry edge
-        IfIn = 2  # if entry edge
+        LOOP_IN = 1  # loop entry edge
+        IF_IN = 2  # if entry edge
 
     def __init__(self, source: Node, target: Node, kind: Kind = Kind.Default):
         """Edge of a control flow graph.
