@@ -6,6 +6,7 @@ import core.statements
 from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment, Call
 from engine.backward import BackwardInterpreter
 from semantics.backward import DefaultBackwardSemantics
+from semantics.usage.usage_semantics import UsageSemantics
 from visualization.graph_renderer import AnalysisResultRenderer, CfgRenderer
 
 # Expressions and Statements
@@ -90,21 +91,6 @@ print("e56: {}".format(e56))
 cfg = ControlFlowGraph({n1, n2, n3, n4, n5, n6}, n1, n6, {e12, e23, e35, e24, e45, e56})
 
 CfgRenderer().render(cfg, label=__file__)
-
-
-class UsageSemantics(DefaultBackwardSemantics):
-    def print_call_semantics(self, stmt: Call, state: State) -> State:
-        if len(stmt.arguments) != 1:
-            raise NotImplementedError(f"No semantics implemented for the multiple arguments to print()")
-
-        state.inside_print = True
-        for arg in stmt.arguments:
-            state = self.semantics(arg, state)
-
-        state.inside_print = False
-
-        return state
-
 
 # Usage Analyis
 print("\nUsage Analysis\n")
