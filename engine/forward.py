@@ -47,17 +47,17 @@ class ForwardInterpreter(Interpreter):
                         predecessor = self.semantics.semantics(edge.condition, predecessor).filter()
                     # handle non-default edges
                     if edge.kind == Edge.Kind.IF_IN:
-                        successor = successor.enter_if()
+                        predecessor = predecessor.enter_if()
                     elif edge.kind == Edge.Kind.IF_OUT:
-                        successor = successor.exit_if()
+                        predecessor = predecessor.exit_if()
                     elif edge.kind == Edge.Kind.LOOP_IN:
-                        successor = successor.enter_loop()
+                        predecessor = predecessor.enter_loop()
                     elif edge.kind == Edge.Kind.LOOP_OUT:
-                        successor = successor.exit_loop()
+                        predecessor = predecessor.exit_loop()
                     entry = entry.join(predecessor)
                 # widening
                 if isinstance(current, Loop) and self.widening < iteration:
-                    entry = deepcopy(previous or None).widening(entry)
+                    entry = deepcopy(previous or deepcopy(initial).bottom()).widening(entry)
 
             # check for termination and execute block
             if previous is None or not entry.less_equal(previous):

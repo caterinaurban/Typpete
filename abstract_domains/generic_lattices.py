@@ -1,13 +1,14 @@
 from abc import ABC, abstractmethod
-from abstract_domains.lattice import Lattice
-from core.expressions import Expression, VariableIdentifier
 from enum import Enum
-from typing import List, Set, TypeVar, Generic, Type
-from copy import deepcopy
+from typing import List, TypeVar, Generic, Type
 
-L = TypeVar('L', Lattice, Lattice)  # TODO not sure if it is ok to reuse that typevar for different purposes
+from abstract_domains.lattice import Lattice
+from core.expressions import VariableIdentifier
+
+L = TypeVar('L')
 
 
+# noinspection PyAbstractClass
 class TopBottomLattice(Lattice, Generic[L], ABC):
     """
     A generic lattice that extends a subclassing lattice with a TOP and a BOTTOM element.
@@ -18,14 +19,14 @@ class TopBottomLattice(Lattice, Generic[L], ABC):
         ELEMENT = 2
         BOTTOM = 1
 
+    # noinspection PyMissingConstructor
     def __init__(self, initial_element: L = None):
         """Create a lattice element.
 
-        :param initial_element: initial lattice element (if None, the lattice default() method is used to set the default element)
+        :param initial_element: initial lattice element (or None to use default())
         """
-        super().__init__()
+        self._kind = TopBottomLattice.Kind.ELEMENT
         if initial_element is not None:
-            self._kind = TopBottomLattice.Kind.ELEMENT
             self._element = initial_element
         else:
             self.default()
@@ -71,7 +72,7 @@ class StoreLattice(Lattice, Generic[L]):
         self._variables_list = variables
         self._element_lattice = element_lattice
         self._variables = None
-        self.default()
+        super().__init__()
 
     @property
     def variables(self):
@@ -81,14 +82,17 @@ class StoreLattice(Lattice, Generic[L]):
         variables = "\n".join("{} -> {} ".format(variable, value) for variable, value in self.variables.items())
         return variables
 
+    # noinspection PyCallingNonCallable
     def default(self):
         self._variables = {variable: self._element_lattice().default() for variable in self._variables_list}
         return self
 
+    # noinspection PyCallingNonCallable
     def bottom(self) -> 'StoreLattice[L]':
         self._variables = {variable: self._element_lattice().bottom() for variable in self._variables}
         return self
 
+    # noinspection PyCallingNonCallable
     def top(self) -> 'StoreLattice[L]':
         self._variables = {variable: self._element_lattice().top() for variable in self._variables}
         return self
@@ -127,7 +131,7 @@ class StackLattice(TopBottomLattice, ABC):
         self._args_dict = args_dict
         self._element_lattice = element_lattice
         self._stack = None
-        self.default()
+        super().__init__()
 
     @property
     def stack(self):
@@ -136,6 +140,7 @@ class StackLattice(TopBottomLattice, ABC):
     def __repr__(self):
         return " | ".join(map(repr, self.stack))
 
+    # noinspection PyCallingNonCallable
     def default(self):
         self._stack = [self._element_lattice(**self._args_dict).default()]
         return self

@@ -1,8 +1,8 @@
-from abstract_domains.lattice import Lattice
-from abstract_domains.state import State
-from core.expressions import Expression, VariableIdentifier
 from enum import Enum
 from typing import List, Set
+
+from abstract_domains.state import State
+from core.expressions import Expression, VariableIdentifier
 
 
 class LiveDead(State):
@@ -16,8 +16,8 @@ class LiveDead(State):
         
         :param variables: list of program variables
         """
-        super().__init__()
         self._variables = {variable: LiveDead.Liveness.Dead for variable in variables}
+        super().__init__()
 
     @property
     def variables(self):

@@ -11,6 +11,7 @@ class State(Lattice, ABC):
         Account for lattice operations and statement effects by modifying the current state.
         """
         self._result = set()  # set of expressions representing the result of the previously analyze statement
+        super().__init__()
 
     @property
     def result(self):

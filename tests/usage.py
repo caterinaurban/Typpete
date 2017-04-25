@@ -1,11 +1,8 @@
-from abstract_domains.state import State
+import core.expressions
 from abstract_domains.usage.stack import UsedStack
 from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional, Edge
-import core.expressions
-import core.statements
 from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment, Call
 from engine.backward import BackwardInterpreter
-from semantics.backward import DefaultBackwardSemantics
 from semantics.usage.usage_semantics import UsageSemantics
 from visualization.graph_renderer import AnalysisResultRenderer, CfgRenderer
 
@@ -89,8 +86,6 @@ e56 = Unconditional(n5, n6)
 print("e56: {}".format(e56))
 
 cfg = ControlFlowGraph({n1, n2, n3, n4, n5, n6}, n1, n6, {e12, e23, e35, e24, e45, e56})
-
-CfgRenderer().render(cfg, label=__file__)
 
 # Usage Analyis
 print("\nUsage Analysis\n")

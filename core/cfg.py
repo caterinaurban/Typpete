@@ -196,7 +196,7 @@ class ControlFlowGraph(object):
         done = set()
         while worklist:
             current = worklist.pop()
-            if not current in done:
+            if current not in done:
                 done.add(current)
                 yield current
                 for successor in self.successors(current):
@@ -207,7 +207,7 @@ class ControlFlowGraph(object):
         done = set()
         while worklist:
             current = worklist.pop()
-            if not current in done:
+            if current not in done:
                 done.add(current)
                 yield current
                 for predecessor in self.predecessors(current):

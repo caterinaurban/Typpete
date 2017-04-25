@@ -1,13 +1,13 @@
-from abstract_domains.lattice import Lattice
+from typing import List, Set
+
+from abstract_domains.generic_lattices import TopBottomLattice, StoreLattice
 from abstract_domains.state import State
 from core.cfg import Basic, Unconditional, ControlFlowGraph
 from core.expressions import Expression, Literal, VariableIdentifier
 from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment
 from engine.forward import ForwardInterpreter
 from semantics.forward import DefaultForwardSemantics
-from typing import Dict, List, Set
 from visualization.graph_renderer import AnalysisResultRenderer
-from abstract_domains.generic_lattices import TopBottomLattice, StoreLattice
 
 # Statements
 print("\nStatements\n")

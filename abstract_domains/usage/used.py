@@ -93,7 +93,7 @@ class UsedLattice(Lattice):
                         self.used == UN and other.used == UU):
             return False
         else:
-            return other.used == UsedLattice.U
+            return other.used == U
 
     def _meet(self, other: 'UsedLattice'):
         self.used &= other.used
