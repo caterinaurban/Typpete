@@ -130,10 +130,7 @@ class CfgRenderer(GraphRenderer):
             elif node is cfg.out_node:
                 fillcolor = '#ce3538'
 
-            if isinstance(node, Basic):
-                self._graph.node(str(node), label=self._list2lines(node.stmts),
-                                 fillcolor=fillcolor, shape='box')
-            elif isinstance(node, Loop):
+            if isinstance(node, (Basic, Loop)):
                 self._graph.node(str(node), label=self._list2lines(node.stmts),
                                  fillcolor=fillcolor, shape='box')
             else:

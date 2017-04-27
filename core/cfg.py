@@ -161,19 +161,26 @@ class Conditional(Edge):
         return "{0.source} -- {0.condition} -- {0.target}".format(self)
 
 
-class ControlFlowGraph(object):
-    def __init__(self, nodes: Set[Node], in_node: Node, out_node: Node, edges: Set[Edge]):
+class ControlFlowGraph:
+    def __init__(self, nodes: Set[Node], in_node: Node, out_node: Node, edges: Set[Edge] = set(), loose_in_edges=None,
+                 loose_out_edges=None):
         """Control flow graph representation.
         
-        :param nodes: nodes of the control flow graph
+        :param nodes: set of nodes of the control flow graph
         :param in_node: entry node of the control flow graph
         :param out_node: exit node of the control flow graph
-        :param edges: edges of the control flow graph
+        :param edges: optional set of edges of the control flow graph
+        :param loose_in_edges: optional set of loose edges that have no start yet and end inside this CFG
+        :param loose_out_edges: optional set of loose edges that start inside this CFG and have no end yet
         """
+        assert in_node or loose_in_edges
+        assert out_node or loose_out_edges
         self._nodes = {node.identifier: node for node in nodes}
         self._in_node = in_node
         self._out_node = out_node
         self._edges = {(edge.source, edge.target): edge for edge in edges}
+        self._loose_in_edges = loose_in_edges or set()
+        self._loose_out_edges = loose_out_edges or set()
 
     @property
     def nodes(self) -> Dict[int, Node]:
@@ -190,6 +197,18 @@ class ControlFlowGraph(object):
     @property
     def edges(self) -> Dict[Tuple[Node, Node], Edge]:
         return self._edges
+
+    @property
+    def loose_in_edges(self):
+        return self._loose_in_edges
+
+    @property
+    def loose_out_edges(self):
+        return self._loose_out_edges
+
+    @property
+    def loose(self):
+        return len(self.loose_in_edges) or len(self.loose_out_edges)
 
     def nodes_forward(self) -> Generator[Node, None, None]:
         worklist = [self.in_node]
@@ -244,3 +263,44 @@ class ControlFlowGraph(object):
         :return: set of successors of the node
         """
         return {edge.target for edge in self.out_edges(node)}
+
+    def combine(self, other):
+        self.nodes.update(other.nodes)
+        self.edges.update(other.edges)
+        self.loose_in_edges.update(other.loose_in_edges)
+        self.loose_out_edges.update(other.loose_out_edges)
+        return self
+
+    def prepend(self, other):
+        other.append(self)
+        self.replace(other)
+
+    def append(self, other):
+        assert not (self.loose_out_edges and other.loose_in_edges)
+        self.nodes.update(other.nodes)
+        self.edges.update(other.edges)
+        if self.loose_out_edges:
+            for e in self.loose_out_edges:
+                e._target = other.in_node
+                self.edges[(e.source, e.target)] = e  # updated/created edge is not yet in edge dict -> add
+            # clear loose edge sets
+            self._loose_out_edges = set()
+        elif other.loose_in_edges:
+            for e in other.loose_in_edges:
+                e._source = self.out_node
+                self.edges[(e.source, e.target)] = e  # updated/created edge is not yet in edge dict -> add
+            # clear loose edge sets
+            other._loose_in_edges = set()
+        else:
+            # neither of the CFGs has loose ends -> add unconditional edge
+            e = Unconditional(self.out_node, other.in_node)
+            self.edges[(e.source, e.target)] = e  # updated/created edge is not yet in edge dict -> add
+
+        # in any case, transfer loose_out_edges of other to self
+        self._loose_out_edges = other.loose_out_edges
+        self._out_node = other.out_node
+
+        return self
+
+    def replace(self, other):
+        self.__dict__.update(other.__dict__)
