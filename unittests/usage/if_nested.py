@@ -1,11 +1,12 @@
-if True:
+ab = 100
+if ab == ab:
     x = 2
     y = 4
     z = 1
     b = 0
     if not y > x:
-        if b > 0:
-            if b > 0:
+        if b > y:
+            if b > y:
                 z = y
             else:
                 z = x

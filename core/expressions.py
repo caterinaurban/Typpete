@@ -316,7 +316,7 @@ class BinaryArithmeticOperation(BinaryOperation):
         """Binary arithmetic operator representation."""
         Add = 1
         Sub = 2
-        Mul = 3
+        Mult = 3
         Div = 4
 
         def __str__(self):

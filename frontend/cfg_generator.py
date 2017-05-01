@@ -111,7 +111,8 @@ class CfgVisitor(ast.NodeVisitor):
         return l
 
     def visit_Name(self, node):
-        v = VariableIdentifier(int, node.id)
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        v = self._ensure_stmt(pp, VariableIdentifier(int, node.id))
         return v
 
     def visit_Assign(self, node):
@@ -136,7 +137,7 @@ class CfgVisitor(ast.NodeVisitor):
 
         pp_test = ProgramPoint(node.test.lineno, node.test.col_offset)
         test = self.visit(node.test)
-        neg_test = Call(pp_test, "Not", [test], bool)
+        neg_test = Call(pp_test, "not", [test], bool)
 
         body_cfg.loose_in_edges.add(Conditional(None, test, body_cfg.in_node, Edge.Kind.IF_IN))
         body_cfg.loose_out_edges.add(Unconditional(body_cfg.out_node, None, Edge.Kind.IF_OUT))
@@ -152,20 +153,20 @@ class CfgVisitor(ast.NodeVisitor):
     def visit_UnaryOp(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
         operand = self.visit(node.operand)
-        return Call(pp, type(node.op).__name__, [operand], int)
+        return Call(pp, type(node.op).__name__.lower(), [operand], int)
 
     def visit_BinOp(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
         left = self.visit(node.left)
         right = self.visit(node.right)
-        return Call(pp, type(node.op).__name__, [left, right], int)
+        return Call(pp, type(node.op).__name__.lower(), [left, right], int)
 
     def visit_Compare(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
         left = self.visit(node.left)
         op = node.ops[0]  # TODO add multiple operators support
         right = self.visit(node.comparators[0])  # TODO add multiple comparators support
-        return Call(pp, type(op).__name__, [left, right], bool)
+        return Call(pp, type(op).__name__.lower(), [left, right], bool)
 
     def visit_NameConstant(self, node):
         return Literal(bool, node.value)
@@ -174,7 +175,7 @@ class CfgVisitor(ast.NodeVisitor):
         return self.visit(node.value)
 
     def visit_Call(self, node):
-        return Call(bool, node.func.id, map(self.visit, node.args), typing.Any)
+        return Call(bool, node.func.id, [self.visit(arg) for arg in node.args], typing.Any)
 
     def generic_visit(self, node):
         print(type(node).__name__)

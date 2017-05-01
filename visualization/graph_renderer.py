@@ -18,6 +18,7 @@ class GraphRenderer:
         'fontcolor': 'black',
         'style': 'filled',
         'fillcolor': '#70a6ff',
+        'forcelabels': 'true'
     }
 
     edgeattrs = {
@@ -50,7 +51,7 @@ class GraphRenderer:
         :return:
         """
 
-    def render(self, data, *, label=None):
+    def render(self, data, label=None, filename="Graph", directory="graphs", view=True):
         # create the graph
         graphattrs = self.graphattrs.copy()
         if label is not None:
@@ -66,8 +67,7 @@ class GraphRenderer:
 
         # display the graph
         graph.format = "pdf"
-        gv.Digraph.view(graph)
-        # subprocess.Popen(['xdg-open', "test.pdf"])
+        graph.render(f"{filename}.gv", directory, view, cleanup=True)
 
 
 class ListDictTreeRenderer(GraphRenderer):
@@ -132,9 +132,11 @@ class CfgRenderer(GraphRenderer):
 
             if isinstance(node, (Basic, Loop)):
                 self._graph.node(str(node), label=self._list2lines(node.stmts),
+                                 xlabel=str(node.identifier),
                                  fillcolor=fillcolor, shape='box')
             else:
                 self._graph.node(str(node), label=self._escape_dot_label(self._shorten_string(str(node))),
+                                 xlabel=str(node.identifier),
                                  fillcolor=fillcolor, shape='circle')
 
         for edge in cfg.edges.values():
@@ -165,9 +167,11 @@ class AnalysisResultRenderer(GraphRenderer):
                 states = result.get_node_result(node)
                 node_result = [item for items in zip_longest(states, node.stmts) for item in items if item is not None]
                 self._graph.node(str(node), label=self._list2lines(node_result),
+                                 xlabel=str(node.identifier),
                                  fillcolor=fillcolor, shape='box')
             else:
                 self._graph.node(str(node), label=self._escape_dot_label(self._shorten_string(str(node))),
+                                 xlabel=str(node.identifier),
                                  fillcolor=fillcolor, shape='circle')
 
         for edge in cfg.edges.values():

@@ -5,3 +5,4 @@ if y > x:
     z = y
 else:
     z = y * y
+print(z)

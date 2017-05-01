@@ -51,7 +51,7 @@ stmt5 = Assignment(p52, VariableAccess(p52, z), VariableAccess(p54, y))
 print("stmt5: {}".format(stmt5))                                                    # z := y
 neg_stmt4 = Call(p42, "not", [stmt4], bool)
 print("!stmt4: {}".format(neg_stmt4))                                               # !(y > x)
-stmt6 = Assignment(p62, VariableAccess(p62, z), Call(p64, "mul", [VariableAccess(p64, y), VariableAccess(p64, y)], int))
+stmt6 = Assignment(p62, VariableAccess(p62, z), Call(p64, "mult", [VariableAccess(p64, y), VariableAccess(p64, y)], int))
 print("stmt6: {}".format(stmt6))                                                    # z := y * y
 stmt7 = Assignment(p71, VariableAccess(p71, x), VariableAccess(p73, z))
 print("stmt5: {}".format(stmt5))                                                    # x := z
