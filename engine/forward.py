@@ -64,7 +64,7 @@ class ForwardInterpreter(Interpreter):
                     entry = entry.join(predecessor)
                 # widening
                 if isinstance(current, Loop) and self.widening < iteration:
-                    entry = deepcopy(previous or deepcopy(initial).bottom()).widening(entry)
+                    entry = deepcopy(previous).widening(entry)
 
             # check for termination and execute block
             if previous is None or not entry.less_equal(previous):
