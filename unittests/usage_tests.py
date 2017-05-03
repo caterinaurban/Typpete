@@ -6,7 +6,7 @@ import ast
 from abstract_domains.usage.stack import UsedStack
 from core.expressions import VariableIdentifier
 from engine.backward import BackwardInterpreter
-from frontend.cfg_generator import CfgVisitor
+from frontend.cfg_generator import ast_to_cfg
 from semantics.usage.usage_semantics import UsageSemantics
 from visualization.graph_renderer import CfgRenderer, AnalysisResultRenderer
 
@@ -23,7 +23,7 @@ class UsageTestCase(unittest.TestCase):
         with open(self._source_path, 'r') as source_file:
             source = source_file.read()
         root = ast.parse(source)
-        cfg = CfgVisitor().visit(root)
+        cfg = ast_to_cfg(root)
         CfgRenderer().render(cfg, label=f"CFG for {self._source_path}", filename=f"CFG {name}", directory="graphs",
                              view=False)
 

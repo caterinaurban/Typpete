@@ -32,9 +32,107 @@ def main(args):
     if options.label:
         label = options.label
 
-    cfg = generate_cfg(code)
+    cfg = source_to_cfg(code)
 
     CfgRenderer().render(cfg, label=label)
+
+
+class LooseControlFlowGraph:
+    def __init__(self, nodes: Set[Node], in_node: Node, out_node: Node, edges: Set[Edge], loose_in_edges=None,
+                 loose_out_edges=None):
+        """Loose control flow graph representation.
+
+        This representation uses a complete (non-loose) control flow graph via aggregation and adds loose edges and
+        some transformations methods to combine, prepend and append loose control flow graphs. This class
+        intentionally does not provide access to the linked CFG. The completed CFG can be retrieved finally with
+        `eject()`.
+
+        :param nodes: set of nodes of the control flow graph
+        :param in_node: entry node of the control flow graph
+        :param out_node: exit node of the control flow graph
+        :param edges: set of edges of the control flow graph
+        :param loose_in_edges: optional set of loose edges that have no start yet and end inside this CFG
+        :param loose_out_edges: optional set of loose edges that start inside this CFG and have no end yet
+        """
+        assert in_node or loose_in_edges
+        assert out_node or loose_out_edges
+        self._cfg = ControlFlowGraph(nodes, in_node, out_node, edges)
+        self._loose_in_edges = loose_in_edges or set()
+        self._loose_out_edges = loose_out_edges or set()
+
+    @property
+    def nodes(self) -> Dict[int, Node]:
+        return self._cfg.nodes
+
+    @property
+    def in_node(self) -> Node:
+        return self._cfg.in_node
+
+    @property
+    def out_node(self) -> Node:
+        return self._cfg.out_node
+
+    @property
+    def edges(self) -> Dict[Tuple[Node, Node], Edge]:
+        return self._cfg.edges
+
+    @property
+    def loose_in_edges(self):
+        return self._loose_in_edges
+
+    @property
+    def loose_out_edges(self):
+        return self._loose_out_edges
+
+    @property
+    def loose(self):
+        return len(self.loose_in_edges) or len(self.loose_out_edges)
+
+    def combine(self, other):
+        self.nodes.update(other.nodes)
+        self.edges.update(other.edges)
+        self.loose_in_edges.update(other.loose_in_edges)
+        self.loose_out_edges.update(other.loose_out_edges)
+        return self
+
+    def prepend(self, other):
+        other.append(self)
+        self.replace(other)
+
+    def append(self, other):
+        assert not (self.loose_out_edges and other.loose_in_edges)
+        self.nodes.update(other.nodes)
+        self.edges.update(other.edges)
+        if self.loose_out_edges:
+            for e in self.loose_out_edges:
+                e._target = other.in_node
+                self.edges[(e.source, e.target)] = e  # updated/created edge is not yet in edge dict -> add
+            # clear loose edge sets
+            self._loose_out_edges = set()
+        elif other.loose_in_edges:
+            for e in other.loose_in_edges:
+                e._source = self.out_node
+                self.edges[(e.source, e.target)] = e  # updated/created edge is not yet in edge dict -> add
+            # clear loose edge sets
+            other._loose_in_edges = set()
+        else:
+            # neither of the CFGs has loose ends -> add unconditional edge
+            e = Unconditional(self.out_node, other.in_node)
+            self.edges[(e.source, e.target)] = e  # updated/created edge is not yet in edge dict -> add
+
+        # in any case, transfer loose_out_edges of other to self
+        self._loose_out_edges = other.loose_out_edges
+        self._cfg._out_node = other.out_node
+
+        return self
+
+    def eject(self) -> ControlFlowGraph:
+        if self.loose:
+            raise TypeError('This control flow graph is still loose and can not eject a complete control flow graph!')
+        return self._cfg
+
+    def replace(self, other):
+        self.__dict__.update(other.__dict__)
 
 
 class NodeIdentifierGenerator:
@@ -92,7 +190,7 @@ class CfgFactory:
     def complete_basic_block(self):
         if self._stmts:
             block = Basic(self._id_gen.next, self._stmts)
-            self.append_cfg(ControlFlowGraph({block}, block, block))
+            self.append_cfg(LooseControlFlowGraph({block}, block, block, {}))
             self._stmts = []
 
 
@@ -102,6 +200,7 @@ class CfgVisitor(ast.NodeVisitor):
 
     Overwritten methods return either a partial CFG or a statement/expression, depending on the type of node.
     """
+
     def __init__(self):
         super().__init__()
         self._id_gen = NodeIdentifierGenerator()
@@ -186,7 +285,7 @@ class CfgVisitor(ast.NodeVisitor):
 
     def _dummy_cfg(self):
         dummy = self._dummy()
-        return ControlFlowGraph({dummy}, dummy, dummy)
+        return LooseControlFlowGraph({dummy}, dummy, dummy, {})
 
     def _translate_body(self, body, allow_loose_in_edges=False, allow_loose_out_edges=False):
         cfg_factory = CfgFactory(self._id_gen)
@@ -221,17 +320,24 @@ class CfgVisitor(ast.NodeVisitor):
             raise NotImplementedError(f"The expression {str(type(expr))} is not yet translatable to CFG!")
 
 
-def generate_cfg(code):
+def ast_to_cfg(root_node):
     """
-    Parses the given code and creates its control-flow-graph.
+    Create the control flow graph from a ast node.
+    :param root_node: the root node of the AST to be translated to CFG
+    :return: the CFG of the passed AST.
+    """
+    loose_cfg = CfgVisitor().visit(root_node)
+    return loose_cfg.eject()
+
+
+def source_to_cfg(code):
+    """
+    Parses the given code and creates its control flow graph.
     :param code: the code as a string
     :return: the CFG of code
     """
-
     root_node = ast.parse(code)
-    cfg = CfgVisitor().visit(root_node)
-
-    return cfg
+    return ast_to_cfg(root_node)
 
 
 if __name__ == '__main__':
