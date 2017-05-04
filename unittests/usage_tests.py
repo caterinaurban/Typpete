@@ -1,19 +1,13 @@
-import io
-import tokenize
-import unittest
 import glob
-import os
+import unittest
 import ast
-
-import re
-
 from abstract_domains.usage.stack import UsedStack
-from core.cfg import Basic, Loop
 from core.expressions import VariableIdentifier
 from engine.backward import BackwardInterpreter
 from frontend.cfg_generator import ast_to_cfg
 from semantics.usage.usage_semantics import UsageSemantics
 from visualization.graph_renderer import CfgRenderer, AnalysisResultRenderer
+from unittests.test_tools import *
 
 
 class UsageTestCase(unittest.TestCase):
@@ -22,7 +16,7 @@ class UsageTestCase(unittest.TestCase):
         self._source_path = source_path
 
     def runTest(self):
-        name = os.path.splitext(os.path.basename(self._source_path))[0]
+        name = source_path_to_name(self._source_path)
         print(f"Start test for Python source at {self._source_path}")
 
         with open(self._source_path, 'r') as source_file:
@@ -44,36 +38,11 @@ class UsageTestCase(unittest.TestCase):
         AnalysisResultRenderer().render((cfg, result), label=f"CFG with Results for {self._source_path}",
                                         filename=f"CFGR {name}", directory="graphs", view=False)
 
-        # Parse comments to find expected results
-        pattern = re.compile('RESULT:?\s*(?P<result>.*)')
-        for t in tokenize.tokenize(io.BytesIO(source.encode('utf-8')).readline):
-            if t.type == tokenize.COMMENT:
-                comment = t.string.strip("# ")
-                m = pattern.match(comment)
-                if m:
-                    expected_result = m.group('result')
-                    line = t.start[0]
-
-                    # search for analysis result of a statement with the same source line
-                    actual_result = None
-                    for node in cfg.nodes.values():
-                        states = result.get_node_result(node)
-
-                        for i, stmt in enumerate(node.stmts):
-                            if stmt.pp.line == line:
-                                actual_result = states[i]
-                                break
-
-                        if actual_result:
-                            break
-
-                    if actual_result:
-                        actual_result_str = str(actual_result)
-                        self.assertEqual(expected_result, actual_result_str,
-                                         f"expected != actual result at line {line}")
-                    else:
-                        raise RuntimeWarning(
-                            f"No analysis result found for RESULT-comment '{comment}' at line {line}!")
+        for line, expected_result in find_result_comments(source):
+            actual_result = find_analysis_result_for_comments(cfg, result, line)
+            actual_result_str = str(actual_result)
+            self.assertEqual(expected_result, actual_result_str,
+                             f"expected != actual result at line {line}")
 
 
 def suite():
