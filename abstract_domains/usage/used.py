@@ -1,4 +1,4 @@
-from abstract_domains.lattice import Lattice
+from abstract_domains.lattice import BaseLattice
 from enum import Flag
 
 
@@ -17,7 +17,7 @@ O = Used.O
 N = Used.N
 
 
-class UsedLattice(Lattice):
+class UsedLattice(BaseLattice):
     """Used variable analysis core abstract domain representation."""
 
     _DESCEND = {

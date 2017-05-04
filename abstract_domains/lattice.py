@@ -1,14 +1,23 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 from functools import reduce
-from typing import List
+from typing import List, TypeVar, Generic
+
+L = TypeVar('L')
 
 
-class Lattice(ABC):
-    def __init__(self):
-        """Creates a new lattice element and sets it to the default.
-        """
-        # initialize with default
-        self.default()
+class BaseLattice(ABC):
+    """
+    The most generic lattice (element) that defines a flexible, abstract interface.
+
+    An instance of this class represents a mutable lattice element.
+
+    Subclassing lattices are expected to provide consistent methods:
+
+    * `default()`
+    * `bottom()`, `is_bottom()`
+    * `top()`, `is_top()`
+    """
 
     def __eq__(self, other: 'Lattice'):
         if isinstance(other, self.__class__):
@@ -75,14 +84,14 @@ class Lattice(ABC):
         """Partial order between default lattice elements.
 
         :param other: other lattice element
-        :return: whether the current lattice element is less than or equal to the other lattice element 
+        :return: whether the current lattice element is less than or equal to the other lattice element
         """
 
     def less_equal(self, other: 'Lattice') -> bool:
         """Partial order between lattice elements.
 
         :param other: other lattice element
-        :return: whether the current lattice element is less than or equal to the other lattice element 
+        :return: whether the current lattice element is less than or equal to the other lattice element
         """
         if self.is_bottom() or other.is_top():
             return True
@@ -124,14 +133,14 @@ class Lattice(ABC):
     def _meet(self, other: 'Lattice'):
         """Greatest lower bound between default lattice elements.
 
-        :param other: other lattice element 
+        :param other: other lattice element
         :return: current lattice element modified to be the greatest lower bound of the two lattice elements
         """
 
     def meet(self, other: 'Lattice'):
         """Greatest lower bound between lattice elements.
 
-        :param other: other lattice element 
+        :param other: other lattice element
         :return: current lattice element modified to be the greatest lower bound of the two lattice elements
         """
         if self.is_top() or other.is_bottom():
@@ -153,14 +162,14 @@ class Lattice(ABC):
     def _widening(self, other: 'Lattice'):
         """Widening between default lattice elements.
 
-        :param other: other lattice element 
+        :param other: other lattice element
         :return: current lattice element modified to be the widening of the two lattice elements
         """
 
     def widening(self, other: 'Lattice'):
         """Widening between lattice elements.
 
-        :param other: other lattice element 
+        :param other: other lattice element
         :return: current lattice element modified to be the widening of the two lattice elements
         """
         if self.is_bottom() or other.is_top():
@@ -177,3 +186,65 @@ class Lattice(ABC):
         self.__dict__.update(other.__dict__)
         assert self == other
         return self
+
+
+# noinspection PyAbstractClass
+class Lattice(BaseLattice, Generic[L], ABC):
+    """
+    A generic lattice that provides a TOP and a BOTTOM element and related methods.
+
+    If you want to provide the TOP/BOTTOM element yourself, subclass `BaseLattice` instead.
+
+    An instance of this class represents a mutable lattice element.
+
+    Subclassing lattices are expected to provide the method:
+
+    * `default()`
+
+    **Note**: Subclasses must ensure that the `kind` property is set appropriately at any point in time.
+    """
+
+    class Kind(Enum):
+        TOP = 3
+        ELEMENT = 2
+        BOTTOM = 1
+
+    # noinspection PyMissingConstructor
+    def __init__(self, initial_element: L = None):
+        """Create a lattice element.
+
+        :param initial_element: initial lattice element (or None to use default())
+        """
+        self._kind = Lattice.Kind.ELEMENT
+        if initial_element is not None:
+            self._element = initial_element
+        else:
+            self.default()
+
+    @property
+    def element(self):
+        return self._element
+
+    @element.setter
+    def element(self, element):
+        self._kind = Lattice.Kind.ELEMENT
+        self._element = element
+
+    def __repr__(self):
+        return str(self.element) if self._kind is Lattice.Kind.ELEMENT else self._kind.name
+
+    def bottom(self) -> 'Lattice[L]':
+        self._kind = Lattice.Kind.BOTTOM
+        self._element = None
+        return self
+
+    def top(self) -> 'Lattice[L]':
+        self._kind = Lattice.Kind.TOP
+        self._element = None
+        return self
+
+    def is_bottom(self) -> bool:
+        return self._kind == Lattice.Kind.BOTTOM
+
+    def is_top(self) -> bool:
+        return self._kind == Lattice.Kind.TOP

@@ -1,6 +1,7 @@
 from typing import List, Set
 
-from abstract_domains.generic_lattices import TopBottomLattice, StoreLattice
+from abstract_domains.generic_lattices import StoreLattice
+from abstract_domains.lattice import Lattice
 from abstract_domains.state import State
 from core.cfg import Basic, Unconditional, ControlFlowGraph
 from core.expressions import Expression, Literal, VariableIdentifier
@@ -57,7 +58,7 @@ cfg = ControlFlowGraph({n1, n2, n3}, n1, n3, {e12, e23})
 print("\nAnalysis\n")
 
 
-class DummyLattice(TopBottomLattice):
+class DummyLattice(Lattice):
     def __init__(self):
         super().__init__(Literal(int, '0'))  # the default element can be set in superclass constructor
 

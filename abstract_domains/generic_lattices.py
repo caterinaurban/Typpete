@@ -8,58 +8,6 @@ from core.expressions import VariableIdentifier
 L = TypeVar('L')
 
 
-# noinspection PyAbstractClass
-class TopBottomLattice(Lattice, Generic[L], ABC):
-    """
-    A generic lattice that extends a subclassing lattice with a TOP and a BOTTOM element.
-    """
-
-    class Kind(Enum):
-        TOP = 3
-        ELEMENT = 2
-        BOTTOM = 1
-
-    # noinspection PyMissingConstructor
-    def __init__(self, initial_element: L = None):
-        """Create a lattice element.
-
-        :param initial_element: initial lattice element (or None to use default())
-        """
-        self._kind = TopBottomLattice.Kind.ELEMENT
-        if initial_element is not None:
-            self._element = initial_element
-        else:
-            self.default()
-
-    @property
-    def element(self):
-        return self._element
-
-    @element.setter
-    def element(self, element):
-        self._kind = TopBottomLattice.Kind.ELEMENT
-        self._element = element
-
-    def __repr__(self):
-        return str(self.element) if self._kind is TopBottomLattice.Kind.ELEMENT else self._kind.name
-
-    def bottom(self) -> 'TopBottomLattice[L]':
-        self._kind = TopBottomLattice.Kind.BOTTOM
-        self._element = None
-        return self
-
-    def top(self) -> 'TopBottomLattice[L]':
-        self._kind = TopBottomLattice.Kind.TOP
-        self._element = None
-        return self
-
-    def is_bottom(self) -> bool:
-        return self._kind == TopBottomLattice.Kind.BOTTOM
-
-    def is_top(self) -> bool:
-        return self._kind == TopBottomLattice.Kind.TOP
-
-
 class StoreLattice(Lattice, Generic[L]):
     """A generic lattice that represents a mapping Var -> L for some other lattice L."""
 
@@ -120,7 +68,7 @@ class StoreLattice(Lattice, Generic[L]):
         return self._join(other)
 
 
-class StackLattice(TopBottomLattice, ABC):
+class StackLattice(Lattice, ABC):
     """A generic lattice that represents a stack of elements of some other lattice L."""
 
     def __init__(self, element_lattice: Type[L], args_dict):
