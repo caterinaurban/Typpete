@@ -1,9 +1,14 @@
+import io
+import tokenize
 import unittest
 import glob
 import os
 import ast
 
+import re
+
 from abstract_domains.usage.stack import UsedStack
+from core.cfg import Basic, Loop
 from core.expressions import VariableIdentifier
 from engine.backward import BackwardInterpreter
 from frontend.cfg_generator import ast_to_cfg
@@ -33,16 +38,48 @@ class UsageTestCase(unittest.TestCase):
              isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)})
         variables = [VariableIdentifier(int, name) for name in variable_names]
 
+        # Run Usage Analysis
         backward_interpreter = BackwardInterpreter(cfg, UsageSemantics(), 3)
-        usage_analysis = backward_interpreter.analyze(UsedStack(variables))
-        AnalysisResultRenderer().render((cfg, usage_analysis), label=f"CFG with Results for {self._source_path}",
+        result = backward_interpreter.analyze(UsedStack(variables))
+        AnalysisResultRenderer().render((cfg, result), label=f"CFG with Results for {self._source_path}",
                                         filename=f"CFGR {name}", directory="graphs", view=False)
+
+        # Parse comments to find expected results
+        pattern = re.compile('RESULT:?\s*(?P<result>.*)')
+        for t in tokenize.tokenize(io.BytesIO(source.encode('utf-8')).readline):
+            if t.type == tokenize.COMMENT:
+                comment = t.string.strip("# ")
+                m = pattern.match(comment)
+                if m:
+                    expected_result = m.group('result')
+                    line = t.start[0]
+
+                    # search for analysis result of a statement with the same source line
+                    actual_result = None
+                    for node in cfg.nodes.values():
+                        states = result.get_node_result(node)
+
+                        for i, stmt in enumerate(node.stmts):
+                            if stmt.pp.line == line:
+                                actual_result = states[i]
+                                break
+
+                        if actual_result:
+                            break
+
+                    if actual_result:
+                        actual_result_str = str(actual_result)
+                        self.assertEqual(expected_result, actual_result_str,
+                                         f"expected != actual result at line {line}")
+                    else:
+                        raise RuntimeWarning(
+                            f"No analysis result found for RESULT-comment '{comment}' at line {line}!")
 
 
 def suite():
     s = unittest.TestSuite()
 
-    for path in glob.iglob('./usage/*.py'):
+    for path in glob.iglob('./usage/**.py'):
         if os.path.basename(path) != "__init__.py":
             s.addTest(UsageTestCase(path))
     runner = unittest.TextTestRunner()

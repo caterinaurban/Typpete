@@ -274,7 +274,8 @@ class CfgVisitor(ast.NodeVisitor):
         return self.visit(node.value)
 
     def visit_Call(self, node):
-        return Call(bool, node.func.id, [self.visit(arg) for arg in node.args], typing.Any)
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        return Call(pp, node.func.id, [self.visit(arg) for arg in node.args], typing.Any)
 
     def generic_visit(self, node):
         print(type(node).__name__)
