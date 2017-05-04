@@ -38,17 +38,17 @@ class UsedStore(StoreLattice, State):
         return self
 
     def _use(self, x: VariableIdentifier, e: Expression):
-        if self.variables[x].used in [Used.U, Used.UU]:
+        if self.variables[x].used in [Used.U, Used.S]:
             for identifier in e.ids():
                 self.variables[identifier].used = Used.U
         return self
 
     def _kill(self, x: VariableIdentifier, e: Expression):
-        if self.variables[x].used in [Used.U, Used.UU]:
+        if self.variables[x].used in [Used.U, Used.S]:
             if x in [v for v, u in self.variables.items() if v in e.ids()]:
                 self.variables[x].used = Used.U  # x is still used since it is used in assigned expression
             else:
-                self.variables[x].used = Used.UN  # x is overwritten
+                self.variables[x].used = Used.O  # x is overwritten
         return self
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
@@ -62,9 +62,9 @@ class UsedStore(StoreLattice, State):
     def _assume(self, condition: Expression) -> 'UsedStore':
         for identifier in condition.ids():
             if isinstance(identifier, VariableIdentifier):
-                # update to U if exists a variable y in state that is either U or UN (note that UU is not enough)
+                # update to U if exists a variable y in state that is either U or O (note that S is not enough)
                 # or is set intersection, if checks if resulting list is empty
-                if set([lat.used for lat in self.variables.values()]).intersection([Used.U, Used.UN]):
+                if set([lat.used for lat in self.variables.values()]).intersection([Used.U, Used.O]):
                     self.variables[identifier].used = Used.U
         return self
 

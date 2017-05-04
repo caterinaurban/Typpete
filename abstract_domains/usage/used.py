@@ -5,15 +5,15 @@ from enum import Flag
 class Used(Flag):
     """Used state of a program variable."""
     # do not change values blindly, they are used for easy implementation with bitwise operators
-    U = 3
-    UU = 2
-    UN = 1
-    N = 0
+    U = 3  # used in this scope or in a deeper nested scope
+    S = 2  # used in an outer scope
+    O = 1  # used in an outer scope and overridden in this scope
+    N = 0  # not used
 
 
 U = Used.U
-UU = Used.UU
-UN = Used.UN
+S = Used.S
+O = Used.O
 N = Used.N
 
 
@@ -21,31 +21,31 @@ class UsedLattice(Lattice):
     """Used variable analysis core abstract domain representation."""
 
     _DESCEND = {
-        U: UU,
-        UU: UU,
-        UN: N,
+        U: S,
+        S: S,
+        O: N,
         N: N
     }
 
     _COMBINE = {
         (N, N): N,
-        (N, UU): UU,
-        (N, UN): UN,
+        (N, S): S,
+        (N, O): O,
         (N, U): U,
 
-        (UU, N): UU,
-        (UU, UU): UU,
-        (UU, UN): UN,
-        (UU, U): U,
+        (S, N): S,
+        (S, S): S,
+        (S, O): O,
+        (S, U): U,
 
-        (UN, N): UN,
-        (UN, UU): UU,
-        (UN, UN): UN,
-        (UN, U): U,
+        (O, N): O,
+        (O, S): S,
+        (O, O): O,
+        (O, U): U,
 
         (U, N): U,
-        (U, UU): U,
-        (U, UN): UN,
+        (U, S): U,
+        (U, O): O,
         (U, U): U,
     }
 
@@ -89,8 +89,8 @@ class UsedLattice(Lattice):
     def _less_equal(self, other: 'UsedLattice') -> bool:
         if self.used == other.used or self.used == N:
             return True
-        elif (self.used == UU and other.used == UN) or (
-                        self.used == UN and other.used == UU):
+        elif (self.used == S and other.used == O) or (
+                        self.used == O and other.used == S):
             return False
         else:
             return other.used == U
