@@ -80,17 +80,17 @@ class UsedLattice(BaseLattice):
         self._used = U
         return self
 
-    def is_bottom(self) -> 'bool':
+    def is_bottom(self) -> bool:
         return self.used == N
 
-    def is_top(self) -> 'bool':
+    def is_top(self) -> bool:
         return self.used == U
 
     def _less_equal(self, other: 'UsedLattice') -> bool:
         if self.used == other.used or self.used == N:
             return True
-        elif (self.used == S and other.used == O) or (
-                        self.used == O and other.used == S):
+        elif (self.used == S and other.used == O) or \
+                (self.used == O and other.used == S):
             return False
         else:
             return other.used == U

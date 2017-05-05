@@ -40,21 +40,22 @@ p71 = ProgramPoint(7, 1)
 p73 = ProgramPoint(7, 3)
 
 stmt1 = Assignment(p11, VariableAccess(p11, x), LiteralEvaluation(p13, two))
-print("stmt1: {}".format(stmt1))                                                    # x := 2
+print("stmt1: {}".format(stmt1))  # x := 2
 stmt2 = Assignment(p21, VariableAccess(p21, y), LiteralEvaluation(p23, four))
-print("stmt2: {}".format(stmt2))                                                    # y := 4
+print("stmt2: {}".format(stmt2))  # y := 4
 stmt3 = Assignment(p31, VariableAccess(p31, x), LiteralEvaluation(p33, one))
-print("stmt3: {}".format(stmt3))                                                    # x := 1
+print("stmt3: {}".format(stmt3))  # x := 1
 stmt4 = Call(p42, "gt", [VariableAccess(p42, y), VariableAccess(p42, x)], bool)
-print("stmt4: {}".format(stmt4))                                                    # y > x
+print("stmt4: {}".format(stmt4))  # y > x
 stmt5 = Assignment(p52, VariableAccess(p52, z), VariableAccess(p54, y))
-print("stmt5: {}".format(stmt5))                                                    # z := y
+print("stmt5: {}".format(stmt5))  # z := y
 neg_stmt4 = Call(p42, "not", [stmt4], bool)
-print("!stmt4: {}".format(neg_stmt4))                                               # !(y > x)
-stmt6 = Assignment(p62, VariableAccess(p62, z), Call(p64, "mult", [VariableAccess(p64, y), VariableAccess(p64, y)], int))
-print("stmt6: {}".format(stmt6))                                                    # z := y * y
+print("!stmt4: {}".format(neg_stmt4))  # !(y > x)
+stmt6 = Assignment(p62, VariableAccess(p62, z),
+                   Call(p64, "mult", [VariableAccess(p64, y), VariableAccess(p64, y)], int))
+print("stmt6: {}".format(stmt6))  # z := y * y
 stmt7 = Assignment(p71, VariableAccess(p71, x), VariableAccess(p73, z))
-print("stmt5: {}".format(stmt5))                                                    # x := z
+print("stmt5: {}".format(stmt5))  # x := z
 
 # Control Flow Graph
 print("\nControl Flow Graph\n")

@@ -114,4 +114,4 @@ class ResultCommentsFileTestCase(FileTestCase):
             return actual_result
         else:
             raise RuntimeError(
-                f"No analysis result found for RESULT-comment '{comment}' at line {line}!")
+                f"No analysis result found for RESULT-comment at line {line_of_comment}!")

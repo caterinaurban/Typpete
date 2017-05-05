@@ -10,8 +10,8 @@ class State(Lattice, ABC):
         """Analysis state representation. 
         Account for lattice operations and statement effects by modifying the current state.
         """
-        self._result = set()  # set of expressions representing the result of the previously analyze statement
         super().__init__()
+        self._result = set()  # set of expressions representing the result of the previously analyze statement
 
     @property
     def result(self):
@@ -22,6 +22,10 @@ class State(Lattice, ABC):
         self._result = result
 
     def __repr__(self):
+        """Unambiguous string representing the current state.
+
+        :return: unambiguous representation string
+        """
         return ", ".join("{}".format(expression) for expression in self.result)
 
     @abstractmethod

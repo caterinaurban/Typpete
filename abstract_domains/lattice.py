@@ -19,7 +19,7 @@ class BaseLattice(ABC):
     * `top()`, `is_top()`
     """
 
-    def __eq__(self, other: 'Lattice'):
+    def __eq__(self, other: 'BaseLattice'):
         if isinstance(other, self.__class__):
             return repr(self) == repr(other)
         return False
@@ -27,7 +27,7 @@ class BaseLattice(ABC):
     def __hash__(self):
         return hash(repr(self))
 
-    def __ne__(self, other: 'Lattice'):
+    def __ne__(self, other: 'BaseLattice'):
         return not (self == other)
 
     @abstractmethod
@@ -36,13 +36,6 @@ class BaseLattice(ABC):
 
         :return: unambiguous representation string
         """
-
-    def __str__(self):
-        """Human-readable string representing this internal.
-
-        :return: human-readable string
-        """
-        return repr(self)
 
     @abstractmethod
     def default(self):
@@ -80,14 +73,14 @@ class BaseLattice(ABC):
         """
 
     @abstractmethod
-    def _less_equal(self, other: 'Lattice') -> bool:
+    def _less_equal(self, other: 'BaseLattice') -> bool:
         """Partial order between default lattice elements.
 
         :param other: other lattice element
         :return: whether the current lattice element is less than or equal to the other lattice element
         """
 
-    def less_equal(self, other: 'Lattice') -> bool:
+    def less_equal(self, other: 'BaseLattice') -> bool:
         """Partial order between lattice elements.
 
         :param other: other lattice element
@@ -101,14 +94,14 @@ class BaseLattice(ABC):
             return self._less_equal(other)
 
     @abstractmethod
-    def _join(self, other: 'Lattice') -> 'Lattice':
+    def _join(self, other: 'BaseLattice') -> 'BaseLattice':
         """Least upper bound between default lattice elements.
 
         :param other: other lattice element
         :return: current lattice element modified to be the least upper bound of the two lattice elements
         """
 
-    def join(self, other: 'Lattice') -> 'Lattice':
+    def join(self, other: 'BaseLattice') -> 'BaseLattice':
         """Least upper bound between lattice elements.
 
         :param other: other lattice element
@@ -121,7 +114,7 @@ class BaseLattice(ABC):
         else:
             return self._join(other)
 
-    def big_join(self, elements: List['Lattice']) -> 'Lattice':
+    def big_join(self, elements: List['BaseLattice']) -> 'BaseLattice':
         """Least upper bound between multiple lattice elements
 
         :param elements: lattice elements to compute the least upper bound of
@@ -130,14 +123,14 @@ class BaseLattice(ABC):
         return reduce(lambda s1, s2: s1.join(s2), elements, self.bottom())
 
     @abstractmethod
-    def _meet(self, other: 'Lattice'):
+    def _meet(self, other: 'BaseLattice'):
         """Greatest lower bound between default lattice elements.
 
         :param other: other lattice element
         :return: current lattice element modified to be the greatest lower bound of the two lattice elements
         """
 
-    def meet(self, other: 'Lattice'):
+    def meet(self, other: 'BaseLattice'):
         """Greatest lower bound between lattice elements.
 
         :param other: other lattice element
@@ -150,7 +143,7 @@ class BaseLattice(ABC):
         else:
             return self._meet(other)
 
-    def big_meet(self, elements: List['Lattice']) -> 'Lattice':
+    def big_meet(self, elements: List['BaseLattice']) -> 'BaseLattice':
         """Greatest lower bound between multiple lattice elements
 
         :param elements: lattice elements to compute the greatest lower bound of
@@ -159,14 +152,14 @@ class BaseLattice(ABC):
         return reduce(lambda s1, s2: s1.meet(s2), elements, self.top())
 
     @abstractmethod
-    def _widening(self, other: 'Lattice'):
+    def _widening(self, other: 'BaseLattice'):
         """Widening between default lattice elements.
 
         :param other: other lattice element
         :return: current lattice element modified to be the widening of the two lattice elements
         """
 
-    def widening(self, other: 'Lattice'):
+    def widening(self, other: 'BaseLattice'):
         """Widening between lattice elements.
 
         :param other: other lattice element
@@ -177,7 +170,7 @@ class BaseLattice(ABC):
         else:
             return self._widening(other)
 
-    def replace(self, other: 'Lattice') -> 'Lattice':
+    def replace(self, other: 'BaseLattice') -> 'BaseLattice':
         """Replace this instance with another lattice element.
 
         :param other: other lattice element

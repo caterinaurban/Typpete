@@ -1,4 +1,3 @@
-import re
 import optparse
 import sys
 import typing
@@ -190,10 +189,11 @@ class CfgFactory:
     def complete_basic_block(self):
         if self._stmts:
             block = Basic(self._id_gen.next, self._stmts)
-            self.append_cfg(LooseControlFlowGraph({block}, block, block, {}))
+            self.append_cfg(LooseControlFlowGraph({block}, block, block, set()))
             self._stmts = []
 
 
+# noinspection PyMethodMayBeStatic,PyPep8Naming
 class CfgVisitor(ast.NodeVisitor):
     """
     This AST visitor generates a CFG recursively.
@@ -286,7 +286,7 @@ class CfgVisitor(ast.NodeVisitor):
 
     def _dummy_cfg(self):
         dummy = self._dummy()
-        return LooseControlFlowGraph({dummy}, dummy, dummy, {})
+        return LooseControlFlowGraph({dummy}, dummy, dummy, set())
 
     def _translate_body(self, body, allow_loose_in_edges=False, allow_loose_out_edges=False):
         cfg_factory = CfgFactory(self._id_gen)

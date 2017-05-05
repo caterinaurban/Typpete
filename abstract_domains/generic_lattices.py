@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from enum import Enum
 from typing import List, TypeVar, Generic, Type
 
 from abstract_domains.lattice import Lattice

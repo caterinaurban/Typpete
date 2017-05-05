@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from core.statements import Statement
 from enum import Enum
-from typing import Dict, List, Set, Tuple, Generator
+from typing import Dict, List, Set, Tuple, Generator, Union
 
 
 class Node(ABC):
@@ -128,7 +128,7 @@ class Edge(ABC):
 
 
 class Unconditional(Edge):
-    def __init__(self, source: Node, target: Node, kind=Edge.Kind.Default):
+    def __init__(self, source: Union[Node, None], target: Union[Node, None], kind=Edge.Kind.Default):
         """Unconditional edge of a control flow graph.
 
         :param source: source node of the edge
@@ -142,7 +142,8 @@ class Unconditional(Edge):
 
 
 class Conditional(Edge):
-    def __init__(self, source: Node, condition: Statement, target: Node, kind=Edge.Kind.Default):
+    def __init__(self, source: Union[Node, None], condition: Statement, target: Union[Node, None],
+                 kind=Edge.Kind.Default):
         """Conditional edge of a control flow graph.
         
         :param source: source node of the edge

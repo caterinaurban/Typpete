@@ -1,4 +1,4 @@
-from enum import Enum, IntEnum
+from enum import IntEnum
 from typing import List, Set
 
 from abstract_domains.generic_lattices import StoreLattice
