@@ -1,71 +1,47 @@
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import List, Set
 
+from abstract_domains.generic_lattices import StoreLattice
+from abstract_domains.lattice import Lattice
 from abstract_domains.state import State
 from core.expressions import Expression, VariableIdentifier
 
 
-class LiveDead(State):
-    class Liveness(Enum):
+class LiveDeadLattice(Lattice):
+    class Liveness(IntEnum):
         """Liveness state of a program variable."""
-        Dead = -1  # dead variable
+        Dead = 0  # dead variable
         Live = 1  # live variable
 
+    def __init__(self, initial_element: 'LiveDeadLattice.Liveness' = None):
+        super().__init__(initial_element)
+
+    def default(self):
+        self.element = LiveDeadLattice.Liveness.Dead
+        return self
+
+    def _less_equal(self, other: 'LiveDeadLattice') -> bool:
+        return self.element < other.element
+
+    def _meet(self, other: 'LiveDeadLattice'):
+        self.element = min(self.element, other.element)
+        return self
+
+    def _join(self, other: 'LiveDeadLattice') -> 'LiveDeadLattice':
+        self.element = max(self.element, other.element)
+        return self
+
+    def _widening(self, other: 'LiveDeadLattice'):
+        return self._join(other)
+
+
+class LiveDead(StoreLattice, State):
     def __init__(self, variables: List[VariableIdentifier]):
         """Live/Dead variable analysis state representation.
         
         :param variables: list of program variables
         """
-        self._variables = {variable: LiveDead.Liveness.Dead for variable in variables}
-        super().__init__()
-
-    @property
-    def variables(self):
-        return self._variables
-
-    def __repr__(self):
-        variables = "\n".join("{} -> {} ".format(variable, value) for variable, value in self.variables.items())
-        return "{}".format(variables)
-
-    def default(self):
-        return self.bottom()
-
-    def bottom(self):
-        self._variables = {variable: LiveDead.Liveness.Dead for variable in self.variables}
-        return self
-
-    def top(self):
-        self._variables = {variable: LiveDead.Liveness.Live for variable in self.variables}
-        return self
-
-    def is_bottom(self) -> bool:
-        return all(val == LiveDead.Liveness.Dead for val in self.variables.values())
-
-    def is_top(self) -> bool:
-        return all(val == LiveDead.Liveness.Dead for val in self.variables.values())
-
-    def _less_equal(self, other: 'LiveDead') -> bool:
-        result = True
-        for var in self.variables:
-            l = self.variables[var]
-            r = other.variables[var]
-            result = result and not (l is LiveDead.Liveness.Live and r is LiveDead.Liveness.Dead)
-        return result
-
-    def _meet(self, other: 'LiveDead'):
-        for var in self.variables:
-            if self.variables[var] is LiveDead.Liveness.Dead or other.variables[var] is LiveDead.Liveness.Dead:
-                self.variables[var] = LiveDead.Liveness.Dead
-        return self
-
-    def _join(self, other: 'LiveDead') -> 'LiveDead':
-        for var in self.variables:
-            if self.variables[var] is LiveDead.Liveness.Live or other.variables[var] is LiveDead.Liveness.Live:
-                self.variables[var] = LiveDead.Liveness.Live
-        return self
-
-    def _widening(self, other: 'LiveDead'):
-        return self._join(other)
+        super().__init__(variables, LiveDeadLattice)
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return {variable}
@@ -74,10 +50,9 @@ class LiveDead(State):
         raise NotImplementedError("Variable assignment is not implemented!")
 
     def _assume(self, condition: Expression) -> 'LiveDead':
-
         for identifier in condition.ids():
             if isinstance(identifier, VariableIdentifier):
-                self.variables[identifier] = LiveDead.Liveness.Live
+                self.variables[identifier] = LiveDeadLattice(LiveDeadLattice.Liveness.Live)
         return self
 
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
@@ -97,10 +72,12 @@ class LiveDead(State):
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'LiveDead':
         if isinstance(left, VariableIdentifier):
-            self.variables[left] = LiveDead.Liveness.Dead
+            self.variables[left] = LiveDeadLattice(LiveDeadLattice.Liveness.Dead)
             for identifier in right.ids():
                 if isinstance(identifier, VariableIdentifier):
-                    self.variables[identifier] = LiveDead.Liveness.Live
+                    self.variables[identifier] = LiveDeadLattice(LiveDeadLattice.Liveness.Live)
+                else:
+                    raise NotImplementedError("")
         else:
             raise NotImplementedError("Variable substitution for {} is not implemented!".format(left))
         return self
