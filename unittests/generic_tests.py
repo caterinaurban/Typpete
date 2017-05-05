@@ -6,6 +6,8 @@ import unittest
 from abc import abstractmethod
 import ast
 
+import sys
+
 from frontend.cfg_generator import ast_to_cfg
 from visualization.graph_renderer import CfgRenderer, AnalysisResultRenderer
 
@@ -79,7 +81,7 @@ class ResultCommentsFileTestCase(FileTestCase):
 
     def check_result_comments(self, result):
         for line, expected_result in self._find_result_comments():
-            actual_result = self._find_analysis_result_for_comments(result, line)
+            actual_result = self._find_analysis_result_for_comments(result, line, expected_result)
             actual_result_str = str(actual_result)
             self.assertEqual(expected_result, actual_result_str,
                              f"expected != actual result at line {line}")
@@ -96,22 +98,28 @@ class ResultCommentsFileTestCase(FileTestCase):
                     line = t.start[0]
                     yield line, expected_result
 
-    def _find_analysis_result_for_comments(self, result, line_of_comment):
-        # search for analysis result of a statement with the same source line
+    def _find_analysis_result_for_comments(self, result, line_of_comment, expected_result):
+        """
+        Search for closest succeeding analysis result after the line of the comment
+        """
         actual_result = None
+        actual_result_line = sys.maxsize
         for node in self.cfg.nodes.values():
             states = result.get_node_result(node)
 
             for i, stmt in enumerate(node.stmts):
-                if stmt.pp.line == line_of_comment:
+                if line_of_comment < stmt.pp.line < actual_result_line:
                     actual_result = states[i]
-                    break
+                    actual_result_line = stmt.pp.line
 
-            if actual_result:
-                break
+            # special treatment for expected result comments after last statement of a block but before any other
+            # statement of succeeding (= larger start line number) block
+            if node.stmts and stmt.pp.line < line_of_comment < actual_result_line:
+                actual_result = states[-1]  # take last result in block as actual result
+                actual_result_line = line_of_comment
 
         if actual_result:
             return actual_result
         else:
             raise RuntimeError(
-                f"No analysis result found for RESULT-comment at line {line_of_comment}!")
+                f"No analysis result found for RESULT-comment '{expected_result}' at line {line_of_comment}!")
