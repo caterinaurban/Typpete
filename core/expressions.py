@@ -341,6 +341,28 @@ class BinaryArithmeticOperation(BinaryOperation):
         super().__init__(typ, left, operator, right)
 
 
+class BinaryBooleanOperation(BinaryOperation):
+    class Operator(BinaryOperation.Operator):
+        """Binary arithmetic operator representation."""
+        And = 1
+        Or = 2
+        Xor = 3
+
+        def __str__(self):
+            return self.name.lower()
+
+    def __init__(self, typ, left: Expression, operator: Operator, right: Expression):
+        """Binary boolean operation expression representation.
+        https://docs.python.org/3.6/reference/expressions.html#boolean-operations
+
+        :param typ: type of the operation
+        :param left: left expression of the operation
+        :param operator: operator of the operation
+        :param right: right expression of the operation
+        """
+        super().__init__(typ, left, operator, right)
+
+
 class BinaryComparisonOperation(BinaryOperation):
     class Operator(BinaryOperation.Operator):
         """Binary comparison operator representation"""

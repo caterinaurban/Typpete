@@ -1,8 +1,6 @@
 # RESULT: x -> N, y -> O, z -> O
 x = y = z = 2 + 1
-# RESULT: x -> N, y -> U, z -> O
-if y < 3:
+# RESULT: x -> N, y -> U, z -> U
+if 1 < y < 3 or y < 5 and True:
     z = y
-else:
-    z = y * y
 print(z)

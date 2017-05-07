@@ -246,13 +246,12 @@ class CfgVisitor(ast.NodeVisitor):
 
         body_cfg.loose_in_edges.add(Conditional(None, test, body_cfg.in_node, Edge.Kind.IF_IN))
         body_cfg.loose_out_edges.add(Unconditional(body_cfg.out_node, None, Edge.Kind.IF_OUT))
-        if orelse_cfg:  # if there is a else branch
-            orelse_cfg.loose_in_edges.add(Conditional(None, neg_test, orelse_cfg.in_node, Edge.Kind.IF_IN))
-            orelse_cfg.loose_out_edges.add(Unconditional(orelse_cfg.out_node, None, Edge.Kind.IF_OUT))
+        if not orelse_cfg:  # if there is no else branch
+            orelse_cfg = self._dummy_cfg()
+        orelse_cfg.loose_in_edges.add(Conditional(None, neg_test, orelse_cfg.in_node, Edge.Kind.IF_IN))
+        orelse_cfg.loose_out_edges.add(Unconditional(orelse_cfg.out_node, None, Edge.Kind.IF_OUT))
 
-            cfg = body_cfg.combine(orelse_cfg)
-        else:
-            cfg = body_cfg
+        cfg = body_cfg.combine(orelse_cfg)
         return cfg
 
     def visit_UnaryOp(self, node):
@@ -265,12 +264,28 @@ class CfgVisitor(ast.NodeVisitor):
         return Call(pp, type(node.op).__name__.lower(),
                     [self._ensure_stmt_visit(node.left), self._ensure_stmt_visit(node.right)], int)
 
+    def visit_BoolOp(self, node):
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        return Call(pp, type(node.op).__name__.lower(),
+                    [self._ensure_stmt_visit(val) for val in node.values], bool)
+
     def visit_Compare(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
-        op = node.ops[0]  # TODO add multiple operators support
-        # TODO add multiple comparators support
-        return Call(pp, type(op).__name__.lower(),
-                    [self._ensure_stmt_visit(node.left), self._ensure_stmt_visit(node.comparators[0])], bool)
+        last_comp = self._ensure_stmt_visit(node.comparators[0])
+        result = Call(pp, type(node.ops[0]).__name__.lower(),
+                      [self._ensure_stmt_visit(node.left),
+                       last_comp],
+                      bool)
+        for op, comp in list(zip(node.ops, node.comparators))[1:]:
+            cur_call = Call(pp, type(op).__name__.lower(),
+                       [last_comp,
+                        self._ensure_stmt_visit(comp)],
+                       bool)
+            result = Call(pp, 'and',
+                          [result,
+                           cur_call],
+                          bool)
+        return result
 
     def visit_NameConstant(self, node):
         return Literal(bool, node.value)
