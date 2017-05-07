@@ -282,7 +282,7 @@ class CfgVisitor(ast.NodeVisitor):
             orelse_cfg.loose_out_edges.add(Unconditional(orelse_cfg.out_node, None, Edge.Kind.IF_OUT))
         else:
             orelse_cfg = LooseControlFlowGraph()
-            orelse_cfg.both_loose_edges.add(Conditional(None, neg_test, None, Edge.Kind.Default))
+            orelse_cfg.both_loose_edges.add(Conditional(None, neg_test, None, Edge.Kind.DEFAULT))
 
         cfg = body_cfg.combine(orelse_cfg)
         return cfg

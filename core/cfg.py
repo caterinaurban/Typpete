@@ -80,11 +80,11 @@ class Edge(ABC):
         """Kind of an edge of a control flow graph."""
         IF_OUT = -2  # if exit edge
         LOOP_OUT = -1  # loop exit edge
-        Default = 0
+        DEFAULT = 0
         LOOP_IN = 1  # loop entry edge
         IF_IN = 2  # if entry edge
 
-    def __init__(self, source: Node, target: Node, kind: Kind = Kind.Default):
+    def __init__(self, source: Node, target: Node, kind: Kind = Kind.DEFAULT):
         """Edge of a control flow graph.
         
         :param source: source node of the edge
@@ -128,7 +128,7 @@ class Edge(ABC):
 
 
 class Unconditional(Edge):
-    def __init__(self, source: Union[Node, None], target: Union[Node, None], kind=Edge.Kind.Default):
+    def __init__(self, source: Union[Node, None], target: Union[Node, None], kind=Edge.Kind.DEFAULT):
         """Unconditional edge of a control flow graph.
 
         :param source: source node of the edge
@@ -143,7 +143,7 @@ class Unconditional(Edge):
 
 class Conditional(Edge):
     def __init__(self, source: Union[Node, None], condition: Statement, target: Union[Node, None],
-                 kind=Edge.Kind.Default):
+                 kind=Edge.Kind.DEFAULT):
         """Conditional edge of a control flow graph.
         
         :param source: source node of the edge
