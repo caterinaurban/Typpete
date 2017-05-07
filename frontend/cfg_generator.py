@@ -37,8 +37,9 @@ def main(args):
 
 
 class LooseControlFlowGraph:
-    def __init__(self, nodes: Set[Node], in_node: Node, out_node: Node, edges: Set[Edge], loose_in_edges=None,
-                 loose_out_edges=None):
+    def __init__(self, nodes: Set[Node] = None, in_node: Node = None, out_node: Node = None, edges: Set[Edge] = None,
+                 loose_in_edges=None,
+                 loose_out_edges=None, both_loose_edges=None):
         """Loose control flow graph representation.
 
         This representation uses a complete (non-loose) control flow graph via aggregation and adds loose edges and
@@ -46,18 +47,24 @@ class LooseControlFlowGraph:
         intentionally does not provide access to the linked CFG. The completed CFG can be retrieved finally with
         `eject()`.
 
-        :param nodes: set of nodes of the control flow graph
-        :param in_node: entry node of the control flow graph
-        :param out_node: exit node of the control flow graph
-        :param edges: set of edges of the control flow graph
+        :param nodes: optional set of nodes of the control flow graph
+        :param in_node: optional entry node of the control flow graph
+        :param out_node: optional exit node of the control flow graph
+        :param edges: optional set of edges of the control flow graph
         :param loose_in_edges: optional set of loose edges that have no start yet and end inside this CFG
         :param loose_out_edges: optional set of loose edges that start inside this CFG and have no end yet
+        :param both_loose_edges: optional set of loose edges, loose on both ends
         """
-        assert in_node or loose_in_edges
-        assert out_node or loose_out_edges
-        self._cfg = ControlFlowGraph(nodes, in_node, out_node, edges)
+        assert not in_node or not (loose_in_edges or both_loose_edges)
+        assert not out_node or not (loose_out_edges or both_loose_edges)
+        assert all([e.source is None for e in loose_in_edges or []])
+        assert all([e.target is None for e in loose_out_edges or []])
+        assert all([e.source is None and e.target is None for e in both_loose_edges or []])
+
+        self._cfg = ControlFlowGraph(nodes or set(), in_node, out_node, edges or set())
         self._loose_in_edges = loose_in_edges or set()
         self._loose_out_edges = loose_out_edges or set()
+        self._both_loose_edges = both_loose_edges or set()
 
     @property
     def nodes(self) -> Dict[int, Node]:
@@ -84,14 +91,18 @@ class LooseControlFlowGraph:
         return self._loose_out_edges
 
     @property
+    def both_loose_edges(self):
+        return self._both_loose_edges
+
     def loose(self):
-        return len(self.loose_in_edges) or len(self.loose_out_edges)
+        return len(self.loose_in_edges) or len(self.loose_out_edges) or len(self.both_loose_edges)
 
     def combine(self, other):
         self.nodes.update(other.nodes)
         self.edges.update(other.edges)
         self.loose_in_edges.update(other.loose_in_edges)
         self.loose_out_edges.update(other.loose_out_edges)
+        self.both_loose_edges.update(other.both_loose_edges)
         return self
 
     def prepend(self, other):
@@ -100,33 +111,53 @@ class LooseControlFlowGraph:
 
     def append(self, other):
         assert not (self.loose_out_edges and other.loose_in_edges)
+        assert not self.both_loose_edges or (not other.loose_in_edges and not other.both_loose_edges)
+
         self.nodes.update(other.nodes)
         self.edges.update(other.edges)
+
+        edge_added = False
         if self.loose_out_edges:
+            edge_added = True
             for e in self.loose_out_edges:
                 e._target = other.in_node
                 self.edges[(e.source, e.target)] = e  # updated/created edge is not yet in edge dict -> add
             # clear loose edge sets
             self._loose_out_edges = set()
         elif other.loose_in_edges:
+            edge_added = True
             for e in other.loose_in_edges:
                 e._source = self.out_node
                 self.edges[(e.source, e.target)] = e  # updated/created edge is not yet in edge dict -> add
-            # clear loose edge sets
+            # clear loose edge set
             other._loose_in_edges = set()
-        else:
+
+        if self.both_loose_edges:
+            edge_added = True
+            for e in self.both_loose_edges:
+                e._target = other.in_node
+                self.loose_in_edges.add(e)  # updated/created edge is not yet in edge dict -> add
+            # clear loose edge set
+            self._both_loose_edges = set()
+        elif other.both_loose_edges:
+            edge_added = True
+            for e in other.both_loose_edges:
+                e._source = self.in_node
+                self.loose_out_edges.add(e)  # updated/created edge is not yet in edge dict -> add
+                # clearing loose edge set is not necessary since other is no longer used
+        if not edge_added:
             # neither of the CFGs has loose ends -> add unconditional edge
             e = Unconditional(self.out_node, other.in_node)
             self.edges[(e.source, e.target)] = e  # updated/created edge is not yet in edge dict -> add
 
         # in any case, transfer loose_out_edges of other to self
-        self._loose_out_edges = other.loose_out_edges
+        self._loose_out_edges |= other.loose_out_edges
         self._cfg._out_node = other.out_node
 
         return self
 
     def eject(self) -> ControlFlowGraph:
-        if self.loose:
+        if self.loose():
             raise TypeError('This control flow graph is still loose and can not eject a complete control flow graph!')
         return self._cfg
 
@@ -238,7 +269,6 @@ class CfgVisitor(ast.NodeVisitor):
 
     def visit_If(self, node):
         body_cfg = self._translate_body(node.body)
-        orelse_cfg = self._translate_body(node.orelse)
 
         pp_test = ProgramPoint(node.test.lineno, node.test.col_offset)
         test = self.visit(node.test)
@@ -246,10 +276,13 @@ class CfgVisitor(ast.NodeVisitor):
 
         body_cfg.loose_in_edges.add(Conditional(None, test, body_cfg.in_node, Edge.Kind.IF_IN))
         body_cfg.loose_out_edges.add(Unconditional(body_cfg.out_node, None, Edge.Kind.IF_OUT))
-        if not orelse_cfg:  # if there is no else branch
-            orelse_cfg = self._dummy_cfg()
-        orelse_cfg.loose_in_edges.add(Conditional(None, neg_test, orelse_cfg.in_node, Edge.Kind.IF_IN))
-        orelse_cfg.loose_out_edges.add(Unconditional(orelse_cfg.out_node, None, Edge.Kind.IF_OUT))
+        if node.orelse:  # if there is else branch
+            orelse_cfg = self._translate_body(node.orelse)
+            orelse_cfg.loose_in_edges.add(Conditional(None, neg_test, orelse_cfg.in_node, Edge.Kind.IF_IN))
+            orelse_cfg.loose_out_edges.add(Unconditional(orelse_cfg.out_node, None, Edge.Kind.IF_OUT))
+        else:
+            orelse_cfg = LooseControlFlowGraph()
+            orelse_cfg.both_loose_edges.add(Conditional(None, neg_test, None, Edge.Kind.Default))
 
         cfg = body_cfg.combine(orelse_cfg)
         return cfg
@@ -278,9 +311,9 @@ class CfgVisitor(ast.NodeVisitor):
                       bool)
         for op, comp in list(zip(node.ops, node.comparators))[1:]:
             cur_call = Call(pp, type(op).__name__.lower(),
-                       [last_comp,
-                        self._ensure_stmt_visit(comp)],
-                       bool)
+                            [last_comp,
+                             self._ensure_stmt_visit(comp)],
+                            bool)
             result = Call(pp, 'and',
                           [result,
                            cur_call],
