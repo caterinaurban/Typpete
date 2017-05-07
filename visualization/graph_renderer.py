@@ -140,12 +140,14 @@ class CfgRenderer(GraphRenderer):
                                  fillcolor=fillcolor, shape='circle')
 
         for edge in cfg.edges.values():
+            edge_kind = edge.kind.name if edge.kind != Edge.Kind.DEFAULT else ""
             if isinstance(edge, Conditional):
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(f"{edge.kind.name}: {str(edge.condition)}"))
+                                 label=self._escape_dot_label(
+                                     edge_kind + ": " if edge_kind else '' + str(edge.condition)))
             elif isinstance(edge, Unconditional):
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(edge.kind.name if edge.kind != Edge.Kind.DEFAULT else ""))
+                                 label=self._escape_dot_label(edge_kind))
             else:
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
                                  label=self._escape_dot_label(str(edge)))
@@ -175,12 +177,14 @@ class AnalysisResultRenderer(GraphRenderer):
                                  fillcolor=fillcolor, shape='circle')
 
         for edge in cfg.edges.values():
+            edge_kind = edge.kind.name if edge.kind != Edge.Kind.DEFAULT else ""
             if isinstance(edge, Conditional):
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(f"{edge.kind.name}: {str(edge.condition)}"))
+                                 label=self._escape_dot_label(
+                                     edge_kind + ": " if edge_kind else '' + str(edge.condition)))
             elif isinstance(edge, Unconditional):
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(edge.kind.name if edge.kind != Edge.Kind.DEFAULT else ""))
+                                 label=self._escape_dot_label(edge_kind))
             else:
                 self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
                                  label=self._escape_dot_label(str(edge)))
