@@ -33,7 +33,7 @@ class Semantics:
         if hasattr(self, name):
             return getattr(self, name)(stmt, state)
         else:
-            raise NotImplementedError("Semantics for statement {} not yet implemented!".format(stmt))
+            raise NotImplementedError(f"Semantics for statement {stmt} of type {type(stmt)} not yet implemented!")
 
 
 class LiteralEvaluationSemantics(Semantics):
