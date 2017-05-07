@@ -183,8 +183,16 @@ class CfgFactory:
             self._cfg = other
         return self._cfg
 
-    def add_stmt(self, stmt):
-        self._stmts.append(stmt)
+    def add_stmts(self, stmts):
+        """
+        Adds statements to the currently open block.
+        :param stmts: a single statement or an iterable of statements
+        :return:
+        """
+        if isinstance(stmts, (List, Tuple)):
+            self._stmts += list(stmts)
+        else:
+            self._stmts.append(stmts)
 
     def complete_basic_block(self):
         if self._stmts:
@@ -216,12 +224,10 @@ class CfgVisitor(ast.NodeVisitor):
 
     def visit_Assign(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
-        pp_target = ProgramPoint(node.targets[0].lineno, node.targets[0].col_offset)
-        pp_value = ProgramPoint(node.value.lineno, node.value.col_offset)
-        target = self.visit(node.targets[0])  # TODO add multiple lefts support
-        value = self.visit(node.value)  # TODO add multiple lefts support
-        stmt = Assignment(pp, CfgVisitor._ensure_stmt(pp_target, target), CfgVisitor._ensure_stmt(pp_value, value))
-        return stmt
+        value = self._ensure_stmt_visit(node.value)
+        stmts = [Assignment(pp, self._ensure_stmt_visit(target), value) for
+                 target in node.targets]
+        return stmts
 
     def visit_Module(self, node):
         start_cfg = self._dummy_cfg()
@@ -256,16 +262,15 @@ class CfgVisitor(ast.NodeVisitor):
 
     def visit_BinOp(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
-        left = self.visit(node.left)
-        right = self.visit(node.right)
-        return Call(pp, type(node.op).__name__.lower(), [left, right], int)
+        return Call(pp, type(node.op).__name__.lower(),
+                    [self._ensure_stmt_visit(node.left), self._ensure_stmt_visit(node.right)], int)
 
     def visit_Compare(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
-        left = self.visit(node.left)
         op = node.ops[0]  # TODO add multiple operators support
-        right = self.visit(node.comparators[0])  # TODO add multiple comparators support
-        return Call(pp, type(op).__name__.lower(), [left, right], bool)
+        # TODO add multiple comparators support
+        return Call(pp, type(op).__name__.lower(),
+                    [self._ensure_stmt_visit(node.left), self._ensure_stmt_visit(node.comparators[0])], bool)
 
     def visit_NameConstant(self, node):
         return Literal(bool, node.value)
@@ -293,11 +298,13 @@ class CfgVisitor(ast.NodeVisitor):
 
         for child in body:
             if isinstance(child, (ast.Assign, ast.Expr)):
-                cfg_factory.add_stmt(self.visit(child))
+                cfg_factory.add_stmts(self.visit(child))
             elif isinstance(child, ast.If):
                 cfg_factory.complete_basic_block()
                 if_cfg = self.visit(child)
                 cfg_factory.append_cfg(if_cfg)
+            elif isinstance(child, ast.Pass):
+                pass
             else:
                 raise NotImplementedError(f"The statement {str(type(child))} is not yet translatable to CFG!")
         cfg_factory.complete_basic_block()
@@ -319,6 +326,11 @@ class CfgVisitor(ast.NodeVisitor):
             return VariableAccess(pp, expr)
         else:
             raise NotImplementedError(f"The expression {str(type(expr))} is not yet translatable to CFG!")
+
+    def _ensure_stmt_visit(self, node):
+        result = self.visit(node)
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        return CfgVisitor._ensure_stmt(pp, result)
 
 
 def ast_to_cfg(root_node):
