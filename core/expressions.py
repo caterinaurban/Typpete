@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Set
 
-
 """
 Expressions.
 https://docs.python.org/3.4/reference/expressions.html
@@ -317,7 +316,7 @@ class BinaryArithmeticOperation(BinaryOperation):
         """Binary arithmetic operator representation."""
         Add = 1
         Sub = 2
-        Mul = 3
+        Mult = 3
         Div = 4
 
         def __str__(self):

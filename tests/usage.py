@@ -1,9 +1,9 @@
-from abstract_domains.liveness.livedead import LiveDead
-from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional, Edge
 import core.expressions
+from abstract_domains.usage.stack import UsedStack
+from core.cfg import Basic, Unconditional, ControlFlowGraph, Conditional, Edge
 from core.statements import ProgramPoint, LiteralEvaluation, VariableAccess, Assignment, Call
 from engine.backward import BackwardInterpreter
-from semantics.backward import DefaultBackwardSemantics
+from semantics.usage.usage_semantics import UsageSemantics
 from visualization.graph_renderer import AnalysisResultRenderer
 
 # Expressions and Statements
@@ -54,8 +54,8 @@ print("!stmt4: {}".format(neg_stmt4))  # !(y > x)
 stmt6 = Assignment(p62, VariableAccess(p62, z),
                    Call(p64, "mult", [VariableAccess(p64, y), VariableAccess(p64, y)], int))
 print("stmt6: {}".format(stmt6))  # z := y * y
-stmt7 = Assignment(p71, VariableAccess(p71, x), VariableAccess(p73, z))
-print("stmt5: {}".format(stmt5))  # x := z
+stmt7 = Call(p71, "print", [VariableAccess(p71, z)], type(None))
+print("stmt5: {}".format(stmt5))  # print(z)
 
 # Control Flow Graph
 print("\nControl Flow Graph\n")
@@ -88,9 +88,9 @@ print("e56: {}".format(e56))
 
 cfg = ControlFlowGraph({n1, n2, n3, n4, n5, n6}, n1, n6, {e12, e23, e35, e24, e45, e56})
 
-# Live/Dead Analysis
-print("\nLive/Dead Analysis\n")
+# Usage Analyis
+print("\nUsage Analysis\n")
 
-backward_interpreter = BackwardInterpreter(cfg, DefaultBackwardSemantics(), 3)
-liveness_analysis = backward_interpreter.analyze(LiveDead([x, y, z]))
-AnalysisResultRenderer().render((cfg, liveness_analysis), label=__file__)
+backward_interpreter = BackwardInterpreter(cfg, UsageSemantics(), 3)
+usage_analysis = backward_interpreter.analyze(UsedStack([x, y, z]))
+AnalysisResultRenderer().render((cfg, usage_analysis), label=__file__)

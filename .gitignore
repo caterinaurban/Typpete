@@ -90,5 +90,5 @@ ENV/
 .idea
 
 # generated visualization PDFs and intermediate files
-/**/Digraph.gv.pdf
-/**/Digraph.gv
+/**/*.gv.pdf
+/**/*.gv

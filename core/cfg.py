@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from core.statements import Statement
 from enum import Enum
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Generator, Union
 
 
 class Node(ABC):
@@ -78,9 +78,11 @@ class Loop(Node):
 class Edge(ABC):
     class Kind(Enum):
         """Kind of an edge of a control flow graph."""
-        Out = -1  # loop exit edge
+        IF_OUT = -2  # if exit edge
+        LOOP_OUT = -1  # loop exit edge
         Default = 0
-        In = 1  # loop entry edge
+        LOOP_IN = 1  # loop entry edge
+        IF_IN = 2  # if entry edge
 
     def __init__(self, source: Node, target: Node, kind: Kind = Kind.Default):
         """Edge of a control flow graph.
@@ -124,15 +126,9 @@ class Edge(ABC):
         :return: string representing the edge
         """
 
-    def is_in(self):
-        return self.kind is Edge.Kind.In
-
-    def is_out(self):
-        return self.kind is Edge.Kind.Out
-
 
 class Unconditional(Edge):
-    def __init__(self, source: Node, target: Node, kind=Edge.Kind.Default):
+    def __init__(self, source: Union[Node, None], target: Union[Node, None], kind=Edge.Kind.Default):
         """Unconditional edge of a control flow graph.
 
         :param source: source node of the edge
@@ -146,7 +142,8 @@ class Unconditional(Edge):
 
 
 class Conditional(Edge):
-    def __init__(self, source: Node, condition: Statement, target: Node, kind=Edge.Kind.Default):
+    def __init__(self, source: Union[Node, None], condition: Statement, target: Union[Node, None],
+                 kind=Edge.Kind.Default):
         """Conditional edge of a control flow graph.
         
         :param source: source node of the edge
@@ -165,14 +162,14 @@ class Conditional(Edge):
         return "{0.source} -- {0.condition} -- {0.target}".format(self)
 
 
-class ControlFlowGraph(object):
+class ControlFlowGraph:
     def __init__(self, nodes: Set[Node], in_node: Node, out_node: Node, edges: Set[Edge]):
         """Control flow graph representation.
         
-        :param nodes: nodes of the control flow graph
+        :param nodes: set of nodes of the control flow graph
         :param in_node: entry node of the control flow graph
         :param out_node: exit node of the control flow graph
-        :param edges: edges of the control flow graph
+        :param edges: set of edges of the control flow graph
         """
         self._nodes = {node.identifier: node for node in nodes}
         self._in_node = in_node
@@ -194,6 +191,28 @@ class ControlFlowGraph(object):
     @property
     def edges(self) -> Dict[Tuple[Node, Node], Edge]:
         return self._edges
+
+    def nodes_forward(self) -> Generator[Node, None, None]:
+        worklist = [self.in_node]
+        done = set()
+        while worklist:
+            current = worklist.pop()
+            if current not in done:
+                done.add(current)
+                yield current
+                for successor in self.successors(current):
+                    worklist.insert(0, successor)
+
+    def nodes_backward(self) -> Generator[Node, None, None]:
+        worklist = [self.out_node]
+        done = set()
+        while worklist:
+            current = worklist.pop()
+            if current not in done:
+                done.add(current)
+                yield current
+                for predecessor in self.predecessors(current):
+                    worklist.insert(0, predecessor)
 
     def in_edges(self, node: Node) -> Set[Edge]:
         """Ingoing edges of a given node.

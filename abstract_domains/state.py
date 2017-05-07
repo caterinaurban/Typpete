@@ -1,53 +1,32 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from abstract_domains.lattice import Lattice
 from copy import deepcopy
 from core.expressions import Expression, VariableIdentifier
 from typing import Set
 
 
-class State(Lattice):
-    class Internal(Lattice.Internal):
-        def __init__(self, kind: Lattice.Kind):
-            """Analysis state internal representation.
-            
-            :param kind: kind of lattice element
-            """
-            super().__init__(kind)
-            self._result = set()    # set of expressions representing the result of the previously analyze statement
-
-        @property
-        def result(self):
-            return self._result
-
-        @result.setter
-        def result(self, result: Set[Expression]):
-            self._result = result
-
-    def __init__(self, kind: Lattice.Kind = Lattice.Kind.Default):
+class State(Lattice, ABC):
+    def __init__(self):
         """Analysis state representation. 
-        Account for lattice operations and statement effects by modifying the current internal representation.
+        Account for lattice operations and statement effects by modifying the current state.
         """
-        super().__init__(kind)
-        self._internal = State.Internal(kind)
-
-    @property
-    def internal(self):
-        return self._internal
+        super().__init__()
+        self._result = set()  # set of expressions representing the result of the previously analyze statement
 
     @property
     def result(self):
-        return self.internal.result
+        return self._result
 
     @result.setter
-    def result(self, result):
-        self.internal.result = result
+    def result(self, result: Set[Expression]):
+        self._result = result
 
-    @abstractmethod
-    def __str__(self):
-        """Analysis state string representation.
-        
-        :return: string representing the analysis state
+    def __repr__(self):
+        """Unambiguous string representing the current state.
+
+        :return: unambiguous representation string
         """
+        return ", ".join("{}".format(expression) for expression in self.result)
 
     @abstractmethod
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
@@ -83,7 +62,7 @@ class State(Lattice):
         :return: current state modified by the variable assignment
         """
         self.big_join([deepcopy(self)._assign_variable(lhs, rhs) for lhs in left for rhs in right])
-        self.result = set()     # assignments have no result, only side-effects
+        self.result = set()  # assignments have no result, only side-effects
         return self
 
     @abstractmethod
@@ -104,23 +83,16 @@ class State(Lattice):
         return self
 
     @abstractmethod
-    def enter_loop(self):
-        """Enter a loop.
-        
-        :return: current state modified to enter a loop
-        """
-
-    @abstractmethod
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
         """Retrieve a literal value. Account for side-effects by modifying the current state.
-        
+
         :param literal: literal to retrieve the value of
         :return: set of expressions representing the literal value
         """
 
     def evaluate_literal(self, literal: Expression) -> 'State':
         """Evaluate a literal.
-        
+
         :param literal: expression to be evaluated
         :return: current state modified by the literal evaluation
         """
@@ -128,10 +100,31 @@ class State(Lattice):
         return self
 
     @abstractmethod
-    def exit_loop(self):
+    def enter_loop(self) -> 'State':
+        """Enter a loop.
+
+        :return: current state modified to enter a loop
+        """
+
+    @abstractmethod
+    def exit_loop(self) -> 'State':
         """Exit a loop.
 
         :return: current state modified to exit a loop
+        """
+
+    @abstractmethod
+    def enter_if(self) -> 'State':
+        """Enter an if-statement.
+
+        :return: current state modified to enter an if-statement
+        """
+
+    @abstractmethod
+    def exit_if(self) -> 'State':
+        """Exit an if-statement.
+
+        :return: current state modified to enter an if-statement
         """
 
     def filter(self) -> 'State':
@@ -140,7 +133,7 @@ class State(Lattice):
         :return: current state modified to satisfy the current result
         """
         self.assume(self.result)
-        self.result = set()         # filtering has no result, only side-effects
+        self.result = set()  # filtering has no result, only side-effects
         return self
 
     @abstractmethod

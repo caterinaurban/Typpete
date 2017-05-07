@@ -1,7 +1,7 @@
 from abstract_domains.state import State
 from collections import deque
 from copy import deepcopy
-from core.cfg import Basic, Loop, Conditional, ControlFlowGraph
+from core.cfg import Basic, Loop, Conditional, ControlFlowGraph, Edge
 from engine.interpreter import Interpreter
 from engine.result import AnalysisResult
 from semantics.forward import ForwardSemantics
@@ -25,19 +25,26 @@ class ForwardInterpreter(Interpreter):
         iterations = {node: 0 for node in self.cfg.nodes}
 
         while not worklist.empty():
-            current = worklist.get()        # retrieve the current node
+            current = worklist.get()  # retrieve the current node
+
+            # check that current is ready which means all predecessors are visited at least once
+            # otherwise put current node at end of queue and continue
+            if not all([edge.source in self.result.result for edge in self.cfg.in_edges(current)]):
+                worklist.put(current)
+                continue
+
             iteration = iterations[current.identifier]
 
             # retrieve the previous entry state of the node
             if current in self.result.result:
                 previous = deepcopy(self.result.get_node_result(current)[0])
             else:
-                previous = deepcopy(initial).bottom()
+                previous = None
 
             # compute the current entry state of the current node
             entry = deepcopy(initial)
             if current.identifier != self.cfg.in_node.identifier:
-                entry = entry.bottom()
+                entry.bottom()
                 # join incoming states
                 edges = self.cfg.in_edges(current)
                 for edge in edges:
@@ -45,10 +52,14 @@ class ForwardInterpreter(Interpreter):
                     # handle conditional edges
                     if isinstance(edge, Conditional):
                         predecessor = self.semantics.semantics(edge.condition, predecessor).filter()
-                    # handle loop edges
-                    if edge.is_in():
+                    # handle non-default edges
+                    if edge.kind == Edge.Kind.IF_IN:
+                        predecessor = predecessor.enter_if()
+                    elif edge.kind == Edge.Kind.IF_OUT:
+                        predecessor = predecessor.exit_if()
+                    elif edge.kind == Edge.Kind.LOOP_IN:
                         predecessor = predecessor.enter_loop()
-                    elif edge.is_out():
+                    elif edge.kind == Edge.Kind.LOOP_OUT:
                         predecessor = predecessor.exit_loop()
                     entry = entry.join(predecessor)
                 # widening
@@ -56,7 +67,7 @@ class ForwardInterpreter(Interpreter):
                     entry = deepcopy(previous).widening(entry)
 
             # check for termination and execute block
-            if not entry.less_equal(previous):
+            if previous is None or not entry.less_equal(previous):
                 states = deque([entry])
                 if isinstance(current, Basic):
                     successor = entry

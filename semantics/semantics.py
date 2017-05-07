@@ -147,14 +147,14 @@ class BuiltInCallSemantics(CallSemantics):
         """
         return self.binary_operation(stmt, BinaryArithmeticOperation.Operator.Sub, state)
 
-    def mul_call_semantics(self, stmt: Call, state: State) -> State:
+    def mult_call_semantics(self, stmt: Call, state: State) -> State:
         """Semantics of a call to '*' (multiplication, not repetition).
 
         :param stmt: call to '*' to be executed
         :param state: state before executing the call statement
         :return: state modified by the call statement
         """
-        return self.binary_operation(stmt, BinaryArithmeticOperation.Operator.Mul, state)
+        return self.binary_operation(stmt, BinaryArithmeticOperation.Operator.Mult, state)
 
     def div_call_semantics(self, stmt: Call, state: State) -> State:
         """Semantics of a call to '/' (division).
