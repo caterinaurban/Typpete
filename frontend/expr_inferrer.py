@@ -34,54 +34,43 @@ TODO:
 
 import ast
 import frontend.predicates as pred
+import frontend.z3_types as z3_types
+import frontend.z3_axioms as axioms
 import sys
 
-from frontend.i_types import *
+# Unique id given to newly created Z3 consts
+element_id = 0
 
 
-def _filter_types(types, types_filter, *preds):
-    return {t for t in types if (pred.has_supertype(types_filter, t) or pred.satisfies_predicates(t, *preds))}
+def new_element_id():
+    global element_id
+    element_id += 1
+    return element_id
 
 
-def narrow_types(original, types_filter, *preds):
-    if not isinstance(original, UnionTypes):
-        if not (pred.has_supertype(types_filter, original) or pred.satisfies_predicates(original, *preds)):
-            raise TypeError("Cannot narrow types. The original type {} doesn't exist in the types filter {}."
-                            .format(original, types_filter))
-        else:
-            return original
-    else:
-        intersection = _filter_types(original.types, types_filter, *preds)
-        if len(intersection) == 0:
-            TypeError("Cannot narrow types. The original types set {} doesn't intersect with the types filter {}."
-                      .format(original, types_filter))
-        elif len(intersection) == 1:
-            return list(intersection)[0]
-        else:
-            return UnionTypes(intersection)
+def new_z3_const(name):
+    return z3_types.Const("{}_{}".format(name, new_element_id()), z3_types.type_sort)
 
 
 def infer_numeric(node):
     """Infer the type of a numeric node"""
     if type(node.n) == int:
-        return TInt()
+        return z3_types.Int
     if type(node.n) == float:
-        return TFloat()
+        return z3_types.Float
     if type(node.n) == complex:
-        return TComplex()
+        return z3_types.Complex
 
 
-def _get_elements_types(elts, context):
+def _get_elements_type(elts, context):
+    elts_type = new_z3_const("elts")
     if len(elts) == 0:
-        return TNone()
-    types = UnionTypes()
+        return elts_type
     for i in range(0, len(elts)):
         cur_type = infer(elts[i], context)
-        types.union(cur_type)
+        z3_types.solver.add(z3_types.subtype(cur_type, elts_type))
 
-    if len(types.types) == 1:
-        return list(types.types)[0]
-    return types
+    return elts_type
 
 
 def infer_list(node, context):
@@ -89,7 +78,7 @@ def infer_list(node, context):
 
     Returns: TList(Type t), where t is the type of the list elements
     """
-    return TList(_get_elements_types(node.elts, context))
+    return z3_types.List(_get_elements_type(node.elts, context))
 
 
 def infer_dict(node, context):
@@ -99,9 +88,9 @@ def infer_dict(node, context):
             k_t is the type of dictionary keys
             v_t is the type of dictionary values
     """
-    keys_type = _get_elements_types(node.keys, context)
-    values_type = _get_elements_types(node.values, context)
-    return TDictionary(keys_type, values_type)
+    keys_type = _get_elements_type(node.keys, context)
+    values_type = _get_elements_type(node.values, context)
+    return z3_types.Dict(keys_type, values_type)
 
 
 def infer_tuple(node, context):
@@ -109,20 +98,31 @@ def infer_tuple(node, context):
 
     Returns: TTuple(Type[] t), where t is a list of the tuple's elements types
     """
-    tuple_types = []
+    tuple_types = ()
     for elem in node.elts:
         elem_type = infer(elem, context)
-        tuple_types.append(elem_type)
+        tuple_types = tuple_types + (elem_type,)
 
-    return TTuple(tuple_types)
+    if len(tuple_types) == 0:
+        return z3_types.Tuple
+
+    if len(tuple_types) > 5:
+        raise TypeError("Cannot infer the type for tuples of length more than 5")
+
+    # Instantiate the correct z3 tuple type based on length of tuple elements:
+    # len(tuple_types) == 1 --> Tuple1(tuple_types)
+    # len(tuple_types) == 2 --> Tuple2(tuple_types)
+    # .....
+    # len(tuple_types) == 5 --> Tuple5(tuple_types)
+    return getattr(z3_types, "Tuple{}".format(len(tuple_types)))(tuple_types)
 
 
 def infer_name_constant(node):
     """Infer the type of name constants like: True, False, None"""
     if isinstance(node.value, bool):
-        return TBool()
+        return z3_types.Bool
     elif node.value is None:
-        return TNone()
+        return z3_types.zNone
     raise NotImplementedError("The inference for {} is not supported.".format(node.value))
 
 
@@ -131,7 +131,7 @@ def infer_set(node, context):
 
     Returns: TSet(Type t), where t is the type of the set elements
     """
-    return TSet(_get_elements_types(node.elts, context))
+    return z3_types.Set(_get_elements_type(node.elts, context))
 
 
 def _get_stronger_numeric(num1, num2):
@@ -139,62 +139,36 @@ def _get_stronger_numeric(num1, num2):
 
 
 def _infer_add(left_type, right_type):
-    if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
-        # arithmetic addition
-        return _get_stronger_numeric(left_type, right_type)
-
-    if isinstance(left_type, TSequence) and isinstance(right_type, TSequence):
-        # sequence concatenation
-        if isinstance(left_type, TTuple) and isinstance(right_type, TTuple):
-            new_tuple_types = left_type.types + right_type.types
-            return TTuple(new_tuple_types)
-        if isinstance(left_type, TString) and isinstance(right_type, TString):
-            return TString()
-        if isinstance(left_type, TBytesString) and isinstance(right_type, TBytesString):
-            return TBytesString()
-        if isinstance(left_type, TList) and isinstance(right_type, TList):
-            list_types = UnionTypes()
-            list_types.union(left_type.type)
-            list_types.union(right_type.type)
-            return TList(list_types if len(list_types.types) > 1 else list(list_types.types)[0])
-
-    raise TypeError("Cannot perform operation + on two types {} and {}".format(left_type, right_type))
+    result_type = new_z3_const("addition_result")
+    z3_types.solver.add(axioms.add(left_type, right_type, result_type))
+    return result_type
 
 
 def _infer_mult(left_type, right_type):
-    if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
-        return _get_stronger_numeric(left_type, right_type)
-    # TODO handle tuple multiplication
-    if isinstance(left_type, TSequence) and right_type.is_subtype(TInt()):
-        return left_type
-    if isinstance(right_type, TSequence) and left_type.is_subtype(TInt()):
-        return right_type
-
-    raise TypeError("Cannot perform operation * on two types {} and {}".format(left_type, right_type))
+    result_type = new_z3_const("multiplication_result")
+    z3_types.solver.add(axioms.mult(left_type, right_type, result_type))
+    return result_type
 
 
 def _infer_div(left_type, right_type):
-    if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
-        return TFloat()
-    raise TypeError("Cannot perform operation / on two types {} and {}".format(left_type, right_type))
+    result_type = new_z3_const("division_result")
+    z3_types.solver.add(axioms.div(left_type, right_type, result_type))
+    return result_type
 
 
 def _infer_arithmetic(left_type, right_type):
-    if isinstance(left_type, TNumber) and isinstance(right_type, TNumber):
-        return _get_stronger_numeric(left_type, right_type)
-    raise TypeError("Cannot perform arithmetic operation on two types {} and {}".format(left_type, right_type))
+    result_type = new_z3_const("arithmetic_result")
+    z3_types.solver.add(axioms.arithmetic(left_type, right_type, result_type))
+    return result_type
 
 
 def _infer_bitwise(left_type, right_type):
-    if left_type.is_subtype(TInt()) and right_type.is_subtype(TInt()):
-        return _get_stronger_numeric(left_type, right_type)
-    raise TypeError("Cannot perform bitwise operation on two types {} and {}".format(left_type, right_type))
+    result_type = new_z3_const("bitwise_result")
+    z3_types.solver.add(axioms.bitwise(left_type, right_type, result_type))
+    return result_type
 
 
 def binary_operation_type(left_type, op, right_type):
-    left_type = UnionTypes({left_type})
-    right_type = UnionTypes({right_type})
-
     if isinstance(op, ast.Add):
         inference_func = _infer_add
     elif isinstance(op, ast.Mult):
@@ -206,17 +180,7 @@ def binary_operation_type(left_type, op, right_type):
     else:
         inference_func = _infer_arithmetic
 
-    result_type = UnionTypes()
-    for l_t in left_type.types:
-        for r_t in right_type.types:
-            result_type.union(inference_func(l_t, r_t))
-
-    if len(result_type.types) == 0:
-        raise TypeError("Cannot perform operation ({}) on two types: {} and {}".format(type(op).__name__,
-                                                                                       left_type, right_type))
-    elif len(result_type.types) == 1:
-        return list(result_type.types)[0]
-    return result_type
+    return inference_func(left_type, right_type)
 
 
 def infer_binary_operation(node, context):
@@ -239,27 +203,17 @@ def infer_unary_operation(node, context):
     Examples: -5, not 1, ~2
     """
     if isinstance(node.op, ast.Not):  # (not expr) always gives bool type
-        return TBool()
+        return z3_types.Bool
 
-    unary_type = UnionTypes({infer(node.operand, context)})
-    result_type = UnionTypes()
-    for t in unary_type.types:
-        if isinstance(node.op, ast.Invert):
-            if t.is_subtype(TInt()):
-                result_type.union(TInt())
-            else:
-                raise TypeError("Cannot perform ~ operation on type {}.".format(t))
-        else:
-            if isinstance(t, TNumber):
-                if isinstance(t, TBool):
-                    result_type.union(TInt())
-                else:
-                    result_type.union(t)
-            else:
-                raise TypeError("Cannot perform unary operation on type {}.".format(t))
-    if len(result_type.types) == 1:
-        return list(result_type.types)[0]
-    return result_type
+    unary_type = infer(node.operand, context)
+
+    if isinstance(node.op, ast.Invert):
+        z3_types.solver.add(axioms.unary_invert(unary_type))
+        return z3_types.Int
+    else:
+        result_type = new_z3_const("unary_result")
+        z3_types.solver.add(axioms.unary_other(unary_type, result_type))
+        return result_type
 
 
 def infer_if_expression(node, context):

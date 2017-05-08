@@ -3,6 +3,8 @@ from z3 import *
 type_sort = Datatype("Type")
 type_sort.declare("object")
 
+type_sort.declare("none")
+
 type_sort.declare("number")
 type_sort.declare("complex")
 type_sort.declare("float")
@@ -37,6 +39,8 @@ type_sort.declare("func_5", ("func_5_arg_1", type_sort), ("func_5_arg_2", type_s
 
 type_sort = type_sort.create()
 Object = type_sort.object
+
+zNone = type_sort.none
 
 Num = type_sort.number
 Complex = type_sort.complex
@@ -144,6 +148,7 @@ num_strength_properties = [
 ]
 
 axioms = [
+    extends(zNone, Object),
     extends(Num, Object),
     extends(Complex, Num),
     extends(Float, Num),
@@ -184,3 +189,5 @@ class TypesSolver(Solver):
 
     def init_axioms(self):
         self.add(subtype_properties + axioms + num_strength_properties + generics_axioms)
+
+solver = TypesSolver()
