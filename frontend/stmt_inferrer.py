@@ -147,11 +147,9 @@ def _delete_element(target, context):
     elif isinstance(target, ast.Name):
         context.delete_type(target.id)
     elif isinstance(target, ast.Subscript):
+        expr.infer(target, context)
         indexed_type = expr.infer(target.value, context)
-        if isinstance(indexed_type, TString):
-            raise TypeError("String objects don't support item deletion.")
-        elif isinstance(indexed_type, TTuple):
-            raise TypeError("Tuple objects don't support item deletion.")
+        z3_types.solver.add(axioms.delete_subscript(indexed_type))
 
 
 def _infer_delete(node, context):
@@ -159,7 +157,7 @@ def _infer_delete(node, context):
     for target in node.targets:
         _delete_element(target, context)
 
-    return TNone()
+    return z3_types.zNone
 
 
 def _infer_body(body, context):

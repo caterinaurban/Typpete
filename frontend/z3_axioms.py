@@ -125,3 +125,13 @@ def slice_assignment(lower, upper, step, sliced, value):
         And(subtype(lower, Int), subtype(upper, Int), subtype(step, Int), subtype(sliced, Seq),
             Exists([x], And(sliced == List(x), value == List(x))))
     ]
+
+
+def delete_subscript(indexed):
+    return [
+        Not(Or(
+            indexed == String,
+            indexed == Bytes,
+            subtype(indexed, Tuple)
+        ))
+    ]
