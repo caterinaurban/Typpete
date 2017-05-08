@@ -33,19 +33,20 @@ TODO:
 """
 
 import ast
-import frontend.predicates as pred
 import frontend.z3_types as z3_types
 import frontend.z3_axioms as axioms
 import sys
 
+from frontend.context import Context
+
 # Unique id given to newly created Z3 consts
-element_id = 0
+_element_id = 0
 
 
 def new_element_id():
-    global element_id
-    element_id += 1
-    return element_id
+    global _element_id
+    _element_id += 1
+    return _element_id
 
 
 def new_z3_const(name):
@@ -224,50 +225,9 @@ def infer_if_expression(node, context):
     a_type = infer(node.body, context)
     b_type = infer(node.orelse, context)
 
-    result_type = UnionTypes({a_type, b_type})
-    if len(result_type.types) == 1:
-        return list(result_type.types)[0]
-    else:
-        return result_type
-
-
-def _infer_index_subscript(indexed_type, index_type):
-    if pred.is_sequence(indexed_type):
-        if not index_type.is_subtype(TInt()):
-            raise KeyError("Cannot index a sequence with an index of type {}.".format(index_type))
-
-    if isinstance(indexed_type, TString):
-        return TString()
-    if isinstance(indexed_type, TList):
-        return indexed_type.type
-    if isinstance(indexed_type, TTuple):
-        tuple_types = UnionTypes(indexed_type.types)
-        return tuple_types
-    if isinstance(indexed_type, TDictionary):
-        # Dictionaries may have union key set
-        keys_types = UnionTypes(indexed_type.key_type)
-        for k in keys_types.types:
-            if index_type.is_subtype(k):
-                return indexed_type.value_type
-        raise KeyError("Cannot index a dict of type {} with an index of type {}.".format(indexed_type, index_type))
-    raise TypeError("Cannot index {}.".format(indexed_type))
-
-
-def _infer_slice_subscript(sliced_type):
-    if not pred.is_sequence(sliced_type):
-        raise TypeError("Cannot slice a non sequence.")
-    if isinstance(sliced_type, TTuple):
-        return sliced_type.get_possible_tuple_slicings()
-    if pred.is_sequence(sliced_type):
-        return sliced_type
-    raise TypeError("Cannot slice a non sequence.")
-
-
-def _all_int(union):
-    for t in union.types:
-        if not t.is_subtype(TInt()):
-            return False
-    return True
+    result_type = new_z3_const("if_expr")
+    z3_types.solver.add(axioms.if_expr(a_type, b_type, result_type))
+    return result_type
 
 
 def infer_subscript(node, context):
@@ -278,39 +238,32 @@ def infer_subscript(node, context):
         node: the subscript node to be inferred
     """
 
-    indexed_types = UnionTypes(infer(node.value, context))
+    indexed_type = infer(node.value, context)
 
-    subscript_type = UnionTypes()
     if isinstance(node.slice, ast.Index):
-        index_types = UnionTypes(infer(node.slice.value, context))
-        for index_t in index_types.types:
-            for indexed_t in indexed_types.types:
-                subscript_type.union(_infer_index_subscript(indexed_t, index_t))
+        index_type = infer(node.slice.value, context)
+        result_type = new_z3_const("index")
+        z3_types.solver.add(axioms.index(indexed_type, index_type, result_type))
+        return result_type
     else:
+        # Some slicing may contain 'None' bounds, ex: a[1:], a[::]
+        # Make Int the default type.
+        lower_type = upper_type = step_type = z3_types.Int
         if node.slice.lower:
-            lower_type = UnionTypes(infer(node.slice.lower, context))
-            if not _all_int(lower_type):
-                raise KeyError("Slicing lower bound should be integer.")
+            lower_type = infer(node.slice.lower, context)
         if node.slice.upper:
-            upper_type = UnionTypes(infer(node.slice.upper, context))
-            if not _all_int(upper_type):
-                raise KeyError("Slicing upper bound should be integer.")
+            upper_type = infer(node.slice.upper, context)
         if node.slice.step:
-            step_type = UnionTypes(infer(node.slice.step, context))
-            if not _all_int(step_type):
-                raise KeyError("Slicing step should be integer.")
+            step_type = infer(node.slice.step, context)
 
-        for indexed_t in indexed_types.types:
-            subscript_type.union(indexed_t)
-
-    if len(subscript_type.types) == 1:
-        return list(subscript_type.types)[0]
-    return subscript_type
+        result_type = new_z3_const("slice")
+        z3_types.solver.add(axioms.slice(lower_type, upper_type, step_type, indexed_type, result_type))
+        return result_type
 
 
 def infer_compare(node):
     # TODO: verify that types in comparison are comparable
-    return TBool()
+    return z3_types.Bool
 
 
 def infer_name(node, context):
@@ -325,19 +278,9 @@ def infer_name(node, context):
 
 def infer_generators(generators, local_context):
     for gen in generators:
-        iter_type = UnionTypes(infer(gen.iter, local_context))
-        if not (pred.all_instance(iter_type, (TList, TSet, TDictionary))):
-            raise TypeError("The iterable should be only a list, a set or a dict. Found {}.", iter_type)
-
-        target_type = UnionTypes()
-        for i_t in iter_type.types:
-            if isinstance(i_t, (TList, TSet)):
-                target_type.union(i_t.type)
-            elif isinstance(i_t, TDictionary):
-                target_type.union(i_t.key_type)
-
-        if len(target_type.types) == 1:
-            target_type = list(target_type.types)[0]
+        iter_type = infer(gen.iter, local_context)
+        target_type = new_z3_const("generator_target")
+        z3_types.solver.add(axioms.generator(iter_type, target_type))
 
         if not isinstance(gen.target, ast.Name):
             if not isinstance(gen.target, (ast.Tuple, ast.List)):
@@ -388,7 +331,7 @@ def infer_dict_comprehension(node, context):
     infer_generators(node.generators, local_context)
     key_type = infer(node.key, local_context)
     val_type = infer(node.value, local_context)
-    return TDictionary(key_type, val_type)
+    return z3_types.Dict(key_type, val_type)
 
 
 def infer(node, context):
@@ -396,13 +339,13 @@ def infer(node, context):
     if isinstance(node, ast.Num):
         return infer_numeric(node)
     elif isinstance(node, ast.Str):
-        return TString()
+        return z3_types.String
     elif (sys.version_info[0] >= 3 and sys.version_info[1] >= 6 and
               (isinstance(node, ast.FormattedValue) or isinstance(node, ast.JoinedStr))):
         # Formatted strings were introduced in Python 3.6
-        return TString()
+        return z3_types.String
     elif isinstance(node, ast.Bytes):
-        return TBytesString()
+        return z3_types.Bytes
     elif isinstance(node, ast.List):
         return infer_list(node, context)
     elif isinstance(node, ast.Dict):
@@ -431,9 +374,9 @@ def infer(node, context):
     elif isinstance(node, ast.Name):
         return infer_name(node, context)
     elif isinstance(node, ast.ListComp):
-        return infer_sequence_comprehension(node, TList, context)
+        return infer_sequence_comprehension(node, z3_types.List, context)
     elif isinstance(node, ast.SetComp):
-        return infer_sequence_comprehension(node, TSet, context)
+        return infer_sequence_comprehension(node, z3_types.Set, context)
     elif isinstance(node, ast.DictComp):
         return infer_dict_comprehension(node, context)
     raise NotImplementedError("Inference for expression {} is not implemented yet.".format(type(node).__name__))

@@ -67,10 +67,38 @@ def unary_other(unary, result):
     ]
 
 
+def if_expr(a, b, result):
+    return [
+        subtype(a, result),
+        subtype(b, result)
+    ]
+
+
 def index(indexed, index, result):
+    # TODO tuples
     return [
         Or(
             indexed == Dict(index, result),
             And(subtype(index, Int), indexed == List(result))
+        )
+    ]
+
+
+def slice(lower, upper, step, sliced, result):
+    # TODO tuples
+    return [
+        And(subtype(lower, Int), subtype(upper, Int), subtype(step, Int), subtype(sliced, seq), result == sliced)
+    ]
+
+
+def generator(iter, target):
+    # TODO tuples
+    return [
+        Or(
+            iter == List(target),
+            iter == Set(target),
+            And(iter == String, target == String),
+            And(iter == Bytes, target == Bytes),
+            Exists(x, iter == Dict(target, x), patterns=[Dict(target, x)])
         )
     ]

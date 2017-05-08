@@ -13,6 +13,7 @@ type_sort.declare("bool")
 
 type_sort.declare("sequence")
 type_sort.declare("str")
+type_sort.declare("bytes")
 type_sort.declare("list", ("list_type", type_sort))
 
 type_sort.declare("set", ("set_type", type_sort))
@@ -50,6 +51,7 @@ Bool = type_sort.bool
 
 Seq = type_sort.sequence
 String = type_sort.str
+Bytes = type_sort.bytes
 List = type_sort.list
 list_type = type_sort.list_type
 
@@ -156,6 +158,7 @@ axioms = [
     extends(Bool, Int),
     extends(Seq, Object),
     extends(String, Seq),
+    extends(Bytes, Seq),
     extends(Tuple, Seq),
 
     ForAll([x], extends(Tuple1(x), Tuple), patterns=[Tuple1(x)]),
