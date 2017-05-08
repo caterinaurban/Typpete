@@ -135,3 +135,19 @@ def delete_subscript(indexed):
             subtype(indexed, Tuple)
         ))
     ]
+
+
+def body(result, new):
+    return [
+        Implies(new != zNone, subtype(new, result))
+    ]
+
+
+def control_flow(body, orelse, result):
+    # TODO numeric casting
+    return [
+        And(
+            subtype(body, result),
+            subtype(orelse, result)
+        )
+    ]

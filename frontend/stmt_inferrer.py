@@ -162,20 +162,10 @@ def _infer_delete(node, context):
 
 def _infer_body(body, context):
     """Infer the type of a code block containing multiple statements"""
-    body_type = TNone()
+    body_type = z3_types.new_z3_const("body")
     for stmt in body:
         stmt_type = infer(stmt, context)
-        if body_type.is_subtype(stmt_type) or isinstance(body_type, TNone):
-            body_type = stmt_type
-        elif not stmt_type.is_subtype(body_type):
-            if isinstance(body_type, UnionTypes):
-                body_type.union(stmt_type)
-            elif isinstance(stmt_type, UnionTypes):
-                stmt_type.union(body_type)
-                body_type = stmt_type
-            else:
-                union = {body_type, stmt_type}
-                body_type = UnionTypes(union)
+        z3_types.solver.add(axioms.body(body_type, stmt_type))
     return body_type
 
 
@@ -198,18 +188,11 @@ def _infer_control_flow(node, context):
     body_type = _infer_body(node.body, context)
     else_type = _infer_body(node.orelse, context)
 
-    if body_type.is_subtype(else_type) or isinstance(body_type, TNone):
-        return else_type
-    elif else_type.is_subtype(body_type) or isinstance(else_type, TNone):
-        return body_type
+    result_type = z3_types.new_z3_const("control_flow")
 
-    if isinstance(body_type, UnionTypes):
-        body_type.union(else_type)
-        return body_type
-    elif isinstance(else_type, UnionTypes):
-        else_type.union(body_type)
-        return else_type
-    return UnionTypes({body_type, else_type})
+    z3_types.solver.add(axioms.control_flow(body_type, else_type, result_type))
+
+    return result_type
 
 
 def _infer_for(node, context):
