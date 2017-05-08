@@ -39,19 +39,6 @@ import sys
 
 from frontend.context import Context
 
-# Unique id given to newly created Z3 consts
-_element_id = 0
-
-
-def new_element_id():
-    global _element_id
-    _element_id += 1
-    return _element_id
-
-
-def new_z3_const(name):
-    return z3_types.Const("{}_{}".format(name, new_element_id()), z3_types.type_sort)
-
 
 def infer_numeric(node):
     """Infer the type of a numeric node"""
@@ -64,12 +51,12 @@ def infer_numeric(node):
 
 
 def _get_elements_type(elts, context):
-    elts_type = new_z3_const("elts")
+    elts_type = z3_types.new_z3_const("elts")
     if len(elts) == 0:
         return elts_type
     for i in range(0, len(elts)):
         cur_type = infer(elts[i], context)
-        z3_types.solver.add(z3_types.subtype(cur_type, elts_type))
+        z3_types.solver.add(cur_type == elts_type)
 
     return elts_type
 
@@ -140,31 +127,31 @@ def _get_stronger_numeric(num1, num2):
 
 
 def _infer_add(left_type, right_type):
-    result_type = new_z3_const("addition_result")
+    result_type = z3_types.new_z3_const("addition_result")
     z3_types.solver.add(axioms.add(left_type, right_type, result_type))
     return result_type
 
 
 def _infer_mult(left_type, right_type):
-    result_type = new_z3_const("multiplication_result")
+    result_type = z3_types.new_z3_const("multiplication_result")
     z3_types.solver.add(axioms.mult(left_type, right_type, result_type))
     return result_type
 
 
 def _infer_div(left_type, right_type):
-    result_type = new_z3_const("division_result")
+    result_type = z3_types.new_z3_const("division_result")
     z3_types.solver.add(axioms.div(left_type, right_type, result_type))
     return result_type
 
 
 def _infer_arithmetic(left_type, right_type):
-    result_type = new_z3_const("arithmetic_result")
+    result_type = z3_types.new_z3_const("arithmetic_result")
     z3_types.solver.add(axioms.arithmetic(left_type, right_type, result_type))
     return result_type
 
 
 def _infer_bitwise(left_type, right_type):
-    result_type = new_z3_const("bitwise_result")
+    result_type = z3_types.new_z3_const("bitwise_result")
     z3_types.solver.add(axioms.bitwise(left_type, right_type, result_type))
     return result_type
 
@@ -212,7 +199,7 @@ def infer_unary_operation(node, context):
         z3_types.solver.add(axioms.unary_invert(unary_type))
         return z3_types.Int
     else:
-        result_type = new_z3_const("unary_result")
+        result_type = z3_types.new_z3_const("unary_result")
         z3_types.solver.add(axioms.unary_other(unary_type, result_type))
         return result_type
 
@@ -225,7 +212,7 @@ def infer_if_expression(node, context):
     a_type = infer(node.body, context)
     b_type = infer(node.orelse, context)
 
-    result_type = new_z3_const("if_expr")
+    result_type = z3_types.new_z3_const("if_expr")
     z3_types.solver.add(axioms.if_expr(a_type, b_type, result_type))
     return result_type
 
@@ -242,12 +229,11 @@ def infer_subscript(node, context):
 
     if isinstance(node.slice, ast.Index):
         index_type = infer(node.slice.value, context)
-        result_type = new_z3_const("index")
+        result_type = z3_types.new_z3_const("index")
         z3_types.solver.add(axioms.index(indexed_type, index_type, result_type))
         return result_type
-    else:
-        # Some slicing may contain 'None' bounds, ex: a[1:], a[::]
-        # Make Int the default type.
+    else:  # Slicing
+        # Some slicing may contain 'None' bounds, ex: a[1:], a[::]. Make Int the default type.
         lower_type = upper_type = step_type = z3_types.Int
         if node.slice.lower:
             lower_type = infer(node.slice.lower, context)
@@ -256,7 +242,7 @@ def infer_subscript(node, context):
         if node.slice.step:
             step_type = infer(node.slice.step, context)
 
-        result_type = new_z3_const("slice")
+        result_type = z3_types.new_z3_const("slice")
         z3_types.solver.add(axioms.slice(lower_type, upper_type, step_type, indexed_type, result_type))
         return result_type
 
@@ -279,7 +265,7 @@ def infer_name(node, context):
 def infer_generators(generators, local_context):
     for gen in generators:
         iter_type = infer(gen.iter, local_context)
-        target_type = new_z3_const("generator_target")
+        target_type = z3_types.new_z3_const("generator_target")
         z3_types.solver.add(axioms.generator(iter_type, target_type))
 
         if not isinstance(gen.target, ast.Name):

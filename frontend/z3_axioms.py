@@ -102,3 +102,25 @@ def generator(iter, target):
             Exists(x, iter == Dict(target, x), patterns=[Dict(target, x)])
         )
     ]
+
+
+def assignment(value, result):
+    return [
+        value == result
+    ]
+
+
+def index_assignment(indexed, index, value):
+    return [
+        Or(
+            indexed == Dict(index, value),
+            And(subtype(index, Int), indexed == List(value))
+        )
+    ]
+
+
+def slice_assignment(lower, upper, step, sliced, value):
+    return [
+        And(subtype(lower, Int), subtype(upper, Int), subtype(step, Int), subtype(sliced, seq),
+            Exists([x], And(sliced == List(x), value == List(x))))
+    ]

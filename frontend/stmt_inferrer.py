@@ -22,19 +22,18 @@ Infers the types for the following expressions:
 
 import ast
 import frontend.expr_inferrer as expr
-import frontend.predicates as pred
+import frontend.z3_axioms as axioms
+import frontend.z3_types as z3_types
 import sys
 
-from frontend.i_types import *
 
-
-def _infer_assignment_target(target, context, value_type):
+def _infer_assignment_target(target, context, value):
     """Infer the type of a target in an assignment
 
     Attributes:
         target: the target whose type is to be inferred
         context: the current context level
-        value_type: the type of the value assigned to the target
+        value: the value assigned to the target
 
     Target cases:
         - Variable name. Ex: x = 1
@@ -44,72 +43,56 @@ def _infer_assignment_target(target, context, value_type):
         - Compound: Ex: a, b[0], [c, d], e["key"] = 1, 2.0, [True, False], "value"
 
     Limitation:
-        - In case of tuple/list assignments, there are no guarantees for correct number of unpacked values.
-            Because the length of the list/tuple may not be resolved statically.
-    TODO: Attributes assignment, UnionTypes assignment
+        - In case of tuple/list assignments, the value should be tuple/list too (not a variable name)
+        For example, the following is not supported yet:
+        x = (1, "string")
+        a, b = x
+        
+    TODO: Attributes assignment
     """
+
     if isinstance(target, ast.Name):
-        if context.has_variable(target.id):  # Check if variable is already inferred before
-            var_type = context.get_type(target.id)
-            if var_type.is_subtype(value_type):
-                context.set_type(target.id, value_type)
-            elif not value_type.is_subtype(var_type):
-                raise TypeError("The type of {} is {}. Cannot assign it to {}.".format(target.id, var_type, value_type))
+        value_type = expr.infer(value, context)
+        if context.has_variable(target.id):
+            z3_types.solver.add(axioms.assignment(value_type, context.get_type(target.id)))
         else:
-            context.set_type(target.id, value_type)
-    elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):  # Tuple/List assignment
-        if not pred.is_sequence(value_type):
-            raise ValueError("Cannot unpack a non sequence.")
-        for i in range(len(target.elts)):
-            seq_elem = target.elts[i]
-            if isinstance(value_type, TString):
-                _infer_assignment_target(seq_elem, context, value_type)
-            elif isinstance(value_type, TList):
-                _infer_assignment_target(seq_elem, context, value_type.type)
-            elif isinstance(value_type, TTuple):
-                _infer_assignment_target(seq_elem, context, value_type.types[i])
-    elif isinstance(target, ast.Subscript):  # Subscript assignment
-        expr.infer(target, context)
+            assignment_result_type = z3_types.new_z3_const("assign")
+            z3_types.solver.add(axioms.assignment(value_type, assignment_result_type))
+            context.set_type(target.id, assignment_result_type)
+    elif isinstance(target, (ast.Tuple, ast.List)):
+        if not isinstance(value, (ast.Tuple, ast.List)):
+            raise TypeError("Cannot unpack a non-sequence")
+        if len(target.elts) != len(value.elts):
+            raise ValueError("Cannot unpack {} values into {} targets".format(len(value.elts), len(target.elts)))
+        for i in range(len(value.elts)):
+            _infer_assignment_target(target.elts[i], context, value.elts[i])
+
+    elif isinstance(target, ast.Subscript):
+        value_type = expr.infer(value, context)
         indexed_type = expr.infer(target.value, context)
-        if isinstance(indexed_type, TString):
-            raise TypeError("String objects don't support item assignment.")
-        elif isinstance(indexed_type, TTuple):
-            raise TypeError("Tuple objects don't support item assignment.")
-        elif isinstance(indexed_type, TList):
-            if isinstance(target.slice, ast.Index):
-                if indexed_type.type.is_subtype(value_type):  # Update the type of the list with the more generic type
-                    if isinstance(target.value, ast.Name):
-                        context.set_type(target.value.id, TList(value_type))
-                elif not value_type.is_subtype(indexed_type.type):
-                    raise TypeError("Cannot assign {} to {}.".format(value_type, indexed_type.type))
-            else:  # Slice subscription
-                if indexed_type.is_subtype(value_type):
-                    if isinstance(target.value, ast.Name):  # Update the type of the list with the more generic type
-                        context.set_type(target.value.id, value_type)
-                elif not (isinstance(value_type, TList) and value_type.type.is_subtype(indexed_type.type)):
-                    raise TypeError("Cannot assign {} to {}.".format(value_type, indexed_type))
-        elif isinstance(indexed_type, TDictionary):
-            if indexed_type.value_type.is_subtype(value_type):
-                if isinstance(target.value,
-                              ast.Name):  # Update the type of the dictionary values with the more generic type
-                    context.get_type(target.value.id).value_type = value_type
-            elif not value_type.is_subtype(indexed_type.value_type):
-                raise TypeError(
-                    "Cannot assign {} to a dictionary item of type {}.".format(value_type, indexed_type.value_type))
-        else:
-            raise NotImplementedError("The inference for {} subscripting is not supported.".format(indexed_type))
+        if isinstance(target.slice, ast.Index):
+            index_type = expr.infer(target.slice.value, context)
+            z3_types.solver.add(axioms.index_assignment(indexed_type, index_type, value_type))
+        else:  # Slice assignment
+            lower_type = upper_type = step_type = z3_types.Int
+            if target.slice.lower:
+                lower_type = infer(target.slice.lower, context)
+            if target.slice.upper:
+                upper_type = infer(target.slice.upper, context)
+            if target.slice.step:
+                step_type = infer(target.slice.step, context)
+            z3_types.solver.add(axioms.slice_assignment(lower_type, upper_type, step_type, indexed_type, value_type))
     else:
-        raise NotImplementedError("The inference for {} assignment is not supported.".format(type(target).__name__))
+        raise TypeError("The inference for {} assignment is not supported.".format(type(target).__name__))
 
 
 def _infer_assign(node, context):
     """Infer the types of target variables in an assignment node."""
-    value_type = expr.infer(node.value,
-                            context)  # The type of the value assigned to the targets in the assignment statement.
-    for target in node.targets:
-        _infer_assignment_target(target, context, value_type)
 
-    return TNone()
+    for target in node.targets:
+        _infer_assignment_target(target, context, node.value)
+
+    return z3_types.zNone
 
 
 def _infer_augmented_assign(node, context):
@@ -321,4 +304,4 @@ def infer(node, context):
         return _infer_with(node, context)
     elif isinstance(node, ast.Try):
         return _infer_try(node, context)
-    return TNone()
+    return z3_types.zNone

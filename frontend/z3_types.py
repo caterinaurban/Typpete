@@ -167,6 +167,7 @@ axioms = [
     ForAll([x, y, z, l], extends(Tuple4(x, y, z, l), Tuple), patterns=[Tuple4(x, y, z, l)]),
     ForAll([x, y, z, l, m], extends(Tuple5(x, y, z, l, m), Tuple), patterns=[Tuple5(x, y, z, l, m)]),
 
+    extends(Func, Object),
     ForAll([x, y], extends(Func1(x, y), Func), patterns=[Func1(x, y)]),
     ForAll([x, y, z], extends(Func2(x, y, z), Func), patterns=[Func2(x, y, z)]),
     ForAll([x, y, z, l], extends(Func3(x, y, z, l), Func), patterns=[Func3(x, y, z, l)]),
@@ -182,6 +183,20 @@ axioms = [
     stronger_num(Complex, Float),
     stronger_num(Num, Complex)
     ]
+
+
+# Unique id given to newly created Z3 consts
+_element_id = 0
+
+
+def new_element_id():
+    global _element_id
+    _element_id += 1
+    return _element_id
+
+
+def new_z3_const(name):
+    return Const("{}_{}".format(name, new_element_id()), type_sort)
 
 
 class TypesSolver(Solver):
