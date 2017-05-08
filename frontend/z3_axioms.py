@@ -87,7 +87,7 @@ def index(indexed, index, result):
 def slice(lower, upper, step, sliced, result):
     # TODO tuples
     return [
-        And(subtype(lower, Int), subtype(upper, Int), subtype(step, Int), subtype(sliced, seq), result == sliced)
+        And(subtype(lower, Int), subtype(upper, Int), subtype(step, Int), subtype(sliced, Seq), result == sliced)
     ]
 
 
@@ -104,9 +104,10 @@ def generator(iter, target):
     ]
 
 
-def assignment(value, result):
+def assignment(target, value):
     return [
-        value == result
+        Implies(subtype(target, Num), And(subtype(value, Num), stronger_num(target, value))),
+        Implies(Not(subtype(target, Num)), subtype(value, target))
     ]
 
 
@@ -121,6 +122,6 @@ def index_assignment(indexed, index, value):
 
 def slice_assignment(lower, upper, step, sliced, value):
     return [
-        And(subtype(lower, Int), subtype(upper, Int), subtype(step, Int), subtype(sliced, seq),
+        And(subtype(lower, Int), subtype(upper, Int), subtype(step, Int), subtype(sliced, Seq),
             Exists([x], And(sliced == List(x), value == List(x))))
     ]

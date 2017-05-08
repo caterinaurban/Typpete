@@ -243,6 +243,7 @@ def infer_subscript(node, context):
             step_type = infer(node.slice.step, context)
 
         result_type = z3_types.new_z3_const("slice")
+
         z3_types.solver.add(axioms.slice(lower_type, upper_type, step_type, indexed_type, result_type))
         return result_type
 
@@ -327,7 +328,7 @@ def infer(node, context):
     elif isinstance(node, ast.Str):
         return z3_types.String
     elif (sys.version_info[0] >= 3 and sys.version_info[1] >= 6 and
-              (isinstance(node, ast.FormattedValue) or isinstance(node, ast.JoinedStr))):
+            (isinstance(node, ast.FormattedValue) or isinstance(node, ast.JoinedStr))):
         # Formatted strings were introduced in Python 3.6
         return z3_types.String
     elif isinstance(node, ast.Bytes):

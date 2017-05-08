@@ -54,11 +54,11 @@ def _infer_assignment_target(target, context, value):
     if isinstance(target, ast.Name):
         value_type = expr.infer(value, context)
         if context.has_variable(target.id):
-            z3_types.solver.add(axioms.assignment(value_type, context.get_type(target.id)))
+            z3_types.solver.add(axioms.assignment(context.get_type(target.id), value_type))
         else:
-            assignment_result_type = z3_types.new_z3_const("assign")
-            z3_types.solver.add(axioms.assignment(value_type, assignment_result_type))
-            context.set_type(target.id, assignment_result_type)
+            assignment_target_type = z3_types.new_z3_const("assign")
+            z3_types.solver.add(axioms.assignment(assignment_target_type, value_type))
+            context.set_type(target.id, assignment_target_type)
     elif isinstance(target, (ast.Tuple, ast.List)):
         if not isinstance(value, (ast.Tuple, ast.List)):
             raise TypeError("Cannot unpack a non-sequence")
@@ -76,11 +76,11 @@ def _infer_assignment_target(target, context, value):
         else:  # Slice assignment
             lower_type = upper_type = step_type = z3_types.Int
             if target.slice.lower:
-                lower_type = infer(target.slice.lower, context)
+                lower_type = expr.infer(target.slice.lower, context)
             if target.slice.upper:
-                upper_type = infer(target.slice.upper, context)
+                upper_type = expr.infer(target.slice.upper, context)
             if target.slice.step:
-                step_type = infer(target.slice.step, context)
+                step_type = expr.infer(target.slice.step, context)
             z3_types.solver.add(axioms.slice_assignment(lower_type, upper_type, step_type, indexed_type, value_type))
     else:
         raise TypeError("The inference for {} assignment is not supported.".format(type(target).__name__))
@@ -107,30 +107,28 @@ def _infer_augmented_assign(node, context):
     target_type = expr.infer(node.target, context)
     value_type = expr.infer(node.value, context)
     result_type = expr.binary_operation_type(target_type, node.op, value_type)
+
     if isinstance(node.target, ast.Name):
-        # If result_type was a supertype of target_type, replace it in the context
-        context.set_type(node.target.id, result_type)
+        z3_types.solver.add(axioms.assignment(target_type, result_type))
     elif isinstance(node.target, ast.Subscript):
         indexed_type = expr.infer(node.target.value, context)
-        if isinstance(indexed_type, TString):
-            raise TypeError("String objects don't support item assignment.")
-        elif isinstance(indexed_type, TTuple):
-            raise TypeError("Tuple objects don't support item assignment.")
-        elif isinstance(indexed_type, TDictionary):
-            if not isinstance(result_type, type(indexed_type.value_type)):
-                raise TypeError("Cannot convert the dictionary value from {} to {}.".format(indexed_type.value_type,
-                                                                                            result_type))
-        elif isinstance(indexed_type, TList):
-            if not isinstance(result_type, type(indexed_type.type)):
-                raise TypeError("Cannot convert the list values from {} to {}.".format(indexed_type.type,
-                                                                                       result_type))
+        if isinstance(node.target.slice, ast.Index):
+            index_type = expr.infer(node.target.slice.value, context)
+            z3_types.solver.add(axioms.index_assignment(indexed_type, index_type, result_type))
         else:
-            # This block should never be executed.
-            raise TypeError("Unknown subscript type.")
+            lower_type = upper_type = step_type = z3_types.Int
+            if node.target.slice.lower:
+                lower_type = expr.infer(node.target.slice.lower, context)
+            if node.target.slice.upper:
+                upper_type = expr.infer(node.target.slice.upper, context)
+            if node.target.slice.step:
+                step_type = expr.infer(node.target.slice.step, context)
+            z3_types.solver.add(axioms.slice_assignment(lower_type, upper_type, step_type, indexed_type, result_type))
+
     elif isinstance(node.target, ast.Attribute):
         # TODO: Implement after classes inference
         pass
-    return TNone()
+    return z3_types.zNone
 
 
 def _delete_element(target, context):
