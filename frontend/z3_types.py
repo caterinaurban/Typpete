@@ -29,6 +29,7 @@ type_sort.declare("tuple_5", ("tuple_5_arg_1", type_sort), ("tuple_5_arg_2", typ
                   ("tuple_5_arg_4", type_sort), ("tuple_5_arg_5", type_sort))
 
 type_sort.declare("func")
+type_sort.declare("func_0", ("func_0_return", type_sort))
 type_sort.declare("func_1", ("func_1_arg_1", type_sort), ("func_1_return", type_sort))
 type_sort.declare("func_2", ("func_2_arg_1", type_sort), ("func_2_arg_2", type_sort), ("func_2_return", type_sort))
 type_sort.declare("func_3", ("func_3_arg_1", type_sort), ("func_3_arg_2", type_sort), ("func_3_arg_3", type_sort),
@@ -86,6 +87,7 @@ tuple_5_arg_4 = type_sort.tuple_5_arg_4
 tuple_5_arg_5 = type_sort.tuple_5_arg_5
 
 Func = type_sort.func
+Func0 = type_sort.func_0
 Func1 = type_sort.func_1
 Func2 = type_sort.func_2
 Func3 = type_sort.func_3
@@ -108,6 +110,7 @@ func_5_arg_3 = type_sort.func_5_arg_3
 func_5_arg_4 = type_sort.func_5_arg_4
 func_5_arg_5 = type_sort.func_5_arg_5
 
+func_0_return = type_sort.func_0_return
 func_1_return = type_sort.func_1_return
 func_2_return = type_sort.func_2_return
 func_3_return = type_sort.func_3_return
@@ -168,6 +171,7 @@ axioms = [
     ForAll([x, y, z, l, m], extends(Tuple5(x, y, z, l, m), Tuple), patterns=[Tuple5(x, y, z, l, m)]),
 
     extends(Func, Object),
+    ForAll([x], extends(Func0(x), Func), patterns=[Func0(x)]),
     ForAll([x, y], extends(Func1(x, y), Func), patterns=[Func1(x, y)]),
     ForAll([x, y, z], extends(Func2(x, y, z), Func), patterns=[Func2(x, y, z)]),
     ForAll([x, y, z, l], extends(Func3(x, y, z, l), Func), patterns=[Func3(x, y, z, l)]),

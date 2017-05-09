@@ -26,6 +26,8 @@ import frontend.z3_axioms as axioms
 import frontend.z3_types as z3_types
 import sys
 
+from frontend.context import Context
+
 
 def _infer_assignment_target(target, context, value):
     """Infer the type of a target in an assignment
@@ -265,6 +267,34 @@ def _infer_try(node, context):
     return result_type
 
 
+def _init_func_context(args, context):
+    local_context = Context(parent_context=context)
+
+    if len(args) > 5:
+        raise NotImplementedError("Functions with more than 5 arguments are not yet supported.")
+
+    # TODO starred args
+
+    args_types = ()
+    for arg in args:
+        arg_type = z3_types.new_z3_const("func_arg")
+        local_context.set_type(arg.arg, arg_type)
+        args_types = args_types + (arg_type,)
+
+    return local_context, args_types
+
+
+def _infer_func_def(node, context):
+    func_context, args_types = _init_func_context(node.args.args, context)
+    return_type = _infer_body(node.body, func_context)
+
+    func_type = getattr(z3_types, "Func{}".format(len(args_types)))(args_types + (return_type,))
+    result_type = z3_types.new_z3_const("func")
+    z3_types.solver.add(result_type == func_type)
+
+    context.set_type(node.name, result_type)
+
+
 def infer(node, context):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context)
@@ -288,4 +318,6 @@ def infer(node, context):
         return _infer_with(node, context)
     elif isinstance(node, ast.Try):
         return _infer_try(node, context)
+    elif isinstance(node, ast.FunctionDef):
+        return _infer_func_def(node, context)
     return z3_types.zNone
