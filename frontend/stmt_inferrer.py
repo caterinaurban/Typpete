@@ -174,9 +174,16 @@ def _infer_body(body, context):
     if len(body) == 0:
         z3_types.solver.add(body_type == z3_types.zNone)
         return body_type
+    stmts_types = []
     for stmt in body:
         stmt_type = infer(stmt, context)
+        stmts_types.append(stmt_type)
         z3_types.solver.add(axioms.body(body_type, stmt_type))
+
+    # The body type should be none if all statements have none type.
+    z3_types.solver.add(z3_types.Implies(z3_types.And([x == z3_types.zNone for x in stmts_types]),
+                                         body_type == z3_types.zNone))
+
     return body_type
 
 

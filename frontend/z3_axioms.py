@@ -108,11 +108,8 @@ def generator(iter, target):
 
 def assignment(target, value):
     return [
-        target == value
-
-        # Using the below axioms leads to non termination in some cases with for-loops
-        # Implies(subtype(target, Num), And(subtype(value, Num), stronger_num(target, value))),
-        # Implies(Not(subtype(target, Num)), subtype(value, target))
+        Implies(subtype(target, Num), And(subtype(value, Num), stronger_num(target, value))),
+        Implies(Not(subtype(target, Num)), subtype(value, target))
     ]
 
 
