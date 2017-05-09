@@ -268,6 +268,7 @@ def _infer_try(node, context):
 
 
 def _init_func_context(args, context):
+    """Initialize the local function scope, and the arguments types"""
     local_context = Context(parent_context=context)
 
     if len(args) > 5:
@@ -285,6 +286,7 @@ def _init_func_context(args, context):
 
 
 def _infer_func_def(node, context):
+    """Infer the type for a function definition"""
     func_context, args_types = _init_func_context(node.args.args, context)
     return_type = _infer_body(node.body, func_context)
 

@@ -51,6 +51,7 @@ def infer_numeric(node):
 
 
 def _get_elements_type(elts, context):
+    """Return the elements type of a collection"""
     elts_type = z3_types.new_z3_const("elts")
     if len(elts) == 0:
         return elts_type
@@ -122,41 +123,43 @@ def infer_set(node, context):
     return z3_types.Set(_get_elements_type(node.elts, context))
 
 
-def _get_stronger_numeric(num1, num2):
-    return num1 if num1.strength > num2.strength else num2
-
-
 def _infer_add(left_type, right_type):
+    """Infer the type of an addition operation, and add the corresponding axioms"""
     result_type = z3_types.new_z3_const("addition_result")
     z3_types.solver.add(axioms.add(left_type, right_type, result_type))
     return result_type
 
 
 def _infer_mult(left_type, right_type):
+    """Infer the type of a multiplication operation, and add the corresponding axioms"""
     result_type = z3_types.new_z3_const("multiplication_result")
     z3_types.solver.add(axioms.mult(left_type, right_type, result_type))
     return result_type
 
 
 def _infer_div(left_type, right_type):
+    """Infer the type of a division operation, and add the corresponding axioms"""
     result_type = z3_types.new_z3_const("division_result")
     z3_types.solver.add(axioms.div(left_type, right_type, result_type))
     return result_type
 
 
 def _infer_arithmetic(left_type, right_type):
+    """Infer the type of an arithmetic operation, and add the corresponding axioms"""
     result_type = z3_types.new_z3_const("arithmetic_result")
     z3_types.solver.add(axioms.arithmetic(left_type, right_type, result_type))
     return result_type
 
 
 def _infer_bitwise(left_type, right_type):
+    """Infer the type of a bitwise operation, and add the corresponding axioms"""
     result_type = z3_types.new_z3_const("bitwise_result")
     z3_types.solver.add(axioms.bitwise(left_type, right_type, result_type))
     return result_type
 
 
 def binary_operation_type(left_type, op, right_type):
+    """Infer the type of a binary operation result"""
     if isinstance(op, ast.Add):
         inference_func = _infer_add
     elif isinstance(op, ast.Mult):
@@ -322,6 +325,7 @@ def infer_dict_comprehension(node, context):
 
 
 def _get_args_types(args, context):
+    """Return inferred types for function call arguments"""
     # TODO kwargs
     if len(args) > 5:
         raise NotImplementedError("Functions with more than 5 arguments are not yet supported.")
@@ -333,6 +337,7 @@ def _get_args_types(args, context):
 
 
 def infer_func_call(node, context):
+    """Infer the type of a function call, and unify the call types with the function parameters"""
     func_type = infer(node.func, context)
     args_types = _get_args_types(node.args, context)
 

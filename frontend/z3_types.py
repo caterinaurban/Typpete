@@ -1,4 +1,14 @@
+"""The type-system for Python 3 encoded in Z3.
+
+Limitations:
+    - The tuples have a maximum size of 5 elements.
+    - Function calls can have no more than 5 arguments.
+    - Multiple inheritance is not supported.
+    - Functions with generic type variables are not supported.
+"""
 from z3 import *
+
+# ----------- Declare the types data-type -----------
 
 type_sort = Datatype("Type")
 type_sort.declare("object")
@@ -40,6 +50,9 @@ type_sort.declare("func_5", ("func_5_arg_1", type_sort), ("func_5_arg_2", type_s
                   ("func_5_arg_4", type_sort), ("func_5_arg_5", type_sort), ("func_5_return", type_sort))
 
 type_sort = type_sort.create()
+
+# ----------- Get the accessors -----------
+
 Object = type_sort.object
 
 zNone = type_sort.none
@@ -116,6 +129,8 @@ func_2_return = type_sort.func_2_return
 func_3_return = type_sort.func_3_return
 func_4_return = type_sort.func_4_return
 func_5_return = type_sort.func_5_return
+
+# ----------- Encode subtyping relationships -----------
 
 subtype = Function("subtype", type_sort, type_sort, BoolSort())
 extends = Function("extends", type_sort, type_sort, BoolSort())
@@ -204,6 +219,7 @@ def new_z3_const(name):
 
 
 class TypesSolver(Solver):
+    """Z3 solver that has all the type system axioms initialized."""
     def __init__(self, solver=None, ctx=None):
         super().__init__(solver, ctx)
         self.set(auto_config=False, mbqi=False)
@@ -212,4 +228,5 @@ class TypesSolver(Solver):
     def init_axioms(self):
         self.add(subtype_properties + axioms + num_strength_properties + generics_axioms)
 
-solver = TypesSolver()
+
+solver = TypesSolver()  # The main solver for the python program
