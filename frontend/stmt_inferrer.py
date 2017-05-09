@@ -50,9 +50,10 @@ def _infer_assignment_target(target, context, value):
         
     TODO: Attributes assignment
     """
-
+    value_type = value
     if isinstance(target, ast.Name):
-        value_type = expr.infer(value, context)
+        if isinstance(value_type, ast.AST):
+            value_type = expr.infer(value_type, context)
         if context.has_variable(target.id):
             z3_types.solver.add(axioms.assignment(context.get_type(target.id), value_type))
         else:
@@ -60,15 +61,22 @@ def _infer_assignment_target(target, context, value):
             z3_types.solver.add(axioms.assignment(assignment_target_type, value_type))
             context.set_type(target.id, assignment_target_type)
     elif isinstance(target, (ast.Tuple, ast.List)):
-        if not isinstance(value, (ast.Tuple, ast.List)):
-            raise TypeError("Cannot unpack a non-sequence")
-        if len(target.elts) != len(value.elts):
-            raise ValueError("Cannot unpack {} values into {} targets".format(len(value.elts), len(target.elts)))
-        for i in range(len(value.elts)):
-            _infer_assignment_target(target.elts[i], context, value.elts[i])
+        if isinstance(value, ast.AST):
+            if not isinstance(value, (ast.Tuple, ast.List)):
+                raise TypeError("Cannot unpack a non-sequence")
+            if len(target.elts) != len(value.elts):
+                raise ValueError("Cannot unpack {} values into {} targets".format(len(value.elts), len(target.elts)))
+            for i in range(len(value.elts)):
+                _infer_assignment_target(target.elts[i], context, value.elts[i])
+        else:
+            for i in range(len(target.elts)):
+                target_type = z3_types.new_z3_const("elt_type")
+                z3_types.solver.add(axioms.assignment_target(target_type, value, i + 1))
+                _infer_assignment_target(target.elts[i], context, target_type)
 
     elif isinstance(target, ast.Subscript):
-        value_type = expr.infer(value, context)
+        if isinstance(value_type, ast.AST):
+            value_type = expr.infer(value_type, context)
         indexed_type = expr.infer(target.value, context)
         if isinstance(target.slice, ast.Index):
             index_type = expr.infer(target.slice.value, context)
@@ -163,6 +171,9 @@ def _infer_delete(node, context):
 def _infer_body(body, context):
     """Infer the type of a code block containing multiple statements"""
     body_type = z3_types.new_z3_const("body")
+    if len(body) == 0:
+        z3_types.solver.add(body_type == z3_types.zNone)
+        return body_type
     for stmt in body:
         stmt_type = infer(stmt, context)
         z3_types.solver.add(axioms.body(body_type, stmt_type))
@@ -187,7 +198,6 @@ def _infer_control_flow(node, context):
     """
     body_type = _infer_body(node.body, context)
     else_type = _infer_body(node.orelse, context)
-
     result_type = z3_types.new_z3_const("control_flow")
 
     z3_types.solver.add(axioms.control_flow(body_type, else_type, result_type))
@@ -205,20 +215,16 @@ def _infer_for(node, context):
                     ....
     """
     iter_type = expr.infer(node.iter, context)
-    if not isinstance(iter_type, (TList, TSet, TIterator, TBytesString, TDictionary, TString)):
-        raise TypeError("{} is not iterable.".format(iter_type))
 
     # Infer the target in the loop, inside the global context
     # Cases:
     # - Var name. Ex: for i in range(5)..
     # - Tuple. Ex: for (a,b) in [(1,"st"), (3,"st2")]..
     # - List. Ex: for [a,b] in [(1, "st"), (3, "st2")]..
-    value_type = iter_type
-    if isinstance(iter_type, (TList, TSet, TIterator)):
-        value_type = value_type.type
-    elif isinstance(iter_type, TDictionary):
-        value_type = value_type.key_type
-    _infer_assignment_target(node.target, context, value_type)
+    target_type = z3_types.new_z3_const("for_target")
+    z3_types.solver.add(axioms.for_loop(iter_type, target_type))
+
+    _infer_assignment_target(node.target, context, target_type)
 
     return _infer_control_flow(node, context)
 

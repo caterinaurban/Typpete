@@ -1,3 +1,5 @@
+from builtins import NotImplementedError
+
 from frontend.z3_types import *
 
 
@@ -106,9 +108,50 @@ def generator(iter, target):
 
 def assignment(target, value):
     return [
-        Implies(subtype(target, Num), And(subtype(value, Num), stronger_num(target, value))),
-        Implies(Not(subtype(target, Num)), subtype(value, target))
+        target == value
+
+        # Using the below axioms leads to non termination in some cases with for-loops
+        # Implies(subtype(target, Num), And(subtype(value, Num), stronger_num(target, value))),
+        # Implies(Not(subtype(target, Num)), subtype(value, target))
     ]
+
+
+def assignment_target(target, value, position):
+    lst = [value == List(target)]
+    if position == 1:
+        t = [
+            value == Tuple1(target),
+            Exists(x, value == Tuple2(target, x), patterns=[Tuple2(target, x)]),
+            Exists([x, y], value == Tuple3(target, x, y), patterns=[Tuple3(target, x, y)]),
+            Exists([x, y, z], value == Tuple4(target, x, y, z), patterns=[Tuple4(target, x, y, z)]),
+            Exists([x, y, z, l], value == Tuple5(target, x, y, z, l), patterns=[Tuple5(target, x, y, z, l)]),
+        ]
+    elif position == 2:
+        t = [
+            Exists(x, value == Tuple2(x, target)),
+            Exists([x, y], value == Tuple3(x, target, y)),
+            Exists([x, y, z], value == Tuple4(x, target, y, z)),
+            Exists([x, y, z, l], value == Tuple5(x, target, y, z, l)),
+        ]
+    elif position == 3:
+        t = [
+            Exists([x, y], value == Tuple3(x, y, target)),
+            Exists([x, y, z], value == Tuple4(x, y, target, z)),
+            Exists([x, y, z, l], value == Tuple5(x, y, target, z, l)),
+        ]
+    elif position == 4:
+        t = [
+            Exists([x, y, z], value == Tuple4(x, y, z, target)),
+            Exists([x, y, z, l], value == Tuple5(x, y, z, target, l)),
+        ]
+    elif position == 5:
+        t = [
+            Exists([x, y, z, l], value == Tuple5(x, y, z, l, target)),
+        ]
+    else:
+        raise NotImplementedError("Inference for tuple assignment with length > 5 is not supported.")
+
+    return [Or(lst + t)]
 
 
 def index_assignment(indexed, index, value):
@@ -149,5 +192,17 @@ def control_flow(body, orelse, result):
         And(
             subtype(body, result),
             subtype(orelse, result)
+        )
+    ]
+
+
+def for_loop(iterable, target):
+    return [
+        Or(
+            iterable == List(target),
+            iterable == Set(target),
+            Exists([x], iterable == Dict(target, x), patterns=[Dict(target, x)]),
+            And(iterable == String, target == String),
+            And(iterable == Bytes, target == Bytes)
         )
     ]
