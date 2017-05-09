@@ -321,6 +321,28 @@ def infer_dict_comprehension(node, context):
     return z3_types.Dict(key_type, val_type)
 
 
+def _get_args_types(args, context):
+    # TODO kwargs
+    if len(args) > 5:
+        raise NotImplementedError("Functions with more than 5 arguments are not yet supported.")
+
+    args_types = ()
+    for arg in args:
+        args_types = args_types + (infer(arg, context),)
+    return args_types
+
+
+def infer_func_call(node, context):
+    func_type = infer(node.func, context)
+    args_types = _get_args_types(node.args, context)
+
+    result_type = z3_types.new_z3_const("call")
+
+    # TODO covariant and invariant subtyping
+    z3_types.solver.add(func_type == getattr(z3_types, "Func{}".format(len(args_types)))(args_types + (result_type,)))
+    return result_type
+
+
 def infer(node, context):
     """Infer the type of a given AST node"""
     if isinstance(node, ast.Num):
@@ -366,4 +388,6 @@ def infer(node, context):
         return infer_sequence_comprehension(node, z3_types.Set, context)
     elif isinstance(node, ast.DictComp):
         return infer_dict_comprehension(node, context)
+    elif isinstance(node, ast.Call):
+        return infer_func_call(node, context)
     raise NotImplementedError("Inference for expression {} is not implemented yet.".format(type(node).__name__))
