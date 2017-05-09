@@ -98,11 +98,15 @@ class LooseControlFlowGraph:
         return len(self.loose_in_edges) or len(self.loose_out_edges) or len(self.both_loose_edges)
 
     def combine(self, other):
+        assert not (self.in_node and other.in_node)
+        assert not (self.out_node and other.out_node)
         self.nodes.update(other.nodes)
         self.edges.update(other.edges)
         self.loose_in_edges.update(other.loose_in_edges)
         self.loose_out_edges.update(other.loose_out_edges)
         self.both_loose_edges.update(other.both_loose_edges)
+        self._cfg._in_node = other.in_node or self.in_node  # agree on in_node
+        self._cfg._out_node = other.out_node or self.out_node  # agree on out_node
         return self
 
     def prepend(self, other):
@@ -248,6 +252,10 @@ class CfgVisitor(ast.NodeVisitor):
         l = Literal(int, node.n)
         return l
 
+    def visit_Str(self, node):
+        l = Literal(str, node.s)
+        return l
+
     def visit_Name(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
         v = self._ensure_stmt(pp, VariableIdentifier(int, node.id))
@@ -285,6 +293,34 @@ class CfgVisitor(ast.NodeVisitor):
             orelse_cfg.both_loose_edges.add(Conditional(None, neg_test, None, Edge.Kind.DEFAULT))
 
         cfg = body_cfg.combine(orelse_cfg)
+        return cfg
+
+    def visit_While(self, node):
+        dummy_header_cfg = self._dummy_cfg()
+
+        body_cfg = self._translate_body(node.body)
+
+        pp_test = ProgramPoint(node.test.lineno, node.test.col_offset)
+        test = self.visit(node.test)
+        neg_test = Call(pp_test, "not", [test], bool)
+
+        body_cfg.loose_in_edges.add(Conditional(None, test, body_cfg.in_node, Edge.Kind.LOOP_IN))
+        test_fail_cfg = LooseControlFlowGraph()
+        test_fail_cfg.both_loose_edges.add(Conditional(None, neg_test, None, Edge.Kind.DEFAULT))
+
+        dummy_header_in_node = dummy_header_cfg.in_node
+        body_cfg_out_node = body_cfg.out_node
+
+        cfg = body_cfg.combine(test_fail_cfg)
+        cfg.prepend(dummy_header_cfg)
+
+        back_edge = Unconditional(body_cfg_out_node, dummy_header_in_node, Edge.Kind.LOOP_OUT)
+        cfg.edges[(back_edge.source, back_edge.target)] = back_edge
+
+        if node.orelse:  # if there is else branch
+            orelse_cfg = self._translate_body(node.orelse)
+            cfg.append(orelse_cfg)
+
         return cfg
 
     def visit_UnaryOp(self, node):
@@ -351,6 +387,10 @@ class CfgVisitor(ast.NodeVisitor):
                 cfg_factory.complete_basic_block()
                 if_cfg = self.visit(child)
                 cfg_factory.append_cfg(if_cfg)
+            elif isinstance(child, ast.While):
+                cfg_factory.complete_basic_block()
+                while_cfg = self.visit(child)
+                cfg_factory.append_cfg(while_cfg)
             elif isinstance(child, ast.Pass):
                 pass
             else:
