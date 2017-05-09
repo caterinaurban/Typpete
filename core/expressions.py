@@ -82,7 +82,10 @@ class Literal(Expression):
         return hash((self.typ, self.val))
 
     def __str__(self):
-        return "{0.val}".format(self)
+        if issubclass(self.typ, str):
+            return f'"{self.val}"'
+        else:
+            return f'{self.val}'
 
     def ids(self) -> Set['Expression']:
         return set()
