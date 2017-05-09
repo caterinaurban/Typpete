@@ -251,7 +251,7 @@ def infer_subscript(node, context):
         return result_type
 
 
-def infer_compare(node):
+def infer_compare(_):
     # TODO: verify that types in comparison are comparable
     return z3_types.Bool
 
