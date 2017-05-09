@@ -206,3 +206,11 @@ def for_loop(iterable, target):
             And(iterable == Bytes, target == Bytes)
         )
     ]
+
+
+def try_except(body, orelse, final, result):
+    return [
+        subtype(body, result),
+        subtype(orelse, result),
+        subtype(final, result)
+    ]

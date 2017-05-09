@@ -241,29 +241,21 @@ def _infer_with(node, context):
 
 def _infer_try(node, context):
     """Infer the types for a try/except/else block"""
-    try_type = UnionTypes()
+    result_type = z3_types.new_z3_const("try")
 
     body_type = _infer_body(node.body, context)
     else_type = _infer_body(node.orelse, context)
     final_type = _infer_body(node.finalbody, context)
-    if not isinstance(body_type, TNone):
-        try_type.union(body_type)
-    if not isinstance(else_type, TNone):
-        try_type.union(else_type)
-    if not isinstance(final_type, TNone):
-        try_type.union(final_type)
+
+    z3_types.solver.add(axioms.try_except(body_type, else_type, final_type, result_type))
+
     # TODO: Infer exception handlers as classes
 
     for handler in node.handlers:
         handler_body_type = _infer_body(handler.body, context)
-        if not isinstance(handler_body_type, TNone):
-            try_type.union(handler_body_type)
+        z3_types.solver.add(z3_types.subtype(handler_body_type, result_type))
 
-    if len(try_type.types) == 0:
-        return TNone()
-    elif len(try_type.types) == 1:
-        return list(try_type.types)[0]
-    return try_type
+    return result_type
 
 
 def infer(node, context):
