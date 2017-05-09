@@ -186,10 +186,11 @@ def body(result, new):
 def control_flow(body, orelse, result):
     # TODO numeric casting
     return [
-        And(
+        Implies(orelse == zNone, result == body),
+        Implies(orelse != zNone, And(
             subtype(body, result),
             subtype(orelse, result)
-        )
+        ))
     ]
 
 
