@@ -37,6 +37,10 @@ def main(args):
 
 
 class LooseControlFlowGraph:
+    class SpecialEdgeType(Enum):
+        BREAK = 1
+        CONTINUE = 2
+
     def __init__(self, nodes: Set[Node] = None, in_node: Node = None, out_node: Node = None, edges: Set[Edge] = None,
                  loose_in_edges=None,
                  loose_out_edges=None, both_loose_edges=None):
@@ -65,6 +69,7 @@ class LooseControlFlowGraph:
         self._loose_in_edges = loose_in_edges or set()
         self._loose_out_edges = loose_out_edges or set()
         self._both_loose_edges = both_loose_edges or set()
+        self._special_edges = []
 
     @property
     def nodes(self) -> Dict[int, Node]:
@@ -74,28 +79,60 @@ class LooseControlFlowGraph:
     def in_node(self) -> Node:
         return self._cfg.in_node
 
+    @in_node.setter
+    def in_node(self, node) -> Node:
+        self._cfg._in_node = node
+
     @property
     def out_node(self) -> Node:
         return self._cfg.out_node
+
+    @out_node.setter
+    def out_node(self, node) -> Node:
+        self._cfg._out_node = node
 
     @property
     def edges(self) -> Dict[Tuple[Node, Node], Edge]:
         return self._cfg.edges
 
     @property
-    def loose_in_edges(self):
+    def loose_in_edges(self) -> Set[Edge]:
         return self._loose_in_edges
 
     @property
-    def loose_out_edges(self):
+    def loose_out_edges(self) -> Set[Edge]:
         return self._loose_out_edges
 
     @property
-    def both_loose_edges(self):
+    def both_loose_edges(self) -> Set[Edge]:
         return self._both_loose_edges
 
+    @property
+    def special_edges(self) -> List[Tuple[Edge, SpecialEdgeType]]:
+        return self._special_edges
+
     def loose(self):
-        return len(self.loose_in_edges) or len(self.loose_out_edges) or len(self.both_loose_edges)
+        return len(self.loose_in_edges) or len(self.loose_out_edges) or len(self.both_loose_edges) or len(
+            self.special_edges)
+
+    def add_node(self, node):
+        self.nodes[node.identifier] = node
+
+    def add_edge(self, edge):
+        """Add a (loose/normal) edge to this loose CFG.
+        """
+        if not edge.source and not edge.target:
+            self.both_loose_edges.add(edge)
+            self._cfg._in_node = None
+            self._cfg._out_node = None
+        elif not edge.source:
+            self.loose_in_edges.add(edge)
+            self._cfg._in_node = None
+        elif not edge.target:
+            self.loose_out_edges.add(edge)
+            self._cfg._out_node = None
+        else:
+            self.edges[edge.source, edge.target] = edge
 
     def combine(self, other):
         assert not (self.in_node and other.in_node)
@@ -105,6 +142,7 @@ class LooseControlFlowGraph:
         self.loose_in_edges.update(other.loose_in_edges)
         self.loose_out_edges.update(other.loose_out_edges)
         self.both_loose_edges.update(other.both_loose_edges)
+        self.special_edges.extend(other.special_edges)
         self._cfg._in_node = other.in_node or self.in_node  # agree on in_node
         self._cfg._out_node = other.out_node or self.out_node  # agree on out_node
         return self
@@ -140,22 +178,24 @@ class LooseControlFlowGraph:
             edge_added = True
             for e in self.both_loose_edges:
                 e._target = other.in_node
-                self.loose_in_edges.add(e)  # updated/created edge is not yet in edge dict -> add
+                self.add_edge(e)  # updated/created edge is not yet in edge dict -> add
             # clear loose edge set
             self._both_loose_edges = set()
         elif other.both_loose_edges:
             edge_added = True
             for e in other.both_loose_edges:
                 e._source = self.in_node
-                self.loose_out_edges.add(e)  # updated/created edge is not yet in edge dict -> add
-                # clearing loose edge set is not necessary since other is no longer used
+                self.add_edge(e)  # updated/created edge is not yet in edge dict -> add
+            # clear loose edge set
+            other._both_loose_edges = set()
         if not edge_added:
             # neither of the CFGs has loose ends -> add unconditional edge
             e = Unconditional(self.out_node, other.in_node)
             self.edges[(e.source, e.target)] = e  # updated/created edge is not yet in edge dict -> add
 
         # in any case, transfer loose_out_edges of other to self
-        self._loose_out_edges |= other.loose_out_edges
+        self.loose_out_edges.update(other.loose_out_edges)
+        self.special_edges.extend(other.special_edges)
         self._cfg._out_node = other.out_node
 
         return self
@@ -225,7 +265,7 @@ class CfgFactory:
         :return:
         """
         if isinstance(stmts, (List, Tuple)):
-            self._stmts += list(stmts)
+            self._stmts.extend(list(stmts))
         else:
             self._stmts.append(stmts)
 
@@ -282,45 +322,84 @@ class CfgVisitor(ast.NodeVisitor):
         test = self.visit(node.test)
         neg_test = Call(pp_test, "not", [test], bool)
 
-        body_cfg.loose_in_edges.add(Conditional(None, test, body_cfg.in_node, Edge.Kind.IF_IN))
-        body_cfg.loose_out_edges.add(Unconditional(body_cfg.out_node, None, Edge.Kind.IF_OUT))
+        body_cfg.add_edge(Conditional(None, test, body_cfg.in_node, Edge.Kind.IF_IN))
+        if body_cfg.out_node:  # if control flow can exit the body at all, add an unconditional IF_OUT edge
+            body_cfg.add_edge(Unconditional(body_cfg.out_node, None, Edge.Kind.IF_OUT))
         if node.orelse:  # if there is else branch
             orelse_cfg = self._translate_body(node.orelse)
-            orelse_cfg.loose_in_edges.add(Conditional(None, neg_test, orelse_cfg.in_node, Edge.Kind.IF_IN))
-            orelse_cfg.loose_out_edges.add(Unconditional(orelse_cfg.out_node, None, Edge.Kind.IF_OUT))
+            orelse_cfg.add_edge(Conditional(None, neg_test, orelse_cfg.in_node, Edge.Kind.IF_IN))
+            if orelse_cfg.out_node:  # if control flow can exit the else at all, add an unconditional IF_OUT edge
+                orelse_cfg.add_edge(Unconditional(orelse_cfg.out_node, None, Edge.Kind.IF_OUT))
         else:
             orelse_cfg = LooseControlFlowGraph()
-            orelse_cfg.both_loose_edges.add(Conditional(None, neg_test, None, Edge.Kind.DEFAULT))
+            orelse_cfg.add_edge(Conditional(None, neg_test, None, Edge.Kind.DEFAULT))
+
+        # extend special edges with IF_OUT edges and additional necessary dummy nodes
+        for special_edge, edge_type in body_cfg.special_edges:
+            dummy = self._dummy()
+            body_cfg.add_node(dummy)
+
+            # add a new IF_OUT edge where the special edge is at the moment, ending in new dummy node
+            body_cfg.add_edge(Unconditional(special_edge.source, dummy, Edge.Kind.IF_OUT))
+
+            # change position of special edge to be AFTER the new dummy
+            special_edge._source = dummy
 
         cfg = body_cfg.combine(orelse_cfg)
         return cfg
 
     def visit_While(self, node):
-        dummy_header_cfg = self._dummy_cfg()
+        header_node = self._dummy()
 
-        body_cfg = self._translate_body(node.body)
+        cfg = self._translate_body(node.body)
+        body_in_node = cfg.in_node
+        body_out_node = cfg.out_node
 
         pp_test = ProgramPoint(node.test.lineno, node.test.col_offset)
         test = self.visit(node.test)
         neg_test = Call(pp_test, "not", [test], bool)
 
-        body_cfg.loose_in_edges.add(Conditional(None, test, body_cfg.in_node, Edge.Kind.LOOP_IN))
-        test_fail_cfg = LooseControlFlowGraph()
-        test_fail_cfg.both_loose_edges.add(Conditional(None, neg_test, None, Edge.Kind.DEFAULT))
+        cfg.add_node(header_node)
+        cfg.in_node = header_node
 
-        dummy_header_in_node = dummy_header_cfg.in_node
-        body_cfg_out_node = body_cfg.out_node
-
-        cfg = body_cfg.combine(test_fail_cfg)
-        cfg.prepend(dummy_header_cfg)
-
-        back_edge = Unconditional(body_cfg_out_node, dummy_header_in_node, Edge.Kind.LOOP_OUT)
-        cfg.edges[(back_edge.source, back_edge.target)] = back_edge
+        cfg.add_edge(Conditional(header_node, test, body_in_node, Edge.Kind.LOOP_IN))
+        cfg.add_edge(Conditional(header_node, neg_test, None))
+        if body_out_node: # if control flow can exit the body at all, add an unconditional LOOP_OUT edge
+            cfg.add_edge(Unconditional(body_out_node, header_node, Edge.Kind.LOOP_OUT))
 
         if node.orelse:  # if there is else branch
             orelse_cfg = self._translate_body(node.orelse)
+            if orelse_cfg.out_node:  # if control flow can exit the else at all, add an unconditional DEFAULT edge
+                orelse_cfg.add_edge(Unconditional(orelse_cfg.out_node, None, Edge.Kind.DEFAULT))
             cfg.append(orelse_cfg)
 
+        for special_edge, edge_type in cfg.special_edges:
+            if edge_type == LooseControlFlowGraph.SpecialEdgeType.CONTINUE:
+                cfg.add_edge(Unconditional(special_edge.source, header_node, Edge.Kind.LOOP_OUT))
+            elif edge_type == LooseControlFlowGraph.SpecialEdgeType.BREAK:
+                cfg.add_edge(Unconditional(special_edge.source, None, Edge.Kind.LOOP_OUT))
+        cfg.special_edges.clear()
+
+        return cfg
+
+    def visit_Break(self, node):
+        dummy = self._dummy()
+        cfg = LooseControlFlowGraph({dummy}, dummy, None)
+        # the type of the special edge is not yet known, may be also an IF_OUT first, before LOOP_OUT
+        # so set type to DEFAULT for now but remember the special type of this edge separately
+        cfg.special_edges.append(
+            (Unconditional(dummy, None, Edge.Kind.DEFAULT), LooseControlFlowGraph.SpecialEdgeType.BREAK)
+        )
+        return cfg
+
+    def visit_Continue(self, node):
+        dummy = self._dummy()
+        cfg = LooseControlFlowGraph({dummy}, dummy, None)
+        # the type of the special edge is not yet known, may be also an IF_OUT first, before LOOP_OUT
+        # so set type to DEFAULT for now but remember the special type of this edge separately
+        cfg.special_edges.append(
+            (Unconditional(dummy, None, Edge.Kind.DEFAULT), LooseControlFlowGraph.SpecialEdgeType.CONTINUE)
+        )
         return cfg
 
     def visit_UnaryOp(self, node):
@@ -391,6 +470,14 @@ class CfgVisitor(ast.NodeVisitor):
                 cfg_factory.complete_basic_block()
                 while_cfg = self.visit(child)
                 cfg_factory.append_cfg(while_cfg)
+            elif isinstance(child, ast.Break):
+                cfg_factory.complete_basic_block()
+                break_cfg = self.visit(child)
+                cfg_factory.append_cfg(break_cfg)
+            elif isinstance(child, ast.Continue):
+                cfg_factory.complete_basic_block()
+                cont_cfg = self.visit(child)
+                cfg_factory.append_cfg(cont_cfg)
             elif isinstance(child, ast.Pass):
                 pass
             else:
