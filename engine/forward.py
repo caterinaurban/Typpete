@@ -27,12 +27,6 @@ class ForwardInterpreter(Interpreter):
         while not worklist.empty():
             current = worklist.get()  # retrieve the current node
 
-            # check that current is ready which means all predecessors are visited at least once
-            # otherwise put current node at end of queue and continue
-            if not all([edge.source in self.result.result for edge in self.cfg.in_edges(current)]):
-                worklist.put(current)
-                continue
-
             iteration = iterations[current.identifier]
 
             # retrieve the previous entry state of the node
@@ -48,7 +42,10 @@ class ForwardInterpreter(Interpreter):
                 # join incoming states
                 edges = self.cfg.in_edges(current)
                 for edge in edges:
-                    predecessor = deepcopy(self.result.get_node_result(edge.source)[-1])
+                    if edge.source in self.result.result:
+                        predecessor = deepcopy(self.result.get_node_result(edge.source)[-1])
+                    else:
+                        predecessor = deepcopy(initial).bottom()
                     # handle conditional edges
                     if isinstance(edge, Conditional):
                         predecessor = self.semantics.semantics(edge.condition, predecessor).filter()
