@@ -33,7 +33,7 @@ class Semantics:
         if hasattr(self, name):
             return getattr(self, name)(stmt, state)
         else:
-            raise NotImplementedError(f"Semantics for statement {stmt} of type {type(stmt)} not yet implemented!")
+            raise NotImplementedError(f"Semantics for statement {stmt} of type {type(stmt)} not yet implemented! You must provide method {name}(...)")
 
 
 class LiteralEvaluationSemantics(Semantics):
@@ -175,6 +175,24 @@ class BuiltInCallSemantics(CallSemantics):
         :return: state modified by the call statement
         """
         return self.binary_operation(stmt, BinaryArithmeticOperation.Operator.Div, state)
+
+    def uadd_call_semantics(self, stmt: Call, state: State) -> State:
+        """Semantics of a call to '+X' (unary plus).
+
+        :param stmt: call to '+' to be executed
+        :param state: state before executing the call statement
+        :return: state modified by the call statement
+        """
+        return self.unary_operation(stmt, UnaryArithmeticOperation.Operator.Add, state)
+
+    def usub_call_semantics(self, stmt: Call, state: State) -> State:
+        """Semantics of a call to '-X' (unary minus).
+
+        :param stmt: call to '-' to be executed
+        :param state: state before executing the call statement
+        :return: state modified by the call statement
+        """
+        return self.unary_operation(stmt, UnaryArithmeticOperation.Operator.Sub, state)
 
     def eq_call_semantics(self, stmt: Call, state: State) -> State:
         """Semantics of a call to '==' (equality).
