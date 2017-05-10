@@ -289,11 +289,13 @@ class CfgVisitor(ast.NodeVisitor):
         self._id_gen = NodeIdentifierGenerator()
 
     def visit_Num(self, node):
-        l = Literal(int, node.n)
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        l = self._ensure_stmt(pp, Literal(int, node.n))
         return l
 
     def visit_Str(self, node):
-        l = Literal(str, node.s)
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        l = self._ensure_stmt(pp, Literal(str, node.s))
         return l
 
     def visit_Name(self, node):
