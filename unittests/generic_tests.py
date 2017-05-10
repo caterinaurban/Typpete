@@ -80,11 +80,13 @@ class ResultCommentsFileTestCase(FileTestCase):
         """
 
     def check_result_comments(self, result):
-        for line, expected_result in self._find_result_comments():
+        result_comments = list(self._find_result_comments())
+        for line, expected_result in result_comments:
             actual_result = self._find_analysis_result_for_comments(result, line, expected_result)
             actual_result_str = str(actual_result)
             self.assertEqual(expected_result, actual_result_str,
                              f"expected != actual result at line {line}")
+        print(f"\t{len(result_comments)} expected result(s) checked")
 
     def _find_result_comments(self):
         # Parse comments to find expected results
