@@ -1,9 +1,10 @@
 from abstract_domains.state import State
 from core.expressions import BinaryArithmeticOperation, BinaryOperation, BinaryComparisonOperation, UnaryOperation, \
-    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation
-from core.statements import Statement, VariableAccess, LiteralEvaluation, Call
+    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation, Slice, Index, ListDisplay
+from core.statements import Statement, VariableAccess, LiteralEvaluation, Call, SliceStmt, IndexStmt, ListDisplayStmt
 from functools import reduce
 import re
+import itertools
 
 _first1 = re.compile(r'(.)([A-Z][a-z]+)')
 _all2 = re.compile('([a-z0-9])([A-Z])')
@@ -33,7 +34,8 @@ class Semantics:
         if hasattr(self, name):
             return getattr(self, name)(stmt, state)
         else:
-            raise NotImplementedError(f"Semantics for statement {stmt} of type {type(stmt)} not yet implemented! You must provide method {name}(...)")
+            raise NotImplementedError(
+                f"Semantics for statement {stmt} of type {type(stmt)} not yet implemented! You must provide method {name}(...)")
 
 
 class LiteralEvaluationSemantics(Semantics):
@@ -62,6 +64,75 @@ class VariableAccessSemantics(Semantics):
         :return: state modified by the variable access
         """
         return state.access_variable(stmt.var)
+
+
+class ListSemantics(Semantics):
+    """Semantics of list accesses."""
+
+    # noinspection PyMethodMayBeStatic
+    def list_display_semantics(self, stmt: ListDisplayStmt, state: State) -> State:
+        """Semantics of a list display statement.
+
+        :param stmt :list display statement to be executed
+        :param state: state before executing the variable access
+        :return: state modified by the variable access
+        """
+        item_sets = [self.semantics(item, state).result for item in stmt.items]
+        products = itertools.product(item_sets)
+        # TODO infer type??
+        result = {ListDisplay(None, list(p)) for p in products}
+
+        state.result = result
+        return state
+
+    # noinspection PyMethodMayBeStatic
+    def slice_stmt_semantics(self, stmt: SliceStmt, state: State) -> State:
+        """Semantics of a slice statement.
+
+        :param stmt: slice statement to be executed
+        :param state: state before executing the variable access
+        :return: state modified by the variable access
+        """
+        targets = self.semantics(stmt.target, state).result
+        if stmt.lower:
+            lowers = self.semantics(stmt.lower, state).result
+        else:
+            lowers = {None}
+        if stmt.step:
+            steps = self.semantics(stmt.step, state).result
+        else:
+            steps = {None}
+        if stmt.upper:
+            uppers = self.semantics(stmt.upper, state).result
+        else:
+            uppers = {None}
+
+        products = itertools.product(targets, lowers, steps, targets)
+
+        # TODO infer type of Slice??
+        result = set(Slice(None, target, lower, step, upper) for target, lower, step, upper in products)
+
+        state.result = result
+        return state
+
+    # noinspection PyMethodMayBeStatic
+    def index_stmt_semantics(self, stmt: IndexStmt, state: State) -> State:
+        """Semantics of a index statement.
+
+        :param stmt: index statement to be executed
+        :param state: state before executing the variable access
+        :return: state modified by the variable access
+        """
+        targets = self.semantics(stmt.target, state).result
+        indices = self.semantics(stmt.index, state).result
+
+        products = itertools.product(targets, indices)
+
+        # TODO infer type of Slice??
+        result = set(Index(None, target, index) for target, index in products)
+
+        state.result = result
+        return state
 
 
 class CallSemantics(Semantics):
@@ -311,6 +382,6 @@ class BuiltInCallSemantics(CallSemantics):
         return self.binary_operation(stmt, BinaryBooleanOperation.Operator.Xor, state)
 
 
-class DefaultSemantics(LiteralEvaluationSemantics, VariableAccessSemantics, BuiltInCallSemantics):
+class DefaultSemantics(LiteralEvaluationSemantics, VariableAccessSemantics, ListSemantics, BuiltInCallSemantics):
     """Default semantics of statements. Independently of the direction (forward/backward) of the semantics."""
     pass

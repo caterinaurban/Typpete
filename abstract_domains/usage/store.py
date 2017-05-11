@@ -10,11 +10,6 @@ class UsedStore(StoreLattice, State):
         super().__init__(variables, UsedLattice)
         self._inside_print = False
 
-    # def __repr__(self):
-    #     result = super(State).__repr__()
-    #     variables = super(StoreLattice).__repr__()
-    #     return "[{}]\n{}".format(result, variables)
-
     @property
     def inside_print(self):
         return self._inside_print

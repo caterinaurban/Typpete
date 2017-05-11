@@ -310,6 +310,14 @@ class CfgVisitor(ast.NodeVisitor):
                  target in node.targets]
         return stmts
 
+    def visit_AugAssign(self, node):
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        value = self._ensure_stmt_visit(node.value)
+        target = self._ensure_stmt_visit(node.target)
+        operand_call = Call(pp, type(node.op).__name__.lower(), [target, value], int)
+        stmt = Assignment(pp, target, operand_call)
+        return [stmt]
+
     def visit_Module(self, node):
         start_cfg = self._dummy_cfg()
         body_cfg = self._translate_body(node.body, allow_loose_in_edges=True, allow_loose_out_edges=True)
@@ -366,7 +374,7 @@ class CfgVisitor(ast.NodeVisitor):
 
         cfg.add_edge(Conditional(header_node, test, body_in_node, Edge.Kind.LOOP_IN))
         cfg.add_edge(Conditional(header_node, neg_test, None))
-        if body_out_node: # if control flow can exit the body at all, add an unconditional LOOP_OUT edge
+        if body_out_node:  # if control flow can exit the body at all, add an unconditional LOOP_OUT edge
             cfg.add_edge(Unconditional(body_out_node, header_node, Edge.Kind.LOOP_OUT))
 
         if node.orelse:  # if there is else branch
@@ -447,6 +455,22 @@ class CfgVisitor(ast.NodeVisitor):
         pp = ProgramPoint(node.lineno, node.col_offset)
         return Call(pp, node.func.id, [self.visit(arg) for arg in node.args], typing.Any)
 
+    def visit_List(self, node):
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        return ListDisplayStmt(pp, [self.visit(e) for e in node.elts])
+
+    def visit_Subscript(self, node):
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        if isinstance(node.slice, ast.Index):
+            return IndexStmt(pp, self._ensure_stmt_visit(node.value, pp), self._ensure_stmt_visit(node.slice.value, pp))
+        elif isinstance(node.slice, ast.Slice):
+            return SliceStmt(pp, self._ensure_stmt_visit(node.value, pp),
+                             self._ensure_stmt_visit(node.slice.lower, pp),
+                             self._ensure_stmt_visit(node.slice.step, pp) if node.slice.step else None,
+                             self._ensure_stmt_visit(node.slice.upper, pp))
+        else:
+            raise NotImplementedError(f"The statement {str(type(node.slice))} is not yet translatable to CFG!")
+
     def generic_visit(self, node):
         print(type(node).__name__)
         super().generic_visit(node)
@@ -462,7 +486,7 @@ class CfgVisitor(ast.NodeVisitor):
         cfg_factory = CfgFactory(self._id_gen)
 
         for child in body:
-            if isinstance(child, (ast.Assign, ast.Expr)):
+            if isinstance(child, (ast.Assign, ast.AugAssign, ast.Expr)):
                 cfg_factory.add_stmts(self.visit(child))
             elif isinstance(child, ast.If):
                 cfg_factory.complete_basic_block()
@@ -504,9 +528,9 @@ class CfgVisitor(ast.NodeVisitor):
         else:
             raise NotImplementedError(f"The expression {str(type(expr))} is not yet translatable to CFG!")
 
-    def _ensure_stmt_visit(self, node):
+    def _ensure_stmt_visit(self, node, pp=None):
         result = self.visit(node)
-        pp = ProgramPoint(node.lineno, node.col_offset)
+        pp = pp if pp else ProgramPoint(node.lineno, node.col_offset)
         return CfgVisitor._ensure_stmt(pp, result)
 
 

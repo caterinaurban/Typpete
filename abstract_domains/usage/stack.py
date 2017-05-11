@@ -26,11 +26,6 @@ class UsedStack(StackLattice, State):
         for store in self.stack:
             store.inside_print = flag
 
-    # def __repr__(self):
-    #     result = super(State).__repr__()
-    #     stack = super(StackLattice).__repr__()
-    #     return "[{}]\n{}".format(result, stack)
-
     def push(self):
         if self.is_bottom():
             return self
