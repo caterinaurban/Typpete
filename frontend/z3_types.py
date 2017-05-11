@@ -94,102 +94,125 @@ def functions_subtype_axioms(funcs, type_sort):
         )
     return axioms
 
-# ----------- Get the accessors -----------
-max_tuple_length = 6
-max_function_args = 7
+type_sort = None
+Object = zNone = Num = Complex = Float = Int = Bool = Seq = String = Bytes = None
+List = list_type = None
+Set = set_type = None
+Dict = dict_key_type = dict_value_type = None
+Tuple = Tuples = None
+Func = Funcs = None
+subtype = extends = stronger_num = None
+subtype_properties = generics_axioms = num_strength_properties = axioms = None
+solver = None
+x = y = z = None
 
-type_sort = declare_type_sort(max_tuple_length, max_function_args)
 
-Object = type_sort.object
+def init_types(config):
+    max_tuple_length = config["max_tuple_length"]
+    max_function_args = config["max_function_args"]
 
-zNone = type_sort.none
+    global type_sort
+    global Object, zNone, Num, Complex, Float, Int, Bool, Seq, String, Bytes
+    global List, list_type
+    global Set, set_type
+    global Dict, dict_key_type, dict_value_type
+    global Tuple, Tuples
+    global Func, Funcs
+    global subtype, extends, stronger_num
+    global subtype_properties, generics_axioms, num_strength_properties, axioms
+    global solver
+    global x, y, z
 
-Num = type_sort.number
-Complex = type_sort.complex
-Float = type_sort.float
-Int = type_sort.int
-Bool = type_sort.bool
+    type_sort = declare_type_sort(max_tuple_length, max_function_args)
 
-Seq = type_sort.sequence
-String = type_sort.str
-Bytes = type_sort.bytes
-List = type_sort.list
-list_type = type_sort.list_type
+    Object = type_sort.object
 
-Set = type_sort.set
-set_type = type_sort.set_type
+    zNone = type_sort.none
 
-Dict = type_sort.dict
-dict_key_type = type_sort.dict_key_type
-dict_value_type = type_sort.dict_value_type
+    Num = type_sort.number
+    Complex = type_sort.complex
+    Float = type_sort.float
+    Int = type_sort.int
+    Bool = type_sort.bool
 
-Tuple = type_sort.tuple
-Tuples = get_tuples(type_sort, max_tuple_length)
+    Seq = type_sort.sequence
+    String = type_sort.str
+    Bytes = type_sort.bytes
+    List = type_sort.list
+    list_type = type_sort.list_type
 
-Func = type_sort.func
-Funcs = get_funcs(type_sort, max_function_args)
+    Set = type_sort.set
+    set_type = type_sort.set_type
 
-# ----------- Encode subtyping relationships -----------
+    Dict = type_sort.dict
+    dict_key_type = type_sort.dict_key_type
+    dict_value_type = type_sort.dict_value_type
 
-subtype = Function("subtype", type_sort, type_sort, BoolSort())
-extends = Function("extends", type_sort, type_sort, BoolSort())
-not_subtype = Function("not subtype", type_sort, type_sort, BoolSort())
-stronger_num = Function("stronger num", type_sort, type_sort, BoolSort())
+    Tuple = type_sort.tuple
+    Tuples = get_tuples(type_sort, max_tuple_length)
 
-x = Const("x", type_sort)
-y = Const("y", type_sort)
-z = Const("z", type_sort)
-l = Const("l", type_sort)
-m = Const("m", type_sort)
-n = Const("n", type_sort)
+    Func = type_sort.func
+    Funcs = get_funcs(type_sort, max_function_args)
 
-subtype_properties = [
-    ForAll(x, subtype(x, x)),  # reflexivity
-    ForAll([x, y], Implies(extends(x, y), subtype(x, y))),
-    ForAll([x, y, z], Implies(And(subtype(x, y), subtype(y, z)), subtype(x, z))),  # transitivity
-    ForAll([x, y], Implies(And(subtype(x, y), subtype(y, x)), x == y)),
-    ForAll([x, y, z], Implies(And(extends(x, z), extends(y, z), x != y), And(not_subtype(x, y), not_subtype(y, x)))),
-    ForAll([x, y, z], Implies(And(subtype(x, y), not_subtype(y, z)), Not(subtype(x, z)))),
-]
+    # ----------- Encode subtyping relationships -----------
 
-generics_axioms = [
-    ForAll([x, y], Implies(subtype(x, List(y)), y == list_type(x))),
-    ForAll([x, y], Implies(subtype(x, Set(y)), y == set_type(x))),
-    ForAll([x, y, z], Implies(subtype(x, Dict(y, z)), And(y == dict_key_type(x), z == dict_value_type(x))))
-]
+    subtype = Function("subtype", type_sort, type_sort, BoolSort())
+    extends = Function("extends", type_sort, type_sort, BoolSort())
+    not_subtype = Function("not subtype", type_sort, type_sort, BoolSort())
+    stronger_num = Function("stronger num", type_sort, type_sort, BoolSort())
 
-num_strength_properties = [
-    ForAll(x, Implies(subtype(x, Num), stronger_num(x, x))),
-    ForAll([x, y, z], Implies(And(stronger_num(x, y), stronger_num(y, z)), stronger_num(x, z))),
-    ForAll([x, y], Implies(And(stronger_num(x, y), x != y), Not(stronger_num(y, x)))),
-    ForAll([x, y], Implies(Not(And(subtype(x, Num), subtype(y, Num))),
-                           Not(Or(stronger_num(x, y), stronger_num(y, x)))))
-]
+    x = Const("x", type_sort)
+    y = Const("y", type_sort)
+    z = Const("z", type_sort)
 
-axioms = [
-    extends(zNone, Object),
-    extends(Num, Object),
-    extends(Complex, Num),
-    extends(Float, Num),
-    extends(Int, Num),
-    extends(Bool, Int),
-    extends(Seq, Object),
-    extends(String, Seq),
-    extends(Bytes, Seq),
-    extends(Tuple, Seq),
+    subtype_properties = [
+        ForAll(x, subtype(x, x)),  # reflexivity
+        ForAll([x, y], Implies(extends(x, y), subtype(x, y))),
+        ForAll([x, y, z], Implies(And(subtype(x, y), subtype(y, z)), subtype(x, z))),  # transitivity
+        ForAll([x, y], Implies(And(subtype(x, y), subtype(y, x)), x == y)),
+        ForAll([x, y, z], Implies(And(extends(x, z), extends(y, z), x != y), And(not_subtype(x, y), not_subtype(y, x)))),
+        ForAll([x, y, z], Implies(And(subtype(x, y), not_subtype(y, z)), Not(subtype(x, z)))),
+    ]
 
-    extends(Func, Object),
+    generics_axioms = [
+        ForAll([x, y], Implies(subtype(x, List(y)), y == list_type(x))),
+        ForAll([x, y], Implies(subtype(x, Set(y)), y == set_type(x))),
+        ForAll([x, y, z], Implies(subtype(x, Dict(y, z)), And(y == dict_key_type(x), z == dict_value_type(x))))
+    ]
 
-    ForAll([x], extends(List(x), Seq), patterns=[List(x)]),
-    ForAll([x], extends(Set(x), Object), patterns=[Set(x)]),
-    ForAll([x, y], extends(Dict(x, y), Object), patterns=[Dict(x, y)]),
+    num_strength_properties = [
+        ForAll(x, Implies(subtype(x, Num), stronger_num(x, x))),
+        ForAll([x, y, z], Implies(And(stronger_num(x, y), stronger_num(y, z)), stronger_num(x, z))),
+        ForAll([x, y], Implies(And(stronger_num(x, y), x != y), Not(stronger_num(y, x)))),
+        ForAll([x, y], Implies(Not(And(subtype(x, Num), subtype(y, Num))),
+                               Not(Or(stronger_num(x, y), stronger_num(y, x)))))
+    ]
 
-    stronger_num(Int, Bool),
-    stronger_num(Float, Int),
-    stronger_num(Complex, Float),
-    stronger_num(Num, Complex)
-    ] + tuples_subtype_axioms(Tuples, type_sort) + functions_subtype_axioms(Funcs, type_sort)
+    axioms = [
+        extends(zNone, Object),
+        extends(Num, Object),
+        extends(Complex, Num),
+        extends(Float, Num),
+        extends(Int, Num),
+        extends(Bool, Int),
+        extends(Seq, Object),
+        extends(String, Seq),
+        extends(Bytes, Seq),
+        extends(Tuple, Seq),
 
+        extends(Func, Object),
+
+        ForAll([x], extends(List(x), Seq), patterns=[List(x)]),
+        ForAll([x], extends(Set(x), Object), patterns=[Set(x)]),
+        ForAll([x, y], extends(Dict(x, y), Object), patterns=[Dict(x, y)]),
+
+        stronger_num(Int, Bool),
+        stronger_num(Float, Int),
+        stronger_num(Complex, Float),
+        stronger_num(Num, Complex)
+        ] + tuples_subtype_axioms(Tuples, type_sort) + functions_subtype_axioms(Funcs, type_sort)
+
+    solver = TypesSolver()
 
 # Unique id given to newly created Z3 consts
 _element_id = 0
@@ -215,5 +238,3 @@ class TypesSolver(Solver):
     def init_axioms(self):
         self.add(subtype_properties + axioms + num_strength_properties + generics_axioms)
 
-
-solver = TypesSolver()  # The main solver for the python program

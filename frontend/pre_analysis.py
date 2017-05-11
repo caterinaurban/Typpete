@@ -3,7 +3,7 @@ import ast
 
 class PreAnalyzer:
     def __init__(self, prog_ast):
-        self.all_nodes = ast.walk(prog_ast)
+        self.all_nodes = list(ast.walk(prog_ast))
 
     def maximum_function_args(self):
         func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
