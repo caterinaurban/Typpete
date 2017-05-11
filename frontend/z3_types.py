@@ -6,11 +6,12 @@ Limitations:
 """
 from z3 import *
 
-# ----------- Declare the types data-type -----------
-
 
 def declare_type_sort(max_tuple_length, max_function_args):
+    """Declare the type Z3 data-type and all its constructors/accessors"""
     type_sort = Datatype("Type")
+
+    # Declare constructors
     type_sort.declare("object")
 
     type_sort.declare("none")
@@ -29,9 +30,12 @@ def declare_type_sort(max_tuple_length, max_function_args):
     type_sort.declare("set", ("set_type", type_sort))
     type_sort.declare("dict", ("dict_key_type", type_sort), ("dict_value_type", type_sort))
 
+    # Create dynamic tuple length constructors, based on the configurations given by the pre-analysis
     type_sort.declare("tuple")
 
+    # Create tuples from zero length to max length
     for cur_len in range(max_tuple_length + 1):
+        # Create tuple elements accessors
         accessors = []
         for arg in range(cur_len):
             accessor = ("tuple_{}_arg_{}".format(cur_len, arg + 1), type_sort)
@@ -39,15 +43,19 @@ def declare_type_sort(max_tuple_length, max_function_args):
 
         type_sort.declare("tuple_{}".format(cur_len), *accessors)
 
+    # Create dynamic function args length constructors, based on the configurations given by the pre-analysis
     type_sort.declare("func")
 
     for cur_len in range(max_function_args + 1):
         accessors = []
+        # Create arguments accessors
         for arg in range(cur_len):
             accessor = ("func_{}_arg_{}".format(cur_len, arg + 1), type_sort)
             accessors.append(accessor)
 
+        # Create return type accessor
         accessors.append(("func_{}_return".format(cur_len), type_sort))
+
         type_sort.declare("func_{}".format(cur_len), *accessors)
 
     type_sort = type_sort.create()
@@ -55,6 +63,7 @@ def declare_type_sort(max_tuple_length, max_function_args):
 
 
 def get_tuples(type_sort, max_tuple_length):
+    """Extract the tuples constructors from the type_sort data-type"""
     tuples = []
     for cur_len in range(max_tuple_length + 1):
         tuples.append(getattr(type_sort, "tuple_{}".format(cur_len)))
@@ -62,6 +71,7 @@ def get_tuples(type_sort, max_tuple_length):
 
 
 def get_funcs(type_sort, max_function_args):
+    """Extract the functions constructors from the type_sort data-type"""
     funcs = []
     for cur_len in range(max_function_args + 1):
         funcs.append(getattr(type_sort, "func_{}".format(cur_len)))
@@ -69,12 +79,20 @@ def get_funcs(type_sort, max_function_args):
 
 
 def tuples_subtype_axioms(tuples, type_sort):
+    """Add the axioms for the tuples subtyping"""
+
+    # Initialize constants to be used in the ForAll quantifier
+    # Each tuple needs a number of quantifiers equal to its length
+    # With n tuples, from zero-length to (n - 1) length tuples, we need at most n - 1 quantifiers.
     quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(tuples) - 1)]
     axioms = []
     for i in range(len(tuples)):
+        # Tuple tuples[i] will have length i
         if i == 0:
+            # Zero length tuple: An expression not a call.
             axioms.append(subtype(tuples[i], type_sort.tuple))
         else:
+            # Tuple tuples[i] uses exactly i constants
             consts = quantifiers_consts[:i]
             inst = tuples[i](consts)
             axioms.append(
@@ -84,9 +102,15 @@ def tuples_subtype_axioms(tuples, type_sort):
 
 
 def functions_subtype_axioms(funcs, type_sort):
+    """Add the axioms for the functions subtyping"""
+
+    # Initialize constants to be used in the ForAll quantifier
+    # Each function needs a number of quantifiers equal to its args length + 1 (for the return type).
+    # With n functions, from zero-length to (n - 1) length arguments, we need at most n quantifiers.
     quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(funcs))]
     axioms = []
     for i in range(len(funcs)):
+        # function funcs[i] will have i arguments and 1 return type, so  it uses i + 1 constants
         consts = quantifiers_consts[:i + 1]
         inst = funcs[i](consts)
         axioms.append(
@@ -108,9 +132,11 @@ x = y = z = None
 
 
 def init_types(config):
+    """Initialize the type system in Z3 using configurations given by the pre-analyzer"""
     max_tuple_length = config["max_tuple_length"]
     max_function_args = config["max_function_args"]
 
+    # Using globals because they are used as module-level variables in other modules
     global type_sort
     global Object, zNone, Num, Complex, Float, Int, Bool, Seq, String, Bytes
     global List, list_type
@@ -125,6 +151,7 @@ def init_types(config):
 
     type_sort = declare_type_sort(max_tuple_length, max_function_args)
 
+    # Extract types constructors
     Object = type_sort.object
 
     zNone = type_sort.none
@@ -154,7 +181,7 @@ def init_types(config):
     Func = type_sort.func
     Funcs = get_funcs(type_sort, max_function_args)
 
-    # ----------- Encode subtyping relationships -----------
+    # Encode subtyping relationships
 
     subtype = Function("subtype", type_sort, type_sort, BoolSort())
     extends = Function("extends", type_sort, type_sort, BoolSort())
@@ -180,9 +207,11 @@ def init_types(config):
         ForAll([x, y, z], Implies(subtype(x, Dict(y, z)), And(y == dict_key_type(x), z == dict_value_type(x))))
     ]
 
+    # For numeric casting purposes:
+    # Number > Complex > Float > Int > Bool
     num_strength_properties = [
-        ForAll(x, Implies(subtype(x, Num), stronger_num(x, x))),
-        ForAll([x, y, z], Implies(And(stronger_num(x, y), stronger_num(y, z)), stronger_num(x, z))),
+        ForAll(x, Implies(subtype(x, Num), stronger_num(x, x))),  # Reflexivity
+        ForAll([x, y, z], Implies(And(stronger_num(x, y), stronger_num(y, z)), stronger_num(x, z))),  # Transitivity
         ForAll([x, y], Implies(And(stronger_num(x, y), x != y), Not(stronger_num(y, x)))),
         ForAll([x, y], Implies(Not(And(subtype(x, Num), subtype(y, Num))),
                                Not(Or(stronger_num(x, y), stronger_num(y, x)))))
@@ -225,6 +254,7 @@ def new_element_id():
 
 
 def new_z3_const(name):
+    """Create a new Z3 constant with a unique name"""
     return Const("{}_{}".format(name, new_element_id()), type_sort)
 
 
