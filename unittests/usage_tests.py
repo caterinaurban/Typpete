@@ -7,7 +7,9 @@ from unittests.generic_tests import ResultCommentsFileTestCase
 import unittest
 import ast
 import os
+import logging
 
+logging.basicConfig(level=logging.INFO, filename='unittests.log', filemode='w')
 
 class UsageTestCase(ResultCommentsFileTestCase):
     def __init__(self, source_path):
@@ -15,7 +17,7 @@ class UsageTestCase(ResultCommentsFileTestCase):
         self._source_path = source_path
 
     def runTest(self):
-        print(self)
+        logging.info(self)
         self.render_cfg()
 
         # find all variables
