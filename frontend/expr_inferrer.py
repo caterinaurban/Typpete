@@ -325,8 +325,6 @@ def infer_dict_comprehension(node, context):
 def _get_args_types(args, context):
     """Return inferred types for function call arguments"""
     # TODO kwargs
-    if len(args) > 5:
-        raise NotImplementedError("Functions with more than 5 arguments are not yet supported.")
 
     args_types = ()
     for arg in args:

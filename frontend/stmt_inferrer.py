@@ -271,9 +271,6 @@ def _init_func_context(args, context):
     """Initialize the local function scope, and the arguments types"""
     local_context = Context(parent_context=context)
 
-    if len(args) > 5:
-        raise NotImplementedError("Functions with more than 5 arguments are not yet supported.")
-
     # TODO starred args
 
     args_types = ()
