@@ -290,7 +290,7 @@ def _infer_func_def(node, context):
     func_context, args_types = _init_func_context(node.args.args, context)
     return_type = _infer_body(node.body, func_context)
 
-    func_type = getattr(z3_types, "Func{}".format(len(args_types)))(args_types + (return_type,))
+    func_type = z3_types.Funcs[len(args_types)](args_types + (return_type,))
     result_type = z3_types.new_z3_const("func")
     z3_types.solver.add(result_type == func_type)
 
@@ -322,4 +322,6 @@ def infer(node, context):
         return _infer_try(node, context)
     elif isinstance(node, ast.FunctionDef):
         return _infer_func_def(node, context)
+    elif isinstance(node, ast.Expr):
+        expr.infer(node.value, context)
     return z3_types.zNone

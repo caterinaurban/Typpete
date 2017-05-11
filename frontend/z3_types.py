@@ -1,8 +1,6 @@
 """The type-system for Python 3 encoded in Z3.
 
 Limitations:
-    - The tuples have a maximum size of 5 elements.
-    - Function calls can have no more than 5 arguments.
     - Multiple inheritance is not supported.
     - Functions with generic type variables are not supported.
 """
@@ -10,48 +8,97 @@ from z3 import *
 
 # ----------- Declare the types data-type -----------
 
-type_sort = Datatype("Type")
-type_sort.declare("object")
 
-type_sort.declare("none")
+def declare_type_sort(max_tuple_length, max_function_args):
+    type_sort = Datatype("Type")
+    type_sort.declare("object")
 
-type_sort.declare("number")
-type_sort.declare("complex")
-type_sort.declare("float")
-type_sort.declare("int")
-type_sort.declare("bool")
+    type_sort.declare("none")
 
-type_sort.declare("sequence")
-type_sort.declare("str")
-type_sort.declare("bytes")
-type_sort.declare("list", ("list_type", type_sort))
+    type_sort.declare("number")
+    type_sort.declare("complex")
+    type_sort.declare("float")
+    type_sort.declare("int")
+    type_sort.declare("bool")
 
-type_sort.declare("set", ("set_type", type_sort))
-type_sort.declare("dict", ("dict_key_type", type_sort), ("dict_value_type", type_sort))
+    type_sort.declare("sequence")
+    type_sort.declare("str")
+    type_sort.declare("bytes")
+    type_sort.declare("list", ("list_type", type_sort))
 
-type_sort.declare("tuple")
-type_sort.declare("tuple_1", ("tuple_1_arg_1", type_sort))
-type_sort.declare("tuple_2", ("tuple_2_arg_1", type_sort), ("tuple_2_arg_2", type_sort))
-type_sort.declare("tuple_3", ("tuple_3_arg_1", type_sort), ("tuple_3_arg_2", type_sort), ("tuple_3_arg_3", type_sort))
-type_sort.declare("tuple_4", ("tuple_4_arg_1", type_sort), ("tuple_4_arg_2", type_sort), ("tuple_4_arg_3", type_sort),
-                  ("tuple_4_arg_4", type_sort))
-type_sort.declare("tuple_5", ("tuple_5_arg_1", type_sort), ("tuple_5_arg_2", type_sort), ("tuple_5_arg_3", type_sort),
-                  ("tuple_5_arg_4", type_sort), ("tuple_5_arg_5", type_sort))
+    type_sort.declare("set", ("set_type", type_sort))
+    type_sort.declare("dict", ("dict_key_type", type_sort), ("dict_value_type", type_sort))
 
-type_sort.declare("func")
-type_sort.declare("func_0", ("func_0_return", type_sort))
-type_sort.declare("func_1", ("func_1_arg_1", type_sort), ("func_1_return", type_sort))
-type_sort.declare("func_2", ("func_2_arg_1", type_sort), ("func_2_arg_2", type_sort), ("func_2_return", type_sort))
-type_sort.declare("func_3", ("func_3_arg_1", type_sort), ("func_3_arg_2", type_sort), ("func_3_arg_3", type_sort),
-                  ("func_3_return", type_sort))
-type_sort.declare("func_4", ("func_4_arg_1", type_sort), ("func_4_arg_2", type_sort), ("func_4_arg_3", type_sort),
-                  ("func_4_arg_4", type_sort), ("func_4_return", type_sort))
-type_sort.declare("func_5", ("func_5_arg_1", type_sort), ("func_5_arg_2", type_sort), ("func_5_arg_3", type_sort),
-                  ("func_5_arg_4", type_sort), ("func_5_arg_5", type_sort), ("func_5_return", type_sort))
+    type_sort.declare("tuple")
 
-type_sort = type_sort.create()
+    for cur_len in range(max_tuple_length + 1):
+        accessors = []
+        for arg in range(cur_len):
+            accessor = ("tuple_{}_arg_{}".format(cur_len, arg + 1), type_sort)
+            accessors.append(accessor)
+
+        type_sort.declare("tuple_{}".format(cur_len), *accessors)
+
+    type_sort.declare("func")
+
+    for cur_len in range(max_function_args + 1):
+        accessors = []
+        for arg in range(cur_len):
+            accessor = ("func_{}_arg_{}".format(cur_len, arg + 1), type_sort)
+            accessors.append(accessor)
+
+        accessors.append(("func_{}_return".format(cur_len), type_sort))
+        type_sort.declare("func_{}".format(cur_len), *accessors)
+
+    type_sort = type_sort.create()
+    return type_sort
+
+
+def get_tuples(type_sort, max_tuple_length):
+    tuples = []
+    for cur_len in range(max_tuple_length + 1):
+        tuples.append(getattr(type_sort, "tuple_{}".format(cur_len)))
+    return tuples
+
+
+def get_funcs(type_sort, max_function_args):
+    funcs = []
+    for cur_len in range(max_function_args + 1):
+        funcs.append(getattr(type_sort, "func_{}".format(cur_len)))
+    return funcs
+
+
+def tuples_subtype_axioms(tuples, type_sort):
+    quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(tuples) - 1)]
+    axioms = []
+    for i in range(len(tuples)):
+        if i == 0:
+            axioms.append(subtype(tuples[i], type_sort.tuple))
+        else:
+            consts = quantifiers_consts[:i]
+            inst = tuples[i](consts)
+            axioms.append(
+                ForAll(consts, subtype(inst, type_sort.tuple), patterns=[inst])
+            )
+    return axioms
+
+
+def functions_subtype_axioms(funcs, type_sort):
+    quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(funcs))]
+    axioms = []
+    for i in range(len(funcs)):
+        consts = quantifiers_consts[:i + 1]
+        inst = funcs[i](consts)
+        axioms.append(
+            ForAll(consts, subtype(inst, type_sort.func), patterns=[inst])
+        )
+    return axioms
 
 # ----------- Get the accessors -----------
+max_tuple_length = 6
+max_function_args = 7
+
+type_sort = declare_type_sort(max_tuple_length, max_function_args)
 
 Object = type_sort.object
 
@@ -77,58 +124,10 @@ dict_key_type = type_sort.dict_key_type
 dict_value_type = type_sort.dict_value_type
 
 Tuple = type_sort.tuple
-Tuple1 = type_sort.tuple_1
-Tuple2 = type_sort.tuple_2
-Tuple3 = type_sort.tuple_3
-Tuple4 = type_sort.tuple_4
-Tuple5 = type_sort.tuple_5
-
-tuple_1_arg_1 = type_sort.tuple_1_arg_1
-tuple_2_arg_1 = type_sort.tuple_2_arg_1
-tuple_2_arg_2 = type_sort.tuple_2_arg_2
-tuple_3_arg_1 = type_sort.tuple_3_arg_1
-tuple_3_arg_2 = type_sort.tuple_3_arg_2
-tuple_3_arg_3 = type_sort.tuple_3_arg_3
-tuple_4_arg_1 = type_sort.tuple_4_arg_1
-tuple_4_arg_2 = type_sort.tuple_4_arg_2
-tuple_4_arg_3 = type_sort.tuple_4_arg_3
-tuple_4_arg_4 = type_sort.tuple_4_arg_4
-tuple_5_arg_1 = type_sort.tuple_5_arg_1
-tuple_5_arg_2 = type_sort.tuple_5_arg_2
-tuple_5_arg_3 = type_sort.tuple_5_arg_3
-tuple_5_arg_4 = type_sort.tuple_5_arg_4
-tuple_5_arg_5 = type_sort.tuple_5_arg_5
+Tuples = get_tuples(type_sort, max_tuple_length)
 
 Func = type_sort.func
-Func0 = type_sort.func_0
-Func1 = type_sort.func_1
-Func2 = type_sort.func_2
-Func3 = type_sort.func_3
-Func4 = type_sort.func_4
-Func5 = type_sort.func_5
-
-func_1_arg_1 = type_sort.func_1_arg_1
-func_2_arg_1 = type_sort.func_2_arg_1
-func_2_arg_2 = type_sort.func_2_arg_2
-func_3_arg_1 = type_sort.func_3_arg_1
-func_3_arg_2 = type_sort.func_3_arg_2
-func_3_arg_3 = type_sort.func_3_arg_3
-func_4_arg_1 = type_sort.func_4_arg_1
-func_4_arg_2 = type_sort.func_4_arg_2
-func_4_arg_3 = type_sort.func_4_arg_3
-func_4_arg_4 = type_sort.func_4_arg_4
-func_5_arg_1 = type_sort.func_5_arg_1
-func_5_arg_2 = type_sort.func_5_arg_2
-func_5_arg_3 = type_sort.func_5_arg_3
-func_5_arg_4 = type_sort.func_5_arg_4
-func_5_arg_5 = type_sort.func_5_arg_5
-
-func_0_return = type_sort.func_0_return
-func_1_return = type_sort.func_1_return
-func_2_return = type_sort.func_2_return
-func_3_return = type_sort.func_3_return
-func_4_return = type_sort.func_4_return
-func_5_return = type_sort.func_5_return
+Funcs = get_funcs(type_sort, max_function_args)
 
 # ----------- Encode subtyping relationships -----------
 
@@ -179,19 +178,7 @@ axioms = [
     extends(Bytes, Seq),
     extends(Tuple, Seq),
 
-    ForAll([x], extends(Tuple1(x), Tuple), patterns=[Tuple1(x)]),
-    ForAll([x, y], extends(Tuple2(x, y), Tuple), patterns=[Tuple2(x, y)]),
-    ForAll([x, y, z], extends(Tuple3(x, y, z), Tuple), patterns=[Tuple3(x, y, z)]),
-    ForAll([x, y, z, l], extends(Tuple4(x, y, z, l), Tuple), patterns=[Tuple4(x, y, z, l)]),
-    ForAll([x, y, z, l, m], extends(Tuple5(x, y, z, l, m), Tuple), patterns=[Tuple5(x, y, z, l, m)]),
-
     extends(Func, Object),
-    ForAll([x], extends(Func0(x), Func), patterns=[Func0(x)]),
-    ForAll([x, y], extends(Func1(x, y), Func), patterns=[Func1(x, y)]),
-    ForAll([x, y, z], extends(Func2(x, y, z), Func), patterns=[Func2(x, y, z)]),
-    ForAll([x, y, z, l], extends(Func3(x, y, z, l), Func), patterns=[Func3(x, y, z, l)]),
-    ForAll([x, y, z, l, m], extends(Func4(x, y, z, l, m), Func), patterns=[Func4(x, y, z, l, m)]),
-    ForAll([x, y, z, l, m, n], extends(Func5(x, y, z, l, m, n), Func), patterns=[Func5(x, y, z, l, m, n)]),
 
     ForAll([x], extends(List(x), Seq), patterns=[List(x)]),
     ForAll([x], extends(Set(x), Object), patterns=[Set(x)]),
@@ -201,7 +188,7 @@ axioms = [
     stronger_num(Float, Int),
     stronger_num(Complex, Float),
     stronger_num(Num, Complex)
-    ]
+    ] + tuples_subtype_axioms(Tuples, type_sort) + functions_subtype_axioms(Funcs, type_sort)
 
 
 # Unique id given to newly created Z3 consts

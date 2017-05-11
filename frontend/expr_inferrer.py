@@ -92,18 +92,16 @@ def infer_tuple(node, context):
         elem_type = infer(elem, context)
         tuple_types = tuple_types + (elem_type,)
 
-    if len(tuple_types) == 0:
-        return z3_types.Tuple
-
-    if len(tuple_types) > 5:
-        raise TypeError("Cannot infer the type for tuples of length more than 5")
-
     # Instantiate the correct z3 tuple type based on length of tuple elements:
     # len(tuple_types) == 1 --> Tuple1(tuple_types)
     # len(tuple_types) == 2 --> Tuple2(tuple_types)
     # .....
     # len(tuple_types) == 5 --> Tuple5(tuple_types)
-    return getattr(z3_types, "Tuple{}".format(len(tuple_types)))(tuple_types)
+
+    if len(tuple_types) == 0:
+        return z3_types.Tuples[0]
+
+    return z3_types.Tuples[len(tuple_types)](tuple_types)
 
 
 def infer_name_constant(node):
@@ -344,7 +342,7 @@ def infer_func_call(node, context):
     result_type = z3_types.new_z3_const("call")
 
     # TODO covariant and invariant subtyping
-    z3_types.solver.add(func_type == getattr(z3_types, "Func{}".format(len(args_types)))(args_types + (result_type,)))
+    z3_types.solver.add(func_type == z3_types.Funcs[len(args_types)](args_types + (result_type,)))
     return result_type
 
 
