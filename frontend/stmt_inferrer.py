@@ -29,7 +29,7 @@ import sys
 from frontend.context import Context
 
 
-def _infer_assignment_target(target, context, value):
+def _infer_assignment_target(target, context, value_type):
     """Infer the type of a target in an assignment
 
     Attributes:
@@ -43,19 +43,10 @@ def _infer_assignment_target(target, context, value):
         - List. Ex: [a, b] = [1, "string"]
         - Subscript. Ex: x[0] = 1, x[1 : 2] = [2,3], x["key"] = value
         - Compound: Ex: a, b[0], [c, d], e["key"] = 1, 2.0, [True, False], "value"
-
-    Limitation:
-        - In case of tuple/list assignments, the value should be tuple/list too (not a variable name)
-        For example, the following is not supported yet:
-        x = (1, "string")
-        a, b = x
         
     TODO: Attributes assignment
     """
-    value_type = value
     if isinstance(target, ast.Name):
-        if isinstance(value_type, ast.AST):
-            value_type = expr.infer(value_type, context)
         if context.has_variable(target.id):
             z3_types.solver.add(axioms.assignment(context.get_type(target.id), value_type))
         else:
@@ -63,22 +54,12 @@ def _infer_assignment_target(target, context, value):
             z3_types.solver.add(axioms.assignment(assignment_target_type, value_type))
             context.set_type(target.id, assignment_target_type)
     elif isinstance(target, (ast.Tuple, ast.List)):
-        if isinstance(value, ast.AST):
-            if not isinstance(value, (ast.Tuple, ast.List)):
-                raise TypeError("Cannot unpack a non-sequence")
-            if len(target.elts) != len(value.elts):
-                raise ValueError("Cannot unpack {} values into {} targets".format(len(value.elts), len(target.elts)))
-            for i in range(len(value.elts)):
-                _infer_assignment_target(target.elts[i], context, value.elts[i])
-        else:
-            for i in range(len(target.elts)):
-                target_type = z3_types.new_z3_const("elt_type")
-                z3_types.solver.add(axioms.assignment_target(target_type, value, i + 1))
-                _infer_assignment_target(target.elts[i], context, target_type)
+        for i in range(len(target.elts)):
+            target_type = z3_types.new_z3_const("elt_type")
+            z3_types.solver.add(axioms.assignment_target(target_type, value_type, i))
+            _infer_assignment_target(target.elts[i], context, target_type)
 
     elif isinstance(target, ast.Subscript):
-        if isinstance(value_type, ast.AST):
-            value_type = expr.infer(value_type, context)
         indexed_type = expr.infer(target.value, context)
         if isinstance(target.slice, ast.Index):
             index_type = expr.infer(target.slice.value, context)
@@ -100,7 +81,7 @@ def _infer_assign(node, context):
     """Infer the types of target variables in an assignment node."""
 
     for target in node.targets:
-        _infer_assignment_target(target, context, node.value)
+        _infer_assignment_target(target, context, expr.infer(node.value, context))
 
     return z3_types.zNone
 

@@ -107,7 +107,7 @@ def functions_subtype_axioms(funcs, type_sort):
     # Initialize constants to be used in the ForAll quantifier
     # Each function needs a number of quantifiers equal to its args length + 1 (for the return type).
     # With n functions, from zero-length to (n - 1) length arguments, we need at most n quantifiers.
-    quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(funcs))]
+    quantifiers_consts = [Const("funcs_q_{}".format(x), type_sort) for x in range(len(funcs))]
     axioms = []
     for i in range(len(funcs)):
         # function funcs[i] will have i arguments and 1 return type, so  it uses i + 1 constants
