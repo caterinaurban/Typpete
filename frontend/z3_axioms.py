@@ -1,5 +1,3 @@
-from builtins import NotImplementedError
-
 from frontend.z3_types import *
 
 
@@ -98,7 +96,6 @@ def index(indexed, index, result):
 
 
 def slice(lower, upper, step, sliced, result):
-    # TODO tuples
     return [
         And(subtype(lower, Int), subtype(upper, Int), subtype(step, Int), subtype(sliced, Seq), result == sliced)
     ]
