@@ -86,18 +86,21 @@ def tuples_subtype_axioms(tuples, type_sort):
     # With n tuples, from zero-length to (n - 1) length tuples, we need at most n - 1 quantifiers.
     quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(tuples) - 1)]
     axioms = []
+    x = Const("x", type_sort)
     for i in range(len(tuples)):
         # Tuple tuples[i] will have length i
         if i == 0:
             # Zero length tuple: An expression not a call.
-            axioms.append(subtype(tuples[i], type_sort.tuple))
+            axioms.append(extends(tuples[i], type_sort.tuple))
+            axioms.append(ForAll(x, Implies(subtype(x, tuples[i]), x == tuples[i])))
         else:
             # Tuple tuples[i] uses exactly i constants
             consts = quantifiers_consts[:i]
             inst = tuples[i](consts)
             axioms.append(
-                ForAll(consts, subtype(inst, type_sort.tuple), patterns=[inst])
+                ForAll(consts, extends(inst, type_sort.tuple), patterns=[inst])
             )
+            axioms.append(ForAll([x] + consts, Implies(subtype(x, inst), x == inst)))
     return axioms
 
 
@@ -109,13 +112,15 @@ def functions_subtype_axioms(funcs, type_sort):
     # With n functions, from zero-length to (n - 1) length arguments, we need at most n quantifiers.
     quantifiers_consts = [Const("funcs_q_{}".format(x), type_sort) for x in range(len(funcs))]
     axioms = []
+    x = Const("x", type_sort)
     for i in range(len(funcs)):
         # function funcs[i] will have i arguments and 1 return type, so  it uses i + 1 constants
         consts = quantifiers_consts[:i + 1]
         inst = funcs[i](consts)
         axioms.append(
-            ForAll(consts, subtype(inst, type_sort.func), patterns=[inst])
+            ForAll(consts, extends(inst, type_sort.func), patterns=[inst])
         )
+        axioms.append(ForAll([x] + consts, Implies(subtype(x, inst), x == inst)))
     return axioms
 
 type_sort = None
@@ -202,9 +207,9 @@ def init_types(config):
     ]
 
     generics_axioms = [
-        ForAll([x, y], Implies(subtype(x, List(y)), y == list_type(x))),
-        ForAll([x, y], Implies(subtype(x, Set(y)), y == set_type(x))),
-        ForAll([x, y, z], Implies(subtype(x, Dict(y, z)), And(y == dict_key_type(x), z == dict_value_type(x))))
+        ForAll([x, y], Implies(subtype(x, List(y)), x == List(y))),
+        ForAll([x, y], Implies(subtype(x, Set(y)), x == Set(y))),
+        ForAll([x, y, z], Implies(subtype(x, Dict(y, z)), x == Dict(y, z)))
     ]
 
     # For numeric casting purposes:
@@ -262,7 +267,7 @@ class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""
     def __init__(self, solver=None, ctx=None):
         super().__init__(solver, ctx)
-        self.set(auto_config=False, mbqi=False)
+        self.set(auto_config=False, mbqi=False, unsat_core=True)
         self.init_axioms()
 
     def init_axioms(self):

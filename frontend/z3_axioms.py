@@ -77,11 +77,22 @@ def if_expr(a, b, result):
 
 
 def index(indexed, index, result):
-    # TODO tuples
+    t = []
+    quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(Tuples) - 1)]
+    for cur_len in range(1, len(Tuples)):
+        quants = quantifiers_consts[:cur_len]
+        t.append(Exists(quants, And(
+            indexed == Tuples[cur_len](*quants),
+            *[subtype(x, result) for x in quants]
+        ), patterns=[Tuples[cur_len](*quants)]))
+
     return [
         Or(
-            indexed == Dict(index, result),
-            And(subtype(index, Int), indexed == List(result))
+            [indexed == Dict(index, result),
+             And(subtype(index, Int), indexed == List(result)),
+             And(subtype(index, Int), indexed == String, result == String),
+             And(subtype(index, Int), indexed == Bytes, result == Bytes)]
+            + t
         )
     ]
 
