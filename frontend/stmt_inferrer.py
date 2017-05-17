@@ -275,6 +275,27 @@ def _infer_func_def(node, context):
     context.set_type(node.name, result_type)
 
 
+def _infer_class_def(node, context):
+    class_context = Context(parent_context=context)
+
+    for stmt in node.body:
+        infer(stmt, class_context)
+
+    class_attrs = [z3_types.Const("class_{}_attr_{}".format(node.name, i), z3_types.type_sort)
+                   for i in range(len(class_context.types_map))]
+
+    class_type = z3_types.Classes[node.name](class_attrs)
+
+    for attr in class_context.types_map:
+        accessor = getattr(z3_types.type_sort, "class_{}_attr_{}".format(node.name, attr))
+        z3_types.solver.add(accessor(class_type) == class_context.types_map[attr])
+
+    result_type = z3_types.new_z3_const("class")
+    z3_types.solver.add(result_type == class_type)
+
+    context.set_type(node.name, result_type)
+
+
 def infer(node, context):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context)
@@ -300,6 +321,8 @@ def infer(node, context):
         return _infer_try(node, context)
     elif isinstance(node, ast.FunctionDef):
         return _infer_func_def(node, context)
+    elif isinstance(node, ast.ClassDef):
+        return _infer_class_def(node, context)
     elif isinstance(node, ast.Expr):
         expr.infer(node.value, context)
     return z3_types.zNone

@@ -22,19 +22,28 @@ class PreAnalyzer:
         tuples = [node for node in self.all_nodes if isinstance(node, ast.Tuple)]
         return 0 if len(tuples) == 0 else max([len(node.elts) for node in tuples])
 
-    def all_classes_attributes(self):
-        class_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
+    def classes_pre_analysis(self):
+        # TODO propagate attributes to subclasses.
+        class_defs = [node for node in self.all_nodes if isinstance(node, ast.ClassDef)]
         class_to_attributes = {}
+        class_to_base = {}
 
         for cls in class_defs:
-            attributes = []
+            if len(cls.bases) > 1:
+                raise NotImplementedError("Multiple inheritance is not supported yet.")
+            elif len(cls.bases) == 1:
+                class_to_base[cls.name] = cls.bases[0].id
+            else:
+                class_to_base[cls.name] = "object"
+
+            attributes = set()
             class_to_attributes[cls.name] = attributes
 
             # Inspect all class-level statements
             for cls_stmt in cls.body:
                 if isinstance(cls_stmt, ast.FunctionDef):
                     # Add function to class attributes and get attributes defined by self.some_attribute = value
-                    attributes.append(cls_stmt.name)
+                    attributes.add(cls_stmt.name)
                     if len(cls_stmt.args.args) == 0:
                         continue
                     first_arg = cls_stmt.args.args[0].arg  # In most cases it will be 'self'
@@ -47,10 +56,11 @@ class PreAnalyzer:
                         for target in assignment.targets:
                             if (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and
                                     target.value.id == first_arg):
-                                attributes.append(target.attr)
+                                attributes.add(target.attr)
                 elif isinstance(cls_stmt, ast.Assign):
                     # Get attributes defined as class-level assignment
                     for target in cls_stmt.targets:
                         if isinstance(target, ast.Name):
-                            attributes.append(target.id)
-        return class_to_attributes
+                            attributes.add(target.id)
+
+        return class_to_attributes, class_to_base

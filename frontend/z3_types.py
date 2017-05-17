@@ -7,7 +7,7 @@ Limitations:
 from z3 import *
 
 
-def declare_type_sort(max_tuple_length, max_function_args):
+def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs):
     """Declare the type Z3 data-type and all its constructors/accessors"""
     type_sort = Datatype("Type")
 
@@ -58,8 +58,23 @@ def declare_type_sort(max_tuple_length, max_function_args):
 
         type_sort.declare("func_{}".format(cur_len), *accessors)
 
+    #type_sort.declare("type_type", ("type_name", StringSort()), ("instance", type_sort))
+    declare_classes(type_sort, classes_to_attrs)
+
     type_sort = type_sort.create()
     return type_sort
+
+
+def declare_classes(type_sort, classes_to_attrs):
+    for cls in classes_to_attrs:
+        attrs = classes_to_attrs[cls]
+
+        accessors = []
+        for attr in attrs:
+            accessor = ("class_{}_attr_{}".format(cls, attr), type_sort)
+            accessors.append(accessor)
+
+        type_sort.declare("class_{}".format(cls), *accessors)
 
 
 def get_tuples(type_sort, max_tuple_length):
@@ -76,6 +91,14 @@ def get_funcs(type_sort, max_function_args):
     for cur_len in range(max_function_args + 1):
         funcs.append(getattr(type_sort, "func_{}".format(cur_len)))
     return funcs
+
+
+def get_classes(type_sort, classes_to_attrs):
+    """Extract the classes constructors from the type_sort data-type"""
+    classes = {}
+    for cls in classes_to_attrs:
+        classes[cls] = getattr(type_sort, "class_{}".format(cls))
+    return classes
 
 
 def tuples_subtype_axioms(tuples, type_sort):
@@ -101,6 +124,7 @@ def tuples_subtype_axioms(tuples, type_sort):
                 ForAll(consts, extends(inst, type_sort.tuple), patterns=[inst])
             )
             axioms.append(ForAll([x] + consts, Implies(subtype(x, inst), x == inst)))
+
     return axioms
 
 
@@ -123,6 +147,31 @@ def functions_subtype_axioms(funcs, type_sort):
         axioms.append(ForAll([x] + consts, Implies(subtype(x, inst), x == inst)))
     return axioms
 
+
+def classes_subtype_axioms(classes, classes_to_attrs, class_to_base):
+    """Add the axioms for the classes subtyping"""
+    axioms = []
+    for cls in classes:
+        sub_quant_consts = [Const("sub_q_{}".format(x), type_sort) for x in range(len(classes_to_attrs[cls]))]
+        sub_inst = classes[cls](sub_quant_consts)
+        base_name = class_to_base[cls]
+        if base_name == "object":
+            axioms.append(
+                ForAll(sub_quant_consts, extends(sub_inst, type_sort.object), patterns=[sub_inst])
+            )
+            continue
+
+        base = classes[base_name]
+        base_quant_consts = [Const("base_q_{}".format(x), type_sort) for x in range(len(classes_to_attrs[base_name]))]
+        base_inst = base(base_quant_consts)
+        axioms.append(
+            ForAll(sub_quant_consts + base_quant_consts,
+                   extends(classes[cls](sub_quant_consts), base_inst),
+                   patterns=[base_inst])
+        )
+
+    return axioms
+
 type_sort = None
 Object = zNone = Num = Complex = Float = Int = Bool = Seq = String = Bytes = None
 List = list_type = None
@@ -130,6 +179,7 @@ Set = set_type = None
 Dict = dict_key_type = dict_value_type = None
 Tuple = Tuples = None
 Func = Funcs = None
+Classes = None
 subtype = extends = stronger_num = None
 subtype_properties = generics_axioms = num_strength_properties = axioms = None
 solver = None
@@ -140,6 +190,8 @@ def init_types(config):
     """Initialize the type system in Z3 using configurations given by the pre-analyzer"""
     max_tuple_length = config["max_tuple_length"]
     max_function_args = config["max_function_args"]
+    classes_to_attrs = config["classes_to_attrs"]
+    class_to_base = config["class_to_base"]
 
     # Using globals because they are used as module-level variables in other modules
     global type_sort
@@ -149,12 +201,13 @@ def init_types(config):
     global Dict, dict_key_type, dict_value_type
     global Tuple, Tuples
     global Func, Funcs
+    global Classes
     global subtype, extends, stronger_num
     global subtype_properties, generics_axioms, num_strength_properties, axioms
     global solver
     global x, y, z
 
-    type_sort = declare_type_sort(max_tuple_length, max_function_args)
+    type_sort = declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs)
 
     # Extract types constructors
     Object = type_sort.object
@@ -185,6 +238,8 @@ def init_types(config):
 
     Func = type_sort.func
     Funcs = get_funcs(type_sort, max_function_args)
+
+    Classes = get_classes(type_sort, classes_to_attrs)
 
     # Encode subtyping relationships
 
@@ -244,7 +299,10 @@ def init_types(config):
         stronger_num(Float, Int),
         stronger_num(Complex, Float),
         stronger_num(Num, Complex)
-        ] + tuples_subtype_axioms(Tuples, type_sort) + functions_subtype_axioms(Funcs, type_sort)
+        ] \
+        + tuples_subtype_axioms(Tuples, type_sort) \
+        + functions_subtype_axioms(Funcs, type_sort) \
+        + classes_subtype_axioms(Classes, classes_to_attrs, class_to_base)
 
     solver = TypesSolver()
 
