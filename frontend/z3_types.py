@@ -58,7 +58,7 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs):
 
         type_sort.declare("func_{}".format(cur_len), *accessors)
 
-    #type_sort.declare("type_type", ("type_name", StringSort()), ("instance", type_sort))
+    type_sort.declare("type_type", ("type_name", StringSort()), ("instance", type_sort))
     declare_classes(type_sort, classes_to_attrs)
 
     type_sort = type_sort.create()
@@ -184,6 +184,7 @@ subtype = extends = stronger_num = None
 subtype_properties = generics_axioms = num_strength_properties = axioms = None
 solver = None
 x = y = z = None
+Type = None
 
 
 def init_types(config):
@@ -206,10 +207,12 @@ def init_types(config):
     global subtype_properties, generics_axioms, num_strength_properties, axioms
     global solver
     global x, y, z
+    global Type
 
     type_sort = declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs)
 
     # Extract types constructors
+    Type = type_sort.type_type
     Object = type_sort.object
 
     zNone = type_sort.none
@@ -277,6 +280,8 @@ def init_types(config):
                                Not(Or(stronger_num(x, y), stronger_num(y, x)))))
     ]
 
+    name_const = Const("name_const", StringSort())
+
     axioms = [
         extends(zNone, Object),
         extends(Num, Object),
@@ -291,6 +296,7 @@ def init_types(config):
 
         extends(Func, Object),
 
+        ForAll([name_const, x], extends(Type(name_const, x), Object), patterns=[Type(name_const, x)]),
         ForAll([x], extends(List(x), Seq), patterns=[List(x)]),
         ForAll([x], extends(Set(x), Object), patterns=[Set(x)]),
         ForAll([x, y], extends(Dict(x, y), Object), patterns=[Dict(x, y)]),
@@ -316,9 +322,11 @@ def new_element_id():
     return _element_id
 
 
-def new_z3_const(name):
+def new_z3_const(name, sort=None):
     """Create a new Z3 constant with a unique name"""
-    return Const("{}_{}".format(name, new_element_id()), type_sort)
+    if sort is None:
+        sort = type_sort
+    return Const("{}_{}".format(name, new_element_id()), sort)
 
 
 class TypesSolver(Solver):
