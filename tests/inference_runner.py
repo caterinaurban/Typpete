@@ -28,7 +28,6 @@ try:
     model = z3_types.solver.model()
     for v in context.types_map:
         z3_t = context.types_map[v]
-        print(z3_t)
         print("{}: {}".format(v, model[z3_t]))
 except z3_types.z3types.Z3Exception as e:
     print("Check: {}".format(check))

@@ -148,13 +148,25 @@ def functions_subtype_axioms(funcs, type_sort):
     return axioms
 
 
-def classes_subtype_axioms(classes, classes_to_attrs, class_to_base):
+def invert_dict(d):
+    result = {}
+    for key in d:
+        result[d[key]] = key
+
+    return result
+
+
+def classes_subtype_axioms(classes, classes_to_attrs, sub_to_base):
     """Add the axioms for the classes subtyping"""
     axioms = []
+    base_to_sub = invert_dict(sub_to_base)
+    x = Const("x", type_sort)
+    y = Const("x", type_sort)
     for cls in classes:
         sub_quant_consts = [Const("sub_q_{}".format(x), type_sort) for x in range(len(classes_to_attrs[cls]))]
         sub_inst = classes[cls](sub_quant_consts)
-        base_name = class_to_base[cls]
+
+        base_name = sub_to_base[cls]
         if base_name == "object":
             axioms.append(
                 ForAll(sub_quant_consts, extends(sub_inst, type_sort.object), patterns=[sub_inst])
@@ -163,12 +175,27 @@ def classes_subtype_axioms(classes, classes_to_attrs, class_to_base):
 
         base = classes[base_name]
         base_quant_consts = [Const("base_q_{}".format(x), type_sort) for x in range(len(classes_to_attrs[base_name]))]
+
         base_inst = base(base_quant_consts)
         axioms.append(
             ForAll(sub_quant_consts + base_quant_consts,
-                   extends(classes[cls](sub_quant_consts), base_inst),
-                   patterns=[base_inst])
+                   extends(sub_inst, base_inst))
         )
+
+    for cls in classes:
+        x = Const("x", type_sort)
+        quant_consts = [Const("sub_q_{}".format(x), type_sort) for x in range(len(classes_to_attrs[cls]))]
+        inst = classes[cls](quant_consts)
+        if cls not in base_to_sub:
+            axioms.append(ForAll([x] + quant_consts, Implies(subtype(x, inst), x == inst)))
+        else:
+            sub_name = base_to_sub[cls]
+            sub_quant_consts = [Const("sub_q_{}".format(x), type_sort) for x in range(len(classes_to_attrs[sub_name]))]
+            sub_inst = classes[sub_name](sub_quant_consts)
+            axioms.append(ForAll([x] + quant_consts + sub_quant_consts,
+                                 Implies(subtype(x, inst),
+                                         Or(x == inst,
+                                            x == sub_inst))))
 
     return axioms
 
