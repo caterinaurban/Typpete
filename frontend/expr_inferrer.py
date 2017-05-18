@@ -249,8 +249,12 @@ def infer_subscript(node, context):
         return result_type
 
 
-def infer_compare(_):
+def infer_compare(node, context):
     # TODO: verify that types in comparison are comparable
+    infer(node.left, context)
+    for comparator in node.comparators:
+        infer(comparator, context)
+
     return z3_types.Bool
 
 
@@ -380,7 +384,7 @@ def infer(node, context):
     elif isinstance(node, ast.Yield):
         return infer(node.value, context)
     elif isinstance(node, ast.Compare):
-        return infer_compare(node)
+        return infer_compare(node, context)
     elif isinstance(node, ast.Name):
         return infer_name(node, context)
     elif isinstance(node, ast.ListComp):

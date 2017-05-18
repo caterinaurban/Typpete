@@ -188,6 +188,10 @@ def _infer_control_flow(node, context):
     """
     body_type = _infer_body(node.body, context)
     else_type = _infer_body(node.orelse, context)
+
+    if hasattr(node, "test"):
+        expr.infer(node.test, context)
+
     result_type = z3_types.new_z3_const("control_flow")
 
     z3_types.solver.add(axioms.control_flow(body_type, else_type, result_type))
