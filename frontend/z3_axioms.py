@@ -200,3 +200,24 @@ def try_except(body, orelse, final, result):
         subtype(orelse, result),
         subtype(final, result)
     ]
+
+
+def instance_axioms(called, args, result):
+    axioms = []
+    for t in All_types:
+        instance = getattr(type_sort, "instance")(All_types[t])
+        init_func = getattr(type_sort, "class_{}_attr___init__".format(t))(instance)
+        axioms.append(
+            And(called == All_types[t],
+                result == instance,
+                init_func == Funcs[len(args) + 1]((instance,) + args + (zNone,))))
+
+    return axioms
+
+
+def call(called, args, result):
+    return [
+        Or(
+            [called == Funcs[len(args)](args + (result,))] + instance_axioms(called, args, result)
+        )
+    ]

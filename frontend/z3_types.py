@@ -212,6 +212,7 @@ subtype_properties = generics_axioms = num_strength_properties = axioms = None
 solver = None
 x = y = z = None
 Type = None
+All_types = {}
 
 
 def init_types(config):

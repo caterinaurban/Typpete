@@ -334,13 +334,13 @@ def _get_args_types(args, context):
 
 def infer_func_call(node, context):
     """Infer the type of a function call, and unify the call types with the function parameters"""
-    func_type = infer(node.func, context)
+    called = infer(node.func, context)
     args_types = _get_args_types(node.args, context)
 
     result_type = z3_types.new_z3_const("call")
 
     # TODO covariant and invariant subtyping
-    z3_types.solver.add(func_type == z3_types.Funcs[len(args_types)](args_types + (result_type,)))
+    z3_types.solver.add(axioms.call(called, args_types, result_type))
     return result_type
 
 

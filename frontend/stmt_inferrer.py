@@ -296,6 +296,7 @@ def _infer_class_def(node, context):
     result_type = z3_types.new_z3_const("class_type")
     z3_types.solver.add(class_name == z3_types.StringVal(node.name))
     z3_types.solver.add(result_type == class_type)
+    z3_types.All_types[node.name] = result_type
 
     context.set_type(node.name, result_type)
 
