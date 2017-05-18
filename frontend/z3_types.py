@@ -258,9 +258,15 @@ def new_element_id():
     return _element_id
 
 
-def new_z3_const(name):
+def new_z3_const(name, sort=None):
     """Create a new Z3 constant with a unique name"""
-    return Const("{}_{}".format(name, new_element_id()), type_sort)
+    if sort is None:
+        sort = type_sort
+    return Const("{}_{}".format(name, new_element_id()), sort)
+
+
+assertions = []
+assertions_errors = {}
 
 
 class TypesSolver(Solver):
@@ -271,5 +277,12 @@ class TypesSolver(Solver):
         self.init_axioms()
 
     def init_axioms(self):
-        self.add(subtype_properties + axioms + num_strength_properties + generics_axioms)
+        self.add(subtype_properties + axioms + num_strength_properties + generics_axioms,
+                 fail_message="Subtyping error")
+
+    def add(self, *args, fail_message):
+        assertion = new_z3_const("assertion_bool", BoolSort())
+        assertions.append(assertion)
+        assertions_errors[assertion] = fail_message
+        super().add(Implies(assertion, And(*args)))
 
