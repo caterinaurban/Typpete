@@ -221,3 +221,13 @@ def call(called, args, result):
             [called == Funcs[len(args)](args + (result,))] + instance_axioms(called, args, result)
         )
     ]
+
+
+def attribute(instance, attr, result):
+    axioms = []
+    for t in All_types:
+        if attr in Attributes[t]:
+            type_instance = getattr(type_sort, "instance")(All_types[t])
+            attr_type = Attributes[t][attr]
+            axioms.append(And(instance == type_instance, result == attr_type))
+    return Or(axioms)

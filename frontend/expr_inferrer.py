@@ -22,13 +22,12 @@ Infers the types for the following expressions:
     - ListComp(expr elt, comprehension* generators)
     - SetComp(expr elt, comprehension* generators)
     - DictComp(expr key, expr value, comprehension* generators)
+    - Attribute(expr value, identifier attr, expr_context ctx)
 
 TODO:
     - Lambda(arguments args, expr body)
     - GeneratorExp(expr elt, comprehension* generators)
     - YieldFrom(expr value)
-    - Call(expr func, expr* args, keyword* keywords)
-    - Attribute(expr value, identifier attr, expr_co0ontext ctx)
     - Starred(expr value, expr_context ctx)
 """
 
@@ -362,6 +361,14 @@ def infer_func_call(node, context):
     return result_type
 
 
+def infer_attribute(node, context):
+    instance = infer(node.value, context)
+    result_type = z3_types.new_z3_const("attribute")
+    z3_types.solver.add(axioms.attribute(instance, node.attr, result_type),
+                        fail_message="Attribute access in line {}".format(node.lineno))
+    return result_type
+
+
 def infer(node, context):
     """Infer the type of a given AST node"""
     if isinstance(node, ast.Num):
@@ -409,4 +416,6 @@ def infer(node, context):
         return infer_dict_comprehension(node, context)
     elif isinstance(node, ast.Call):
         return infer_func_call(node, context)
+    elif isinstance(node, ast.Attribute):
+        return infer_attribute(node, context)
     raise NotImplementedError("Inference for expression {} is not implemented yet.".format(type(node).__name__))
