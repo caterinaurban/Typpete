@@ -8,10 +8,10 @@ class B:
         return "string"
 
 
-def f(a):
+def fab(a):
     return a().f()
 
-x = f(B)
+x = fab(B)
 y = x + "st"
 # y = x + 1  # --> Invalid
 
@@ -23,5 +23,19 @@ class C:
 
 c = C()
 c.x += True
-y = c.x
-d = [1, 2, 3][y]
+d = [1, 2, 3][c.x]
+
+# --------------------------------------------
+
+
+class D:
+    def f(self):
+        return 2
+
+
+class E(D):
+    pass
+
+
+e = E()
+f = e.f()

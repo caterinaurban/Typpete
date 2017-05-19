@@ -2,7 +2,7 @@ from frontend.pre_analysis import PreAnalyzer
 import frontend.z3_types as z3_types
 import ast
 
-r = open("tests/inference/expressions_test.py")
+r = open("tests/inference/classes_test.py")
 t = ast.parse(r.read())
 
 analyzer = PreAnalyzer(t)

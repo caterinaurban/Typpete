@@ -47,7 +47,7 @@ def _infer_assignment_target(target, context, value_type, lineno):
     TODO: Attributes assignment
     """
     if isinstance(target, ast.Name):
-        if context.has_variable(target.id):
+        if target.id in context.types_map:
             z3_types.solver.add(axioms.assignment(context.get_type(target.id), value_type),
                                 fail_message="Assignment in line {}".format(lineno))
         else:
