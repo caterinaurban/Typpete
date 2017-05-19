@@ -101,12 +101,11 @@ def _infer_augmented_assign(node, context):
     Examples:
         a += 5
         b[2] &= x
-
-    TODO: Attribute augmented assignment
+        c.x -= f(1, 2)
     """
     target_type = expr.infer(node.target, context)
     value_type = expr.infer(node.value, context)
-    result_type = expr.binary_operation_type(target_type, node.op, value_type)
+    result_type = expr.binary_operation_type(target_type, node.op, value_type, node.lineno)
 
     if isinstance(node.target, ast.Name):
         z3_types.solver.add(axioms.assignment(target_type, result_type),
@@ -129,8 +128,8 @@ def _infer_augmented_assign(node, context):
                                 fail_message="Slice augmented assignment in line {}".format(node.lineno))
 
     elif isinstance(node.target, ast.Attribute):
-        # TODO: Implement after classes inference
-        pass
+        z3_types.solver.add(axioms.assignment(target_type, value_type),
+                            fail_message="Augmented attribute assignment in line {}".format(node.lineno))
     return z3_types.zNone
 
 
