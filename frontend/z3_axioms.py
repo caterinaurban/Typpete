@@ -203,6 +203,9 @@ def try_except(body, orelse, final, result):
 
 
 def instance_axioms(called, args, result):
+    if len(args) + 1 >= len(Funcs):
+        return []
+
     axioms = []
     for t in All_types:
         instance = getattr(type_sort, "instance")(All_types[t])

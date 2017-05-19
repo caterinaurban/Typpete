@@ -336,11 +336,11 @@ def infer_dict_comprehension(node, context):
     return z3_types.Dict(key_type, val_type)
 
 
-def _get_args_types(args, context):
+def _get_args_types(args, context, instance):
     """Return inferred types for function call arguments"""
     # TODO kwargs
 
-    args_types = ()
+    args_types = () if instance is None else (instance,)
     for arg in args:
         args_types = args_types + (infer(arg, context),)
     return args_types
@@ -348,8 +348,12 @@ def _get_args_types(args, context):
 
 def infer_func_call(node, context):
     """Infer the type of a function call, and unify the call types with the function parameters"""
-    called = infer(node.func, context)
-    args_types = _get_args_types(node.args, context)
+    instance = None
+    if isinstance(node.func, ast.Attribute):
+        called, instance = infer(node.func, context, True)
+    else:
+        called = infer(node.func, context)
+    args_types = _get_args_types(node.args, context, instance)
 
     result_type = z3_types.new_z3_const("call")
 
@@ -361,15 +365,17 @@ def infer_func_call(node, context):
     return result_type
 
 
-def infer_attribute(node, context):
+def infer_attribute(node, context, from_call):
     instance = infer(node.value, context)
     result_type = z3_types.new_z3_const("attribute")
     z3_types.solver.add(axioms.attribute(instance, node.attr, result_type),
                         fail_message="Attribute access in line {}".format(node.lineno))
+    if from_call:
+        return result_type, instance
     return result_type
 
 
-def infer(node, context):
+def infer(node, context, from_call=False):
     """Infer the type of a given AST node"""
     if isinstance(node, ast.Num):
         return infer_numeric(node)
@@ -417,5 +423,5 @@ def infer(node, context):
     elif isinstance(node, ast.Call):
         return infer_func_call(node, context)
     elif isinstance(node, ast.Attribute):
-        return infer_attribute(node, context)
+        return infer_attribute(node, context, from_call)
     raise NotImplementedError("Inference for expression {} is not implemented yet.".format(type(node).__name__))

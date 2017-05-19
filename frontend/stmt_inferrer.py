@@ -78,6 +78,10 @@ def _infer_assignment_target(target, context, value_type, lineno):
                 step_type = expr.infer(target.slice.step, context)
             z3_types.solver.add(axioms.slice_assignment(lower_type, upper_type, step_type, indexed_type, value_type),
                                 fail_message="Slice assignment in line {}".format(lineno))
+    elif isinstance(target, ast.Attribute):
+        attr_type = expr.infer(target, context)[0]
+        z3_types.solver.add(axioms.assignment(attr_type, value_type),
+                            fail_message="Attribute assignment in line {}".format(lineno))
     else:
         raise TypeError("The inference for {} assignment is not supported.".format(type(target).__name__))
 
@@ -298,6 +302,8 @@ def _infer_func_def(node, context):
 
 def _infer_class_def(node, context):
     class_context = Context(parent_context=context)
+    result_type = z3_types.new_z3_const("class_type")
+    z3_types.All_types[node.name] = result_type
 
     for stmt in node.body:
         infer(stmt, class_context)
@@ -308,14 +314,8 @@ def _infer_class_def(node, context):
     for attr in class_context.types_map:
         z3_types.solver.add(class_attrs[attr] == class_context.types_map[attr],
                             fail_message="Class attribute in {}".format(node.lineno))
-
     class_type = z3_types.Type(instance_type)
-
-    result_type = z3_types.new_z3_const("class_type")
-
     z3_types.solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
-    z3_types.All_types[node.name] = result_type
-
     context.set_type(node.name, result_type)
 
 
