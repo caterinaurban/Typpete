@@ -58,7 +58,7 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs):
 
         type_sort.declare("func_{}".format(cur_len), *accessors)
 
-    type_sort.declare("type_type", ("type_name", StringSort()), ("instance", type_sort))
+    type_sort.declare("type_type", ("instance", type_sort))
     declare_classes(type_sort, classes_to_attrs)
 
     type_sort = type_sort.create()
@@ -308,8 +308,6 @@ def init_types(config):
                                Not(Or(stronger_num(x, y), stronger_num(y, x)))))
     ]
 
-    name_const = Const("name_const", StringSort())
-
     axioms = [
         extends(zNone, Object),
         extends(Num, Object),
@@ -324,7 +322,7 @@ def init_types(config):
 
         extends(Func, Object),
 
-        ForAll([name_const, x], extends(Type(name_const, x), Object), patterns=[Type(name_const, x)]),
+        ForAll([x], extends(Type(x), Object), patterns=[Type(x)]),
         ForAll([x], extends(List(x), Seq), patterns=[List(x)]),
         ForAll([x], extends(Set(x), Object), patterns=[Set(x)]),
         ForAll([x, y], extends(Dict(x, y), Object), patterns=[Dict(x, y)]),
@@ -358,6 +356,7 @@ def new_z3_const(name, sort=None):
 
 assertions = []
 assertions_errors = {}
+
 
 class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""

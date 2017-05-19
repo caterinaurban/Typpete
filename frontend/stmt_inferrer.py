@@ -309,14 +309,14 @@ def _infer_class_def(node, context):
 
     for attr in class_context.types_map:
         accessor = getattr(z3_types.type_sort, "class_{}_attr_{}".format(node.name, attr))
-        z3_types.solver.add(accessor(instance_type) == class_context.types_map[attr])
+        z3_types.solver.add(accessor(instance_type) == class_context.types_map[attr],
+                            fail_message="Class attribute in {}".format(node.lineno))
 
-    class_name = z3_types.new_z3_const("class_name", z3_types.StringSort())
-    class_type = z3_types.Type(class_name, instance_type)
+    class_type = z3_types.Type(instance_type)
 
     result_type = z3_types.new_z3_const("class_type")
-    z3_types.solver.add(class_name == z3_types.StringVal(node.name))
-    z3_types.solver.add(result_type == class_type)
+    
+    z3_types.solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
     z3_types.All_types[node.name] = result_type
 
     context.set_type(node.name, result_type)

@@ -128,5 +128,6 @@ def add_init_if_not_existing(class_node):
         args=ast.arguments(args=[ast.arg(arg="self")]),
         body=[ast.Pass()],
         decorator_list=[],
-        returns=None
+        returns=None,
+        lineno=class_node.lineno
     ))
