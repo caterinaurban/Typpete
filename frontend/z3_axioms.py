@@ -206,7 +206,7 @@ def instance_axioms(called, args, result):
     axioms = []
     for t in All_types:
         instance = getattr(type_sort, "instance")(All_types[t])
-        init_func = getattr(type_sort, "class_{}_attr___init__".format(t))(instance)
+        init_func = Attributes[t]["__init__"]
         axioms.append(
             And(called == All_types[t],
                 result == instance,

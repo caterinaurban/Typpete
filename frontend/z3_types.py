@@ -62,19 +62,25 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs):
     declare_classes(type_sort, classes_to_attrs)
 
     type_sort = type_sort.create()
+
+    create_classes_attributes(type_sort, classes_to_attrs)
+
     return type_sort
 
 
 def declare_classes(type_sort, classes_to_attrs):
     for cls in classes_to_attrs:
+        type_sort.declare("class_{}".format(cls))
+
+
+def create_classes_attributes(type_sort, classes_to_attrs):
+    for cls in classes_to_attrs:
         attrs = classes_to_attrs[cls]
 
-        accessors = []
+        Attributes[cls] = {}
         for attr in attrs:
-            accessor = ("class_{}_attr_{}".format(cls, attr), type_sort)
-            accessors.append(accessor)
-
-        type_sort.declare("class_{}".format(cls), *accessors)
+            attribute = Const("class_{}_attr_{}".format(cls, attr), type_sort)
+            Attributes[cls][attr] = attribute
 
 
 def get_tuples(type_sort, max_tuple_length):
@@ -159,43 +165,14 @@ def invert_dict(d):
 def classes_subtype_axioms(classes, classes_to_attrs, sub_to_base):
     """Add the axioms for the classes subtyping"""
     axioms = []
-    base_to_sub = invert_dict(sub_to_base)
-    x = Const("x", type_sort)
-    y = Const("x", type_sort)
     for cls in classes:
-        sub_quant_consts = [Const("sub_q_{}".format(x), type_sort) for x in range(len(classes_to_attrs[cls]))]
-        sub_inst = classes[cls](sub_quant_consts)
-
         base_name = sub_to_base[cls]
         if base_name == "object":
-            axioms.append(
-                ForAll(sub_quant_consts, extends(sub_inst, type_sort.object), patterns=[sub_inst])
-            )
+            axioms.append(extends(classes[cls], type_sort.object))
             continue
 
         base = classes[base_name]
-        base_quant_consts = [Const("base_q_{}".format(x), type_sort) for x in range(len(classes_to_attrs[base_name]))]
-
-        base_inst = base(base_quant_consts)
-        axioms.append(
-            ForAll(sub_quant_consts + base_quant_consts,
-                   extends(sub_inst, base_inst))
-        )
-
-    for cls in classes:
-        x = Const("x", type_sort)
-        quant_consts = [Const("sub_q_{}".format(x), type_sort) for x in range(len(classes_to_attrs[cls]))]
-        inst = classes[cls](quant_consts)
-        if cls not in base_to_sub:
-            axioms.append(ForAll([x] + quant_consts, Implies(subtype(x, inst), x == inst)))
-        else:
-            sub_name = base_to_sub[cls]
-            sub_quant_consts = [Const("sub_q_{}".format(x), type_sort) for x in range(len(classes_to_attrs[sub_name]))]
-            sub_inst = classes[sub_name](sub_quant_consts)
-            axioms.append(ForAll([x] + quant_consts + sub_quant_consts,
-                                 Implies(subtype(x, inst),
-                                         Or(x == inst,
-                                            x == sub_inst))))
+        axioms.append(extends(classes[cls], base))
 
     return axioms
 
@@ -213,6 +190,7 @@ solver = None
 x = y = z = None
 Type = None
 All_types = {}
+Attributes = {}
 
 
 def init_types(config):

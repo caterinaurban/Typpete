@@ -302,20 +302,17 @@ def _infer_class_def(node, context):
     for stmt in node.body:
         infer(stmt, class_context)
 
-    class_attrs = [z3_types.Const("class_{}_attr_{}".format(node.name, i), z3_types.type_sort)
-                   for i in range(len(class_context.types_map))]
-
-    instance_type = z3_types.Classes[node.name](class_attrs)
+    class_attrs = z3_types.Attributes[node.name]
+    instance_type = z3_types.Classes[node.name]
 
     for attr in class_context.types_map:
-        accessor = getattr(z3_types.type_sort, "class_{}_attr_{}".format(node.name, attr))
-        z3_types.solver.add(accessor(instance_type) == class_context.types_map[attr],
+        z3_types.solver.add(class_attrs[attr] == class_context.types_map[attr],
                             fail_message="Class attribute in {}".format(node.lineno))
 
     class_type = z3_types.Type(instance_type)
 
     result_type = z3_types.new_z3_const("class_type")
-    
+
     z3_types.solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
     z3_types.All_types[node.name] = result_type
 
