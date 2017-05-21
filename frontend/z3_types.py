@@ -78,50 +78,52 @@ def get_funcs(type_sort, max_function_args):
     return funcs
 
 
+# noinspection PyCallingNonCallable
 def tuples_subtype_axioms(tuples, type_sort):
     """Add the axioms for the tuples subtyping"""
 
     # Initialize constants to be used in the ForAll quantifier
     # Each tuple needs a number of quantifiers equal to its length
     # With n tuples, from zero-length to (n - 1) length tuples, we need at most n - 1 quantifiers.
-    quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(tuples) - 1)]
-    axioms = []
+    quantifiers_consts = [Const("tuples_q_{}".format(i), type_sort) for i in range(len(tuples) - 1)]
+    tuples_axioms = []
     x = Const("x", type_sort)
     for i in range(len(tuples)):
         # Tuple tuples[i] will have length i
         if i == 0:
             # Zero length tuple: An expression not a call.
-            axioms.append(extends(tuples[i], type_sort.tuple))
-            axioms.append(ForAll(x, Implies(subtype(x, tuples[i]), x == tuples[i])))
+            tuples_axioms.append(extends(tuples[i], type_sort.tuple))
+            tuples_axioms.append(ForAll(x, Implies(subtype(x, tuples[i]), x == tuples[i])))
         else:
             # Tuple tuples[i] uses exactly i constants
             consts = quantifiers_consts[:i]
             inst = tuples[i](consts)
-            axioms.append(
+            tuples_axioms.append(
                 ForAll(consts, extends(inst, type_sort.tuple), patterns=[inst])
             )
-            axioms.append(ForAll([x] + consts, Implies(subtype(x, inst), x == inst)))
-    return axioms
+            tuples_axioms.append(ForAll([x] + consts, Implies(subtype(x, inst), x == inst)))
+    return tuples_axioms
 
 
+# noinspection PyCallingNonCallable
 def functions_subtype_axioms(funcs, type_sort):
     """Add the axioms for the functions subtyping"""
 
     # Initialize constants to be used in the ForAll quantifier
     # Each function needs a number of quantifiers equal to its args length + 1 (for the return type).
     # With n functions, from zero-length to (n - 1) length arguments, we need at most n quantifiers.
-    quantifiers_consts = [Const("funcs_q_{}".format(x), type_sort) for x in range(len(funcs))]
-    axioms = []
+    quantifiers_consts = [Const("funcs_q_{}".format(i), type_sort) for i in range(len(funcs))]
+    functions_axioms = []
     x = Const("x", type_sort)
     for i in range(len(funcs)):
         # function funcs[i] will have i arguments and 1 return type, so  it uses i + 1 constants
         consts = quantifiers_consts[:i + 1]
         inst = funcs[i](consts)
-        axioms.append(
+        functions_axioms.append(
             ForAll(consts, extends(inst, type_sort.func), patterns=[inst])
         )
-        axioms.append(ForAll([x] + consts, Implies(subtype(x, inst), x == inst)))
-    return axioms
+        functions_axioms.append(ForAll([x] + consts, Implies(subtype(x, inst), x == inst)))
+    return functions_axioms
 
 type_sort = None
 Object = zNone = Num = Complex = Float = Int = Bool = Seq = String = Bytes = None
@@ -132,7 +134,7 @@ Tuple = Tuples = None
 Func = Funcs = None
 subtype = extends = stronger_num = None
 subtype_properties = generics_axioms = num_strength_properties = axioms = None
-solver = None
+type_solver = None
 x = y = z = None
 
 
@@ -151,7 +153,7 @@ def init_types(config):
     global Func, Funcs
     global subtype, extends, stronger_num
     global subtype_properties, generics_axioms, num_strength_properties, axioms
-    global solver
+    global type_solver
     global x, y, z
 
     type_sort = declare_type_sort(max_tuple_length, max_function_args)
@@ -202,7 +204,8 @@ def init_types(config):
         ForAll([x, y], Implies(extends(x, y), subtype(x, y))),
         ForAll([x, y, z], Implies(And(subtype(x, y), subtype(y, z)), subtype(x, z))),  # transitivity
         ForAll([x, y], Implies(And(subtype(x, y), subtype(y, x)), x == y)),
-        ForAll([x, y, z], Implies(And(extends(x, z), extends(y, z), x != y), And(not_subtype(x, y), not_subtype(y, x)))),
+        ForAll([x, y, z], Implies(And(extends(x, z), extends(y, z), x != y),
+                                  And(not_subtype(x, y), not_subtype(y, x)))),
         ForAll([x, y, z], Implies(And(subtype(x, y), not_subtype(y, z)), Not(subtype(x, z)))),
     ]
 
@@ -246,7 +249,7 @@ def init_types(config):
         stronger_num(Num, Complex)
         ] + tuples_subtype_axioms(Tuples, type_sort) + functions_subtype_axioms(Funcs, type_sort)
 
-    solver = TypesSolver()
+    type_solver = TypesSolver()
 
 # Unique id given to newly created Z3 consts
 _element_id = 0
@@ -285,4 +288,3 @@ class TypesSolver(Solver):
         assertions.append(assertion)
         assertions_errors[assertion] = fail_message
         super().add(Implies(assertion, And(*args)))
-

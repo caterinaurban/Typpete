@@ -29,6 +29,7 @@ import sys
 from frontend.context import Context
 
 
+# noinspection PyUnresolvedReferences
 def _infer_assignment_target(target, context, value_type, lineno):
     """Infer the type of a target in an assignment
 
@@ -48,26 +49,26 @@ def _infer_assignment_target(target, context, value_type, lineno):
     """
     if isinstance(target, ast.Name):
         if context.has_variable(target.id):
-            z3_types.solver.add(axioms.assignment(context.get_type(target.id), value_type),
-                                fail_message="Assignment in line {}".format(lineno))
+            z3_types.type_solver.add(axioms.assignment(context.get_type(target.id), value_type),
+                                     fail_message="Assignment in line {}".format(lineno))
         else:
             assignment_target_type = z3_types.new_z3_const("assign")
-            z3_types.solver.add(axioms.assignment(assignment_target_type, value_type),
-                                fail_message="Assignment in line {}".format(lineno))
+            z3_types.type_solver.add(axioms.assignment(assignment_target_type, value_type),
+                                     fail_message="Assignment in line {}".format(lineno))
             context.set_type(target.id, assignment_target_type)
     elif isinstance(target, (ast.Tuple, ast.List)):
         for i in range(len(target.elts)):
             target_type = z3_types.new_z3_const("elt_type")
-            z3_types.solver.add(axioms.assignment_target(target_type, value_type, i),
-                                fail_message="Multiple assignmentin line {}".format(lineno))
+            z3_types.type_solver.add(axioms.assignment_target(target_type, value_type, i),
+                                     fail_message="Multiple assignmentin line {}".format(lineno))
             _infer_assignment_target(target.elts[i], context, target_type, lineno)
 
     elif isinstance(target, ast.Subscript):
         indexed_type = expr.infer(target.value, context)
         if isinstance(target.slice, ast.Index):
             index_type = expr.infer(target.slice.value, context)
-            z3_types.solver.add(axioms.index_assignment(indexed_type, index_type, value_type),
-                                fail_message="Subscript assignment in line {}".format(lineno))
+            z3_types.type_solver.add(axioms.index_assignment(indexed_type, index_type, value_type),
+                                     fail_message="Subscript assignment in line {}".format(lineno))
         else:  # Slice assignment
             lower_type = upper_type = step_type = z3_types.Int
             if target.slice.lower:
@@ -76,8 +77,10 @@ def _infer_assignment_target(target, context, value_type, lineno):
                 upper_type = expr.infer(target.slice.upper, context)
             if target.slice.step:
                 step_type = expr.infer(target.slice.step, context)
-            z3_types.solver.add(axioms.slice_assignment(lower_type, upper_type, step_type, indexed_type, value_type),
-                                fail_message="Slice assignment in line {}".format(lineno))
+            z3_types.type_solver.add(
+                axioms.slice_assignment(lower_type, upper_type, step_type, indexed_type, value_type),
+                fail_message="Slice assignment in line {}".format(lineno)
+            )
     else:
         raise TypeError("The inference for {} assignment is not supported.".format(type(target).__name__))
 
@@ -105,14 +108,14 @@ def _infer_augmented_assign(node, context):
     result_type = expr.binary_operation_type(target_type, node.op, value_type, node.lineno)
 
     if isinstance(node.target, ast.Name):
-        z3_types.solver.add(axioms.assignment(target_type, result_type),
-                            fail_message="Augmented assignment in line {}".format(node.lineno))
+        z3_types.type_solver.add(axioms.assignment(target_type, result_type),
+                                 fail_message="Augmented assignment in line {}".format(node.lineno))
     elif isinstance(node.target, ast.Subscript):
         indexed_type = expr.infer(node.target.value, context)
         if isinstance(node.target.slice, ast.Index):
             index_type = expr.infer(node.target.slice.value, context)
-            z3_types.solver.add(axioms.index_assignment(indexed_type, index_type, result_type),
-                                fail_message="Subscript augmented assignment in line {}".format(node.lineno))
+            z3_types.type_solver.add(axioms.index_assignment(indexed_type, index_type, result_type),
+                                     fail_message="Subscript augmented assignment in line {}".format(node.lineno))
         else:
             lower_type = upper_type = step_type = z3_types.Int
             if node.target.slice.lower:
@@ -121,8 +124,10 @@ def _infer_augmented_assign(node, context):
                 upper_type = expr.infer(node.target.slice.upper, context)
             if node.target.slice.step:
                 step_type = expr.infer(node.target.slice.step, context)
-            z3_types.solver.add(axioms.slice_assignment(lower_type, upper_type, step_type, indexed_type, result_type),
-                                fail_message="Slice augmented assignment in line {}".format(node.lineno))
+            z3_types.type_solver.add(
+                axioms.slice_assignment(lower_type, upper_type, step_type, indexed_type, result_type),
+                fail_message="Slice augmented assignment in line {}".format(node.lineno)
+            )
 
     elif isinstance(node.target, ast.Attribute):
         # TODO: Implement after classes inference
@@ -130,6 +135,7 @@ def _infer_augmented_assign(node, context):
     return z3_types.zNone
 
 
+# noinspection PyUnresolvedReferences
 def _delete_element(target, context, lineno):
     """Remove (if needed) a target from the context
 
@@ -148,8 +154,8 @@ def _delete_element(target, context, lineno):
     elif isinstance(target, ast.Subscript):
         expr.infer(target, context)
         indexed_type = expr.infer(target.value, context)
-        z3_types.solver.add(axioms.delete_subscript(indexed_type),
-                            fail_message="Deletion in line {}".format(lineno))
+        z3_types.type_solver.add(axioms.delete_subscript(indexed_type),
+                                 fail_message="Deletion in line {}".format(lineno))
 
 
 def _infer_delete(node, context):
@@ -164,20 +170,20 @@ def _infer_body(body, context, lineno):
     """Infer the type of a code block containing multiple statements"""
     body_type = z3_types.new_z3_const("body")
     if len(body) == 0:
-        z3_types.solver.add(body_type == z3_types.zNone,
-                            fail_message="Body type in line {}".format(lineno))
+        z3_types.type_solver.add(body_type == z3_types.zNone,
+                                 fail_message="Body type in line {}".format(lineno))
         return body_type
     stmts_types = []
     for stmt in body:
         stmt_type = infer(stmt, context)
         stmts_types.append(stmt_type)
-        z3_types.solver.add(axioms.body(body_type, stmt_type),
-                            fail_message="Body type in line {}".format(lineno))
+        z3_types.type_solver.add(axioms.body(body_type, stmt_type),
+                                 fail_message="Body type in line {}".format(lineno))
 
     # The body type should be none if all statements have none type.
-    z3_types.solver.add(z3_types.Implies(z3_types.And([x == z3_types.zNone for x in stmts_types]),
-                                         body_type == z3_types.zNone),
-                        fail_message="Body type in line {}".format(lineno))
+    z3_types.type_solver.add(z3_types.Implies(z3_types.And([x == z3_types.zNone for x in stmts_types]),
+                                              body_type == z3_types.zNone),
+                             fail_message="Body type in line {}".format(lineno))
 
     return body_type
 
@@ -206,8 +212,8 @@ def _infer_control_flow(node, context):
 
     result_type = z3_types.new_z3_const("control_flow")
 
-    z3_types.solver.add(axioms.control_flow(body_type, else_type, result_type),
-                        fail_message="Control flow in line {}".format(node.lineno))
+    z3_types.type_solver.add(axioms.control_flow(body_type, else_type, result_type),
+                             fail_message="Control flow in line {}".format(node.lineno))
 
     return result_type
 
@@ -229,8 +235,8 @@ def _infer_for(node, context):
     # - Tuple. Ex: for (a,b) in [(1,"st"), (3,"st2")]..
     # - List. Ex: for [a,b] in [(1, "st"), (3, "st2")]..
     target_type = z3_types.new_z3_const("for_target")
-    z3_types.solver.add(axioms.for_loop(iter_type, target_type),
-                        fail_message="For loop in line {}".format(node.lineno))
+    z3_types.type_solver.add(axioms.for_loop(iter_type, target_type),
+                             fail_message="For loop in line {}".format(node.lineno))
 
     _infer_assignment_target(node.target, context, target_type, node.lineno)
 
@@ -255,15 +261,15 @@ def _infer_try(node, context):
     else_type = _infer_body(node.orelse, context, node.lineno)
     final_type = _infer_body(node.finalbody, context, node.lineno)
 
-    z3_types.solver.add(axioms.try_except(body_type, else_type, final_type, result_type),
-                        fail_message="Try/Except block in line {}".format(node.lineno))
+    z3_types.type_solver.add(axioms.try_except(body_type, else_type, final_type, result_type),
+                             fail_message="Try/Except block in line {}".format(node.lineno))
 
     # TODO: Infer exception handlers as classes
 
     for handler in node.handlers:
         handler_body_type = _infer_body(handler.body, context, handler.lineno)
-        z3_types.solver.add(z3_types.subtype(handler_body_type, result_type),
-                            fail_message="Exception handler in line {}".format(handler.lineno))
+        z3_types.type_solver.add(z3_types.subtype(handler_body_type, result_type),
+                                 fail_message="Exception handler in line {}".format(handler.lineno))
 
     return result_type
 
@@ -290,8 +296,8 @@ def _infer_func_def(node, context):
 
     func_type = z3_types.Funcs[len(args_types)](args_types + (return_type,))
     result_type = z3_types.new_z3_const("func")
-    z3_types.solver.add(result_type == func_type,
-                        fail_message="Function definition in line {}".format(node.lineno))
+    z3_types.type_solver.add(result_type == func_type,
+                             fail_message="Function definition in line {}".format(node.lineno))
 
     context.set_type(node.name, result_type)
 

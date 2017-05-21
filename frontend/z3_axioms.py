@@ -74,22 +74,22 @@ def if_expr(a, b, result):
     ]
 
 
-def index(indexed, index, result):
+def index(indexed, idx, result):
     t = []
-    quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(Tuples) - 1)]
+    quantifiers_consts = [Const("tuples_q_{}".format(i), type_sort) for i in range(len(Tuples) - 1)]
     for cur_len in range(1, len(Tuples)):
         quants = quantifiers_consts[:cur_len]
         t.append(Exists(quants, And(
             indexed == Tuples[cur_len](*quants),
-            *[subtype(x, result) for x in quants]
+            *[subtype(i, result) for i in quants]
         ), patterns=[Tuples[cur_len](*quants)]))
 
     return [
         Or(
-            [indexed == Dict(index, result),
-             And(subtype(index, Int), indexed == List(result)),
-             And(subtype(index, Int), indexed == String, result == String),
-             And(subtype(index, Int), indexed == Bytes, result == Bytes)]
+            [indexed == Dict(idx, result),
+             And(subtype(idx, Int), indexed == List(result)),
+             And(subtype(idx, Int), indexed == String, result == String),
+             And(subtype(idx, Int), indexed == Bytes, result == Bytes)]
             + t
         )
     ]
@@ -125,7 +125,7 @@ def assignment(target, value):
 def assignment_target(target, value, position):
     lst = [value == List(target)]
     t = []
-    quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(Tuples) - 2)]
+    quantifiers_consts = [Const("tuples_q_{}".format(i), type_sort) for i in range(len(Tuples) - 2)]
     for cur_len in range(position + 1, len(Tuples)):
         before_target = quantifiers_consts[:position]
         after_target = quantifiers_consts[position:cur_len - 1]
@@ -140,11 +140,11 @@ def assignment_target(target, value, position):
     return [Or(lst + t)]
 
 
-def index_assignment(indexed, index, value):
+def index_assignment(indexed, idx, value):
     return [
         Or(
-            indexed == Dict(index, value),
-            And(subtype(index, Int), indexed == List(value))
+            indexed == Dict(idx, value),
+            And(subtype(idx, Int), indexed == List(value))
         )
     ]
 

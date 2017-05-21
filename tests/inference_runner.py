@@ -18,15 +18,15 @@ context = Context()
 for stmt in t.body:
     infer(stmt, context)
 
-z3_types.solver.push()
-check = z3_types.solver.check(z3_types.assertions)
+z3_types.type_solver.push()
+check = z3_types.type_solver.check(z3_types.assertions)
 
 try:
-    model = z3_types.solver.model()
+    model = z3_types.type_solver.model()
     for v in context.types_map:
         z3_t = context.types_map[v]
         print("{}: {}".format(v, model[z3_t]))
 except z3_types.z3types.Z3Exception as e:
     print("Check: {}".format(check))
     if check == z3_types.unsat:
-        print([z3_types.assertions_errors[x] for x in z3_types.solver.unsat_core()])
+        print([z3_types.assertions_errors[x] for x in z3_types.type_solver.unsat_core()])
