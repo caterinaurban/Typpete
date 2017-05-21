@@ -80,7 +80,7 @@ class LooseControlFlowGraph:
         return self._cfg.in_node
 
     @in_node.setter
-    def in_node(self, node) -> Node:
+    def in_node(self, node):
         self._cfg._in_node = node
 
     @property
@@ -88,7 +88,7 @@ class LooseControlFlowGraph:
         return self._cfg.out_node
 
     @out_node.setter
-    def out_node(self, node) -> Node:
+    def out_node(self, node):
         self._cfg._out_node = node
 
     @property
@@ -366,7 +366,7 @@ class CfgVisitor(ast.NodeVisitor):
 
         cfg.add_edge(Conditional(header_node, test, body_in_node, Edge.Kind.LOOP_IN))
         cfg.add_edge(Conditional(header_node, neg_test, None))
-        if body_out_node: # if control flow can exit the body at all, add an unconditional LOOP_OUT edge
+        if body_out_node:   # if control flow can exit the body at all, add an unconditional LOOP_OUT edge
             cfg.add_edge(Unconditional(body_out_node, header_node, Edge.Kind.LOOP_OUT))
 
         if node.orelse:  # if there is else branch
@@ -384,7 +384,7 @@ class CfgVisitor(ast.NodeVisitor):
 
         return cfg
 
-    def visit_Break(self, node):
+    def visit_Break(self, _):
         dummy = self._dummy()
         cfg = LooseControlFlowGraph({dummy}, dummy, None)
         # the type of the special edge is not yet known, may be also an IF_OUT first, before LOOP_OUT
@@ -394,7 +394,7 @@ class CfgVisitor(ast.NodeVisitor):
         )
         return cfg
 
-    def visit_Continue(self, node):
+    def visit_Continue(self, _):
         dummy = self._dummy()
         cfg = LooseControlFlowGraph({dummy}, dummy, None)
         # the type of the special edge is not yet known, may be also an IF_OUT first, before LOOP_OUT

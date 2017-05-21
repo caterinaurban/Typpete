@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from typing import List, TypeVar, Generic, Type
 
 from abstract_domains.lattice import Lattice
@@ -67,7 +67,7 @@ class StoreLattice(Lattice, Generic[L]):
         return self._join(other)
 
 
-class StackLattice(Lattice, ABC):
+class StackLattice(Lattice, Generic[L], metaclass=ABCMeta):
     """A generic lattice that represents a stack of elements of some other lattice L."""
 
     def __init__(self, element_lattice: Type[L], args_dict):

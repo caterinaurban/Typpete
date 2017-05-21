@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from enum import Enum
 from typing import Set
 
@@ -8,7 +8,7 @@ https://docs.python.org/3.4/reference/expressions.html
 """
 
 
-class Expression(ABC):
+class Expression(metaclass=ABCMeta):
     def __init__(self, typ):
         """Expression representation.
         https://docs.python.org/3.4/reference/expressions.html

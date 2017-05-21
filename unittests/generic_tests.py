@@ -12,6 +12,7 @@ from frontend.cfg_generator import ast_to_cfg
 from visualization.graph_renderer import CfgRenderer, AnalysisResultRenderer
 import logging
 
+
 def source_path_to_name(source_path):
     return os.path.splitext(os.path.basename(source_path))[0]
 

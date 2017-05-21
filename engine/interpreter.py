@@ -1,11 +1,11 @@
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from abstract_domains.state import State
 from core.cfg import ControlFlowGraph
 from engine.result import AnalysisResult
 from semantics.semantics import Semantics
 
 
-class Interpreter(ABC):
+class Interpreter(metaclass=ABCMeta):
     def __init__(self, cfg: ControlFlowGraph, semantics: Semantics, widening: int):
         """Analysis runner.
         

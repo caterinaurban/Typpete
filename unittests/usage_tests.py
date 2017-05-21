@@ -11,6 +11,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO, filename='unittests.log', filemode='w')
 
+
 class UsageTestCase(ResultCommentsFileTestCase):
     def __init__(self, source_path):
         super().__init__(source_path)
