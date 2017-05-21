@@ -1,7 +1,8 @@
 from abstract_domains.lattice import BaseLattice
 
-from abstract_domains.usage.used import U, S, O, N, UsedLattice
+from abstract_domains.usage.used import U, S, O, N, UsedLattice, Used
 from collections import OrderedDict
+from math import inf
 
 
 class UsedListStartLattice(BaseLattice):
@@ -13,23 +14,21 @@ class UsedListStartLattice(BaseLattice):
         :param used: initial lattice element
         """
         super().__init__()
-        self._suo = OrderedDict(
-            [
-                (S, s),
-                (U, u),
-                (O, o)
-            ]
-        )
+        self._suo = OrderedDict([
+            (S, s),
+            (U, u),
+            (O, o)
+        ])
 
     @property
     def suo(self):
         return self._suo
 
     def used_at(self, index):
-        """Finds Used-element at specified index.
+        """Finds usage at specified index.
         
         Does a linear search through the 3-entry suo dict
-        to find the entry that is determining the element at index.
+        to find the entry that is determining the element usage at index.
         """
         assert self.closed
         if index < self.suo[U]:
@@ -41,50 +40,61 @@ class UsedListStartLattice(BaseLattice):
         else:
             return N
 
+    def set_used_at(self, index, used: Used = U):
+        """Set usage at specified index.
+        """
+        assert self.closed
+        self.suo[U] = max(self.suo[U], index)
+        self.closure()
+
     def __repr__(self):
-        return repr(self.suo)
+        non_zero_uppers = []
+        for el in [U, S, O]:
+            if self.suo[el]:
+                non_zero_uppers.append(f"{el.name}@0:{self.suo[el]}")
+        return f"({', '.join(non_zero_uppers)})"
 
     def default(self):
-        self._suo = OrderedDict(
+        self._suo = OrderedDict([
             (S, 0),
             (U, 0),
             (O, 0)
-        )
+        ])
         return self
 
     def bottom(self):
-        self._suo = OrderedDict(
+        self._suo = OrderedDict([
             (S, 0),
             (U, 0),
             (O, 0)
-        )
+        ])
         return self
 
     def top(self):
-        self._suo = OrderedDict(
+        self._suo = OrderedDict([
             (S, 0),
             (U, 0),
             (O, 0)
-        )
+        ])
         return self
 
     def is_bottom(self) -> bool:
-        return all(slice.is_bottom() for slice in self.suo.values())
+        return all(upper == 0 for upper in self.suo.values())
 
     def is_top(self) -> bool:
-        return all(slice.is_top() for slice in self.suo.values())
+        return all(upper == inf for upper in self.suo.values())
 
     def _less_equal(self, other: 'UsedListStartLattice') -> bool:
-        return all(s1.less_equal(s2) for s1, s2 in zip(self.suo.values(), other.suo.values()))
+        return all(s1 <= s2 for s1, s2 in zip(self.suo.values(), other.suo.values()))
 
     def _meet(self, other: 'UsedListStartLattice'):
-        for s1, s2 in zip(self.suo.values(), other.suo.values()):
-            s1.meet(s2)
+        for u in [S, U, O]:
+            self.suo[u] = min(self.suo[u], other.suo[u])
         return self
 
     def _join(self, other: 'UsedListStartLattice') -> 'UsedListStartLattice':
-        for s1, s2 in zip(self.suo.values(), other.suo.values()):
-            s1.join(s2)
+        for u in [S, U, O]:
+            self.suo[u] = max(self.suo[u], other.suo[u])
         return self
 
     def _widening(self, other: 'UsedListStartLattice'):
@@ -108,6 +118,17 @@ class UsedListStartLattice(BaseLattice):
 
         assert self.closed
         return self
+
+    def change_S_to_U(self):
+        """Change previously S-annotated (used in outer scope) to U-annotated (definitely used)"""
+        self.suo[U] = max(self.suo[U], self.suo[S])
+        self.suo[S] = 0
+
+    def change_SU_to_O(self):
+        """Change previously U/S-annotated to O-annotated"""
+        self.suo[O] = max(self.suo[U], self.suo[S])
+        self.suo[U] = 0
+        self.suo[S] = 0
 
     def descend(self) -> 'UsedListStartLattice':
         assert self.closed

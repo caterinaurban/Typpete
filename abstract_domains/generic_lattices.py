@@ -1,23 +1,22 @@
 from abc import ABC, abstractmethod
-from typing import List, TypeVar, Generic, Type
+from typing import List, TypeVar, Generic, Type, Dict
 
-from abstract_domains.lattice import Lattice
+from abstract_domains.lattice import Lattice, BaseLattice
 from core.expressions import VariableIdentifier
 
-L = TypeVar('L')
 
-
-class StoreLattice(Lattice, Generic[L]):
+class StoreLattice(Lattice):
     """A generic lattice that represents a mapping Var -> L for some other lattice L."""
 
-    def __init__(self, variables: List[VariableIdentifier], element_lattice: Type[L]):
+    def __init__(self, variables: List[VariableIdentifier], type_to_lattice: Dict[Type, BaseLattice]):
         """Create a store lattice that represents a mapping Var -> L for some other lattice L.
 
         :param variables: list of program variables
         :param element_lattice: type of lattice elements L
         """
+
         self._variables_list = variables
-        self._element_lattice = element_lattice
+        self._type_to_lattice = type_to_lattice
         self._variables = None
         super().__init__()
 
@@ -31,17 +30,18 @@ class StoreLattice(Lattice, Generic[L]):
 
     # noinspection PyCallingNonCallable
     def default(self):
-        self._variables = {variable: self._element_lattice().default() for variable in self._variables_list}
+        self._variables = {variable: self._type_to_lattice[variable.typ]().default() for variable in
+                           self._variables_list}
         return self
 
     # noinspection PyCallingNonCallable
-    def bottom(self) -> 'StoreLattice[L]':
-        self._variables = {variable: self._element_lattice().bottom() for variable in self._variables}
+    def bottom(self) -> 'StoreLattice':
+        self._variables = {variable: self._type_to_lattice[variable.typ]().bottom() for variable in self._variables}
         return self
 
     # noinspection PyCallingNonCallable
-    def top(self) -> 'StoreLattice[L]':
-        self._variables = {variable: self._element_lattice().top() for variable in self._variables}
+    def top(self) -> 'StoreLattice':
+        self._variables = {variable: self._type_to_lattice[variable.typ]().top() for variable in self._variables}
         return self
 
     def is_bottom(self) -> bool:
@@ -50,21 +50,24 @@ class StoreLattice(Lattice, Generic[L]):
     def is_top(self) -> bool:
         return all(element.is_top() for element in self.variables.values())
 
-    def _less_equal(self, other: 'StoreLattice[L]') -> bool:
+    def _less_equal(self, other: 'StoreLattice') -> bool:
         return all(self.variables[var].less_equal(other.variables[var]) for var in self.variables)
 
-    def _meet(self, other: 'StoreLattice[L]'):
+    def _meet(self, other: 'StoreLattice'):
         for var in self.variables:
             self.variables[var].meet(other.variables[var])
         return self
 
-    def _join(self, other: 'StoreLattice[L]') -> 'StoreLattice[L]':
+    def _join(self, other: 'StoreLattice') -> 'StoreLattice':
         for var in self.variables:
             self.variables[var].join(other.variables[var])
         return self
 
-    def _widening(self, other: 'StoreLattice[L]'):
+    def _widening(self, other: 'StoreLattice'):
         return self._join(other)
+
+
+L = TypeVar('L')
 
 
 class StackLattice(Lattice, ABC):

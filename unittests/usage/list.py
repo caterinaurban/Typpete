@@ -1,11 +1,12 @@
-l = [1, 1, 2, 3, 5, 8]
+x = 5
+y = 0
+# RESULT: list1 -> (O@0:4), sum -> O, x -> U, y -> N
+list1 = [1, x, 2, 3, 5, 8, y]
 sum = 0
-sum += l[0]
-sum += l[1]
-sum += l[2]
-sum += l[3]
-sum += l[4]
-print(l[1:3])
-# for e in l:
-#     sum = sum + e
+# some random accesses to list
+sum += list1[2]
+sum += list1[1]
+sum += list1[4]
+sum += list1[3]
+sum += list1[0]
 print(sum)

@@ -77,8 +77,8 @@ class ListSemantics(Semantics):
         :param state: state before executing the variable access
         :return: state modified by the variable access
         """
-        item_sets = [self.semantics(item, state).result for item in stmt.items]
-        products = itertools.product(item_sets)
+        item_sets = [list(self.semantics(item, state).result) for item in stmt.items]
+        products = itertools.product(*item_sets)
         # TODO infer type??
         result = {ListDisplay(None, list(p)) for p in products}
 
@@ -107,10 +107,10 @@ class ListSemantics(Semantics):
         else:
             uppers = {None}
 
-        products = itertools.product(targets, lowers, steps, targets)
+        products = itertools.product(targets, lowers, steps, uppers)
 
         # TODO infer type of Slice??
-        result = set(Slice(None, target, lower, step, upper) for target, lower, step, upper in products)
+        result = {Slice(None, target, lower, step, upper) for target, lower, step, upper in products}
 
         state.result = result
         return state
@@ -129,7 +129,7 @@ class ListSemantics(Semantics):
         products = itertools.product(targets, indices)
 
         # TODO infer type of Slice??
-        result = set(Index(None, target, index) for target, index in products)
+        result = {Index(None, target, index) for target, index in products}
 
         state.result = result
         return state

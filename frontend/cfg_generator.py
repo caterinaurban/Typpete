@@ -300,7 +300,9 @@ class CfgVisitor(ast.NodeVisitor):
 
     def visit_Name(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
-        v = self._ensure_stmt(pp, VariableIdentifier(int, node.id))
+        # TODO remove this name hack when type inferences work
+        typ = list if node.id.startswith("list") else int
+        v = self._ensure_stmt(pp, VariableIdentifier(typ, node.id))
         return v
 
     def visit_Assign(self, node):
