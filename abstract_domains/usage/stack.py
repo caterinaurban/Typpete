@@ -32,10 +32,14 @@ class UsedStack(StackLattice, State):
     #     return "[{}]\n{}".format(result, stack)
 
     def push(self):
+        if self.is_bottom():
+            return self
         self.stack.append(deepcopy(self.stack[-1]).descend())
         return self
 
     def pop(self):
+        if self.is_bottom():
+            return self
         popped = self.stack.pop()
         self.stack[-1].combine(popped)
         return self
@@ -56,16 +60,20 @@ class UsedStack(StackLattice, State):
         return {literal}
 
     def enter_loop(self):
-        raise NotImplementedError("UsedStack does not support enter_loop")
+        return self.enter_if()
 
     def exit_loop(self):
-        raise NotImplementedError("UsedStack does not support exit_loop")
+        return self.exit_if()
 
     def enter_if(self):
+        if self.is_bottom():
+            return self
         self.push()
         return self
 
     def exit_if(self):
+        if self.is_bottom():
+            return self
         self.pop()
         return self
 

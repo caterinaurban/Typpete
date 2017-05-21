@@ -10,7 +10,7 @@ import sys
 
 from frontend.cfg_generator import ast_to_cfg
 from visualization.graph_renderer import CfgRenderer, AnalysisResultRenderer
-
+import logging
 
 def source_path_to_name(source_path):
     return os.path.splitext(os.path.basename(source_path))[0]
@@ -80,11 +80,13 @@ class ResultCommentsFileTestCase(FileTestCase):
         """
 
     def check_result_comments(self, result):
-        for line, expected_result in self._find_result_comments():
+        result_comments = list(self._find_result_comments())
+        for line, expected_result in result_comments:
             actual_result = self._find_analysis_result_for_comments(result, line, expected_result)
             actual_result_str = str(actual_result)
             self.assertEqual(expected_result, actual_result_str,
                              f"expected != actual result at line {line}")
+        logging.info(f"\t{len(result_comments)} expected result(s) checked")
 
     def _find_result_comments(self):
         # Parse comments to find expected results

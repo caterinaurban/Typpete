@@ -82,7 +82,10 @@ class Literal(Expression):
         return hash((self.typ, self.val))
 
     def __str__(self):
-        return "{0.val}".format(self)
+        if issubclass(self.typ, str):
+            return f'"{self.val}"'
+        else:
+            return f'{self.val}'
 
     def ids(self) -> Set['Expression']:
         return set()
@@ -333,6 +336,28 @@ class BinaryArithmeticOperation(BinaryOperation):
         """Binary arithmetic operation expression representation.
         https://docs.python.org/3.4/reference/expressions.html#binary-arithmetic-operations
         
+        :param typ: type of the operation
+        :param left: left expression of the operation
+        :param operator: operator of the operation
+        :param right: right expression of the operation
+        """
+        super().__init__(typ, left, operator, right)
+
+
+class BinaryBooleanOperation(BinaryOperation):
+    class Operator(BinaryOperation.Operator):
+        """Binary arithmetic operator representation."""
+        And = 1
+        Or = 2
+        Xor = 3
+
+        def __str__(self):
+            return self.name.lower()
+
+    def __init__(self, typ, left: Expression, operator: Operator, right: Expression):
+        """Binary boolean operation expression representation.
+        https://docs.python.org/3.6/reference/expressions.html#boolean-operations
+
         :param typ: type of the operation
         :param left: left expression of the operation
         :param operator: operator of the operation
