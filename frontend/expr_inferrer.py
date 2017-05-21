@@ -254,7 +254,7 @@ def infer_subscript(node, context):
 
         result_type = z3_types.new_z3_const("slice")
 
-        z3_types.solver.add(axioms.slice(lower_type, upper_type, step_type, indexed_type, result_type),
+        z3_types.solver.add(axioms.slicing(lower_type, upper_type, step_type, indexed_type, result_type),
                             fail_message="Slicing in line {}".format(node.lineno))
         return result_type
 

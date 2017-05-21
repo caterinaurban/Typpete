@@ -35,7 +35,7 @@ def _infer_assignment_target(target, context, value_type, lineno):
     Attributes:
         target: the target whose type is to be inferred
         context: the current context level
-        value: the value assigned to the target
+        value_type: the type of the value assigned to the target
 
     Target cases:
         - Variable name. Ex: x = 1
@@ -102,7 +102,7 @@ def _infer_augmented_assign(node, context):
     """
     target_type = expr.infer(node.target, context)
     value_type = expr.infer(node.value, context)
-    result_type = expr.binary_operation_type(target_type, node.op, value_type)
+    result_type = expr.binary_operation_type(target_type, node.op, value_type, node.lineno)
 
     if isinstance(node.target, ast.Name):
         z3_types.solver.add(axioms.assignment(target_type, result_type),

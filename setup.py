@@ -16,4 +16,4 @@ config = {
     'name': 'Lyra'
 }
 
-setup(**config, install_requires=['z3'])
+setup(**config)

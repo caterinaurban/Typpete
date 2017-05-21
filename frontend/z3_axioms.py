@@ -1,5 +1,3 @@
-from builtins import NotImplementedError
-
 from frontend.z3_types import *
 
 
@@ -97,22 +95,22 @@ def index(indexed, index, result):
     ]
 
 
-def slice(lower, upper, step, sliced, result):
+def slicing(lower, upper, step, sliced, result):
     # TODO tuples
     return [
         And(subtype(lower, Int), subtype(upper, Int), subtype(step, Int), subtype(sliced, Seq), result == sliced)
     ]
 
 
-def generator(iter, target):
+def generator(iterable, target):
     # TODO tuples
     return [
         Or(
-            iter == List(target),
-            iter == Set(target),
-            And(iter == String, target == String),
-            And(iter == Bytes, target == Bytes),
-            Exists(x, iter == Dict(target, x), patterns=[Dict(target, x)])
+            iterable == List(target),
+            iterable == Set(target),
+            And(iterable == String, target == String),
+            And(iterable == Bytes, target == Bytes),
+            Exists(x, iterable == Dict(target, x), patterns=[Dict(target, x)])
         )
     ]
 

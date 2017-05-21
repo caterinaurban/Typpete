@@ -1,4 +1,5 @@
 a = 1 + 2 / 3
+a += 0
 b = -a
 c = [1.2, 2.0, b]
 d = [[1.1, 2.5], c]
@@ -14,3 +15,8 @@ condition = True
 q = [3] if condition else ["st"]
 r = [2.0] if condition else [1, 2]
 s = q + r
+t = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+u = 2
+v = 8
+w = t[u:v:u]
+x = w[u]
