@@ -180,7 +180,7 @@ class ListDisplayStmt(Statement):
         """List display statement representation.
 
         :param pp: program point associated with the list display
-        :param list_display_expr: list display expression being evaluated
+        :param items: list display items
         """
         super().__init__(pp)
         self._items = items

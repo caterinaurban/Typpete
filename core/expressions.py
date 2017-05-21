@@ -159,7 +159,7 @@ class ListDisplay(Expression):
         return str(self.items)
 
     def ids(self) -> Set['Expression']:
-        return reduce(lambda a, b: a.ids() | b.ids(), self.items, set())
+        return reduce(lambda a, b: a.ids() | b.ids(), self.items)
 
 
 """

@@ -136,7 +136,7 @@ class UsedListStartLattice(BaseLattice):
         lower = 0
         for upper, used in all_uppers:
             if upper - lower > 0:  # ignore zero-length subsequences
-                seq[UsedLattice._COMBINE[(self.used_at(lower), other.used_at(lower))]].append(upper)
+                seq[UsedLattice.COMBINE[(self.used_at(lower), other.used_at(lower))]].append(upper)
                 lower = upper
 
         # take maximal upper for every used element (over-approximation)

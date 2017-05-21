@@ -70,7 +70,7 @@ class ListSemantics(Semantics):
     """Semantics of list accesses."""
 
     # noinspection PyMethodMayBeStatic
-    def list_display_semantics(self, stmt: ListDisplayStmt, state: State) -> State:
+    def list_display_stmt_semantics(self, stmt: ListDisplayStmt, state: State) -> State:
         """Semantics of a list display statement.
 
         :param stmt :list display statement to be executed
