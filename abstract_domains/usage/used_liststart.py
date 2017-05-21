@@ -1,6 +1,5 @@
 from abstract_domains.lattice import BaseLattice
 
-from abstract_domains.usage.right_slice import RightSliceLattice
 from abstract_domains.usage.used import U, S, O, N, UsedLattice
 from collections import OrderedDict
 
@@ -16,9 +15,9 @@ class UsedListStartLattice(BaseLattice):
         super().__init__()
         self._suo = OrderedDict(
             [
-                (S, RightSliceLattice(s)),
-                (U, RightSliceLattice(u)),
-                (O, RightSliceLattice(o))
+                (S, s),
+                (U, u),
+                (O, o)
             ]
         )
 
@@ -32,7 +31,7 @@ class UsedListStartLattice(BaseLattice):
         Does a linear search through the 3-entry suo dict
         to find the entry that is determining the element at index.
         """
-        assert self.closed()
+        assert self.closed
         if index < self.suo[U]:
             return U
         elif index < self.suo[S]:
@@ -47,25 +46,25 @@ class UsedListStartLattice(BaseLattice):
 
     def default(self):
         self._suo = OrderedDict(
-            (S, RightSliceLattice()),
-            (U, RightSliceLattice()),
-            (O, RightSliceLattice())
+            (S, 0),
+            (U, 0),
+            (O, 0)
         )
         return self
 
     def bottom(self):
         self._suo = OrderedDict(
-            (S, RightSliceLattice().bottom()),
-            (U, RightSliceLattice().bottom()),
-            (O, RightSliceLattice().bottom())
+            (S, 0),
+            (U, 0),
+            (O, 0)
         )
         return self
 
     def top(self):
         self._suo = OrderedDict(
-            (S, RightSliceLattice().top()),
-            (U, RightSliceLattice().top()),
-            (O, RightSliceLattice().top())
+            (S, 0),
+            (U, 0),
+            (O, 0)
         )
         return self
 
@@ -93,7 +92,7 @@ class UsedListStartLattice(BaseLattice):
 
     @property
     def closed(self):
-        return not (self.suo[S] and self.suo[O]) \
+        return (self.suo[S] == 0 or self.suo[O] == 0) \
                and (not self.suo[U] >= self.suo[S] or self.suo[S] == 0) \
                and (not self.suo[U] >= self.suo[O] or self.suo[O] == 0)
 
@@ -101,13 +100,13 @@ class UsedListStartLattice(BaseLattice):
         suo = self.suo
         # check for each index individually if it has to be adjusted
         if suo[S] <= suo[O] or suo[S] <= suo[U]:
-            suo[S].index = 0
+            suo[S] = 0
         if suo[S] > 0 and suo[O] > 0:
             suo[U] = max(suo[S], suo[O])
         if suo[O] <= suo[S] or suo[O] <= suo[U]:
-            suo[O].index = 0
+            suo[O] = 0
 
-        assert self.closed()
+        assert self.closed
         return self
 
     def descend(self) -> 'UsedListStartLattice':
@@ -126,21 +125,21 @@ class UsedListStartLattice(BaseLattice):
 
         assert self.closed and other.closed
 
-        self_uppers = [(index, used) for used, index in self.suo.items()].sort()
-        other_uppers = [(index, used) for used, index in other.suo.items()].sort()
-        all_uppers = (self_uppers + other_uppers).sort()
+        all_uppers = [(index, used) for used, index in list(self.suo.items()) + list(other.suo.items())]
+        all_uppers.sort(key=lambda a: a[0])
 
         seq = {
-            S: [],
-            U: [],
-            O: []
+            S: [0],
+            U: [0],
+            O: [0]
         }
         lower = 0
-        for upper in all_uppers:
+        for upper, used in all_uppers:
             if upper - lower > 0:  # ignore zero-length subsequences
                 seq[UsedLattice._COMBINE[(self.used_at(lower), other.used_at(lower))]].append(upper)
+                lower = upper
 
-        # take maximal upper for every used type
+        # take maximal upper for every used element (over-approximation)
         self.suo[S] = max(seq[S])
         self.suo[U] = max(seq[U])
         self.suo[O] = max(seq[O])
