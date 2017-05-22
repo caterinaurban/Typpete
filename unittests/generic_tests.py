@@ -12,6 +12,7 @@ from frontend.cfg_generator import ast_to_cfg
 from visualization.graph_renderer import CfgRenderer, AnalysisResultRenderer
 import logging
 
+
 def source_path_to_name(source_path):
     return os.path.splitext(os.path.basename(source_path))[0]
 
@@ -116,7 +117,7 @@ class ResultCommentsFileTestCase(FileTestCase):
 
             # special treatment for expected result comments after last statement of a block but before any other
             # statement of succeeding (= larger start line number) block
-            if node.stmts and stmt.pp.line < line_of_comment < actual_result_line:
+            if node.stmts and node.stmts[-1].pp.line < line_of_comment < actual_result_line:
                 actual_result = states[-1]  # take last result in block as actual result
                 actual_result_line = line_of_comment
 

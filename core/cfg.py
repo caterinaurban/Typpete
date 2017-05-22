@@ -1,10 +1,10 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod, ABCMeta
 from core.statements import Statement
 from enum import Enum
 from typing import Dict, List, Set, Tuple, Generator, Union
 
 
-class Node(ABC):
+class Node(metaclass=ABCMeta):
     def __init__(self, identifier: int, stmts: List[Statement]):
         """Node of a control flow graph.
 
@@ -75,7 +75,7 @@ class Loop(Node):
         return str(self.identifier)
 
 
-class Edge(ABC):
+class Edge(metaclass=ABCMeta):
     class Kind(Enum):
         """Kind of an edge of a control flow graph."""
         IF_OUT = -2  # if exit edge

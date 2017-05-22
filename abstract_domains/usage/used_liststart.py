@@ -6,12 +6,19 @@ from math import inf
 
 
 class UsedListStartLattice(BaseLattice):
-    """Used variable analysis core abstract domain representation."""
+    """Used list start analysis abstract domain representation.
+    
+    This uses the Used lattice as base and uses it to store the usage of the start of list, each Used element covers 
+    a possibly empty sequence ``0:q``. Some additional consistency conditions hold for any element of this lattice 
+    that was previously closed by ``closure()``. 
+    """
 
-    def __init__(self, s=0, u=0, o=0):
-        """Used variable analysis core abstract domain representation.
+    def __init__(self, s: float = 0, u: float = 0, o: float = 0):
+        """Used list start analysis abstract domain representation.
         
-        :param used: initial lattice element
+        :param s: initial end of S-elements in list: should be a float in ``[0,1,2,..., inf]``
+        :param u: initial end of U-elements in list: should be a float in ``[0,1,2,..., inf]``
+        :param o: initial end of O-elements in list: should be a float in ``[0,1,2,..., inf]``
         """
         super().__init__()
         self._suo = OrderedDict([
@@ -40,11 +47,11 @@ class UsedListStartLattice(BaseLattice):
         else:
             return N
 
-    def set_used_at(self, index, used: Used = U):
+    def set_used_at(self, index, u: Used = U):
         """Set usage at specified index.
         """
         assert self.closed
-        self.suo[U] = max(self.suo[U], index)
+        self.suo[u] = max(self.suo[u], index)
         self.closure()
 
     def __repr__(self):
@@ -119,11 +126,13 @@ class UsedListStartLattice(BaseLattice):
         assert self.closed
         return self
 
+    # noinspection PyPep8Naming
     def change_S_to_U(self):
         """Change previously S-annotated (used in outer scope) to U-annotated (definitely used)"""
         self.suo[U] = max(self.suo[U], self.suo[S])
         self.suo[S] = 0
 
+    # noinspection PyPep8Naming
     def change_SU_to_O(self):
         """Change previously U/S-annotated to O-annotated"""
         self.suo[O] = max(self.suo[U], self.suo[S])
@@ -140,10 +149,6 @@ class UsedListStartLattice(BaseLattice):
 
     def combine(self, other: 'UsedListStartLattice') -> 'UsedListStartLattice':
         # This method is generically implemented using the COMBINE dict
-        # it uses a more powerful representation first:
-        # multiple (maximum 4) consequent sequences with an associated used element
-        # then it is mapped to SUO representation
-
         assert self.closed and other.closed
 
         all_uppers = [(index, used) for used, index in list(self.suo.items()) + list(other.suo.items())]

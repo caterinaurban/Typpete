@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
-from core.expressions import Literal, VariableIdentifier, ListDisplay
+from abc import abstractmethod, ABCMeta
+from core.expressions import Literal, VariableIdentifier
 from typing import List, Sequence
 
 
@@ -41,7 +41,7 @@ class ProgramPoint(object):
         return "[line:{0.line}, column:{0.column}]".format(self)
 
 
-class Statement(ABC):
+class Statement(metaclass=ABCMeta):
     """
     Statements.
     https://docs.python.org/3.4/reference/simple_stmts.html

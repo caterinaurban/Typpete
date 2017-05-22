@@ -35,7 +35,8 @@ class Semantics:
             return getattr(self, name)(stmt, state)
         else:
             raise NotImplementedError(
-                f"Semantics for statement {stmt} of type {type(stmt)} not yet implemented! You must provide method {name}(...)")
+                f"Semantics for statement {stmt} of type {type(stmt)} "
+                f"not yet implemented! You must provide method {name}(...)")
 
 
 class LiteralEvaluationSemantics(Semantics):

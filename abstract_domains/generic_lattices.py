@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
-from typing import List, TypeVar, Generic, Type, Dict
+from abc import abstractmethod, ABCMeta
+from typing import List, TypeVar, Type, Dict
 
 from abstract_domains.lattice import Lattice, BaseLattice
 from core.expressions import VariableIdentifier
@@ -8,11 +8,11 @@ from core.expressions import VariableIdentifier
 class StoreLattice(Lattice):
     """A generic lattice that represents a mapping Var -> L for some other lattice L."""
 
-    def __init__(self, variables: List[VariableIdentifier], type_to_lattice: Dict[Type, BaseLattice]):
+    def __init__(self, variables: List[VariableIdentifier], type_to_lattice: Dict[Type, Type[BaseLattice]]):
         """Create a store lattice that represents a mapping Var -> L for some other lattice L.
 
         :param variables: list of program variables
-        :param element_lattice: type of lattice elements L
+        :param type_to_lattice: dictionary that maps types to lattice that should be used to track that type
         """
 
         self._variables_list = variables
@@ -70,7 +70,7 @@ class StoreLattice(Lattice):
 L = TypeVar('L')
 
 
-class StackLattice(Lattice, ABC):
+class StackLattice(Lattice, metaclass=ABCMeta):
     """A generic lattice that represents a stack of elements of some other lattice L."""
 
     def __init__(self, element_lattice: Type[L], args_dict):

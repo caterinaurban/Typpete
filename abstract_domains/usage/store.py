@@ -5,7 +5,7 @@ from abstract_domains.state import State
 from abstract_domains.usage.used import UsedLattice, Used
 from abstract_domains.generic_lattices import StoreLattice
 from abstract_domains.usage.used_liststart import UsedListStartLattice
-from core.expressions import Expression, VariableIdentifier, ListDisplay, Literal, Index, Slice
+from core.expressions import Expression, VariableIdentifier, ListDisplay, Literal, Index
 from math import inf
 
 from core.expressions_tools import walk

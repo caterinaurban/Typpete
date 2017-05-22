@@ -80,7 +80,7 @@ class LooseControlFlowGraph:
         return self._cfg.in_node
 
     @in_node.setter
-    def in_node(self, node) -> Node:
+    def in_node(self, node):
         self._cfg._in_node = node
 
     @property
@@ -88,7 +88,7 @@ class LooseControlFlowGraph:
         return self._cfg.out_node
 
     @out_node.setter
-    def out_node(self, node) -> Node:
+    def out_node(self, node):
         self._cfg._out_node = node
 
     @property
@@ -276,7 +276,7 @@ class CfgFactory:
             self._stmts = []
 
 
-# noinspection PyMethodMayBeStatic,PyPep8Naming
+# noinspection PyMethodMayBeStatic,PyPep8Naming,PyUnusedLocal
 class CfgVisitor(ast.NodeVisitor):
     """
     This AST visitor generates a CFG recursively.

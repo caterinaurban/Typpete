@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod, ABCMeta
 from enum import Enum
 from functools import reduce
 from typing import List, TypeVar, Generic
@@ -6,7 +6,7 @@ from typing import List, TypeVar, Generic
 L = TypeVar('L')
 
 
-class BaseLattice(ABC):
+class BaseLattice(metaclass=ABCMeta):
     """
     The most generic lattice (element) that defines a flexible, abstract interface.
 
@@ -182,7 +182,7 @@ class BaseLattice(ABC):
 
 
 # noinspection PyAbstractClass
-class Lattice(BaseLattice, Generic[L], ABC):
+class Lattice(BaseLattice, Generic[L], metaclass=ABCMeta):
     """
     A generic lattice that provides a TOP and a BOTTOM element and related methods.
 
