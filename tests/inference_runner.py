@@ -7,13 +7,9 @@ t = ast.parse(r.read())
 
 analyzer = PreAnalyzer(t)
 
-classes_data = analyzer.analyze_classes()
-z3_types.init_types({
-    "max_tuple_length": analyzer.maximum_tuple_length(),
-    "max_function_args": analyzer.maximum_function_args(),
-    "classes_to_attrs": classes_data[0],
-    "class_to_base": classes_data[1]
-})
+
+config = analyzer.get_all_configurations()
+z3_types.init_types(config)
 
 from frontend.stmt_inferrer import *
 

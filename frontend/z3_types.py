@@ -195,10 +195,10 @@ Attributes = OrderedDict()
 
 def init_types(config):
     """Initialize the type system in Z3 using configurations given by the pre-analyzer"""
-    max_tuple_length = config["max_tuple_length"]
-    max_function_args = config["max_function_args"]
-    classes_to_attrs = config["classes_to_attrs"]
-    class_to_base = config["class_to_base"]
+    max_tuple_length = config.max_tuple_length
+    max_function_args = config.max_function_args
+    classes_to_attrs = config.classes_to_attrs
+    class_to_base = config.class_to_base
 
     # Using globals because they are used as module-level variables in other modules
     global type_sort

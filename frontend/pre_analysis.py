@@ -80,6 +80,23 @@ class PreAnalyzer:
 
         return class_to_attributes, class_to_base
 
+    def get_all_configurations(self):
+        config = Configuration()
+        config.max_tuple_length = self.maximum_tuple_length()
+        config.max_function_args = self.maximum_function_args()
+        config.classes_to_attrs, config.class_to_base = self.analyze_classes()
+
+        return config
+
+
+class Configuration:
+    """A class holding configurations given by the pre-analyzer"""
+    def __init__(self):
+        self.max_tuple_length = 0
+        self.max_function_args = 1
+        self.classes_to_attrs = OrderedDict()
+        self.class_to_base = OrderedDict()
+
 
 def propagate_attributes_to_subclasses(class_defs):
     """Start depth-first methods propagation from inheritance roots to subclasses"""
