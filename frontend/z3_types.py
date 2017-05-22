@@ -189,7 +189,7 @@ subtype_properties = generics_axioms = num_strength_properties = axioms = None
 solver = None
 x = y = z = None
 Type = None
-All_types = {}
+all_types = {}
 Attributes = {}
 
 
@@ -286,7 +286,7 @@ def init_types(config):
                                Not(Or(stronger_num(x, y), stronger_num(y, x)))))
     ]
 
-    axioms = [
+    axioms = ([
         extends(zNone, Object),
         extends(Num, Object),
         extends(Complex, Num),
@@ -309,10 +309,10 @@ def init_types(config):
         stronger_num(Float, Int),
         stronger_num(Complex, Float),
         stronger_num(Num, Complex)
-        ] \
-        + tuples_subtype_axioms(Tuples, type_sort) \
-        + functions_subtype_axioms(Funcs, type_sort) \
-        + classes_subtype_axioms(Classes, classes_to_attrs, class_to_base)
+        ]
+        + tuples_subtype_axioms(Tuples, type_sort)
+        + functions_subtype_axioms(Funcs, type_sort)
+        + classes_subtype_axioms(Classes, classes_to_attrs, class_to_base))
 
     solver = TypesSolver()
 

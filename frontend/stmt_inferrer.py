@@ -58,8 +58,8 @@ def _infer_assignment_target(target, context, value_type, lineno):
     elif isinstance(target, (ast.Tuple, ast.List)):
         for i in range(len(target.elts)):
             target_type = z3_types.new_z3_const("elt_type")
-            z3_types.solver.add(axioms.assignment_target(target_type, value_type, i),
-                                fail_message="Multiple assignmentin line {}".format(lineno))
+            z3_types.solver.add(axioms.multiple_assignment(target_type, value_type, i),
+                                fail_message="Multiple assignment in line {}".format(lineno))
             _infer_assignment_target(target.elts[i], context, target_type, lineno)
 
     elif isinstance(target, ast.Subscript):
@@ -302,7 +302,7 @@ def _infer_func_def(node, context):
 def _infer_class_def(node, context):
     class_context = Context(parent_context=context)
     result_type = z3_types.new_z3_const("class_type")
-    z3_types.All_types[node.name] = result_type
+    z3_types.all_types[node.name] = result_type
 
     for stmt in node.body:
         infer(stmt, class_context)
