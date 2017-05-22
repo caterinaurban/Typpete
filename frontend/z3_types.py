@@ -4,8 +4,8 @@ Limitations:
     - Multiple inheritance is not supported.
     - Functions with generic type variables are not supported.
 """
+from collections import OrderedDict
 from z3 import *
-
 
 def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs):
     """Declare the type Z3 data-type and all its constructors/accessors"""
@@ -77,7 +77,7 @@ def create_classes_attributes(type_sort, classes_to_attrs):
     for cls in classes_to_attrs:
         attrs = classes_to_attrs[cls]
 
-        Attributes[cls] = {}
+        Attributes[cls] = OrderedDict()
         for attr in attrs:
             attribute = Const("class_{}_attr_{}".format(cls, attr), type_sort)
             Attributes[cls][attr] = attribute
@@ -101,7 +101,7 @@ def get_funcs(type_sort, max_function_args):
 
 def get_classes(type_sort, classes_to_attrs):
     """Extract the classes constructors from the type_sort data-type"""
-    classes = {}
+    classes = OrderedDict()
     for cls in classes_to_attrs:
         classes[cls] = getattr(type_sort, "class_{}".format(cls))
     return classes
@@ -155,7 +155,7 @@ def functions_subtype_axioms(funcs, type_sort):
 
 
 def invert_dict(d):
-    result = {}
+    result = OrderedDict()
     for key in d:
         result[d[key]] = key
 
@@ -189,8 +189,8 @@ subtype_properties = generics_axioms = num_strength_properties = axioms = None
 solver = None
 x = y = z = None
 Type = None
-all_types = {}
-Attributes = {}
+all_types = OrderedDict()
+Attributes = OrderedDict()
 
 
 def init_types(config):

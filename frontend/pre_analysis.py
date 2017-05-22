@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import ast
 
 
@@ -37,8 +38,8 @@ class PreAnalyzer:
 
         propagate_attributes_to_subclasses(class_defs)
 
-        class_to_attributes = {}
-        class_to_base = {}
+        class_to_attributes = OrderedDict()
+        class_to_base = OrderedDict()
 
         for cls in class_defs:
             if len(cls.bases) > 1:
