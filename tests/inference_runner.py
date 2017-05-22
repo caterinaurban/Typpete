@@ -9,24 +9,23 @@ analyzer = PreAnalyzer(t)
 
 
 config = analyzer.get_all_configurations()
-z3_types.init_types(config)
+solver = z3_types.TypesSolver(config)
 
 from frontend.stmt_inferrer import *
 
 context = Context()
 for stmt in t.body:
-    infer(stmt, context)
+    infer(stmt, context, solver)
 
-z3_types.solver.push()
-check = z3_types.solver.check(z3_types.assertions)
+solver.push()
+check = solver.check(solver.assertions_vars)
 
 try:
-    model = z3_types.solver.model()
+    model = solver.model()
     for v in context.types_map:
         z3_t = context.types_map[v]
         print("{}: {}".format(v, model[z3_t]))
 except z3_types.z3types.Z3Exception as e:
     print("Check: {}".format(check))
     if check == z3_types.unsat:
-        print([z3_types.assertions_errors[x] for x in z3_types.solver.unsat_core()])
-
+        print([solver.assertions_errors[x] for x in solver.unsat_core()])

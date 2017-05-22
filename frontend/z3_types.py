@@ -7,7 +7,186 @@ Limitations:
 from collections import OrderedDict
 from z3 import *
 
-def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs):
+
+class Z3Types:
+    def __init__(self, config):
+        self.all_types = OrderedDict()
+        self.attributes = OrderedDict()
+
+        max_tuple_length = config.max_tuple_length
+        max_function_args = config.max_function_args
+        classes_to_attrs = config.classes_to_attrs
+        class_to_base = config.class_to_base
+
+        type_sort = declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs, self.attributes)
+        self.type_sort = type_sort
+
+        # Extract types constructors
+        self.type = type_sort.type_type
+        self.object = type_sort.object
+
+        self.none = type_sort.none
+
+        self.num = type_sort.number
+        self.complex = type_sort.complex
+        self.float = type_sort.float
+        self.int = type_sort.int
+        self.bool = type_sort.bool
+
+        self.seq = type_sort.sequence
+        self.string = type_sort.str
+        self.bytes = type_sort.bytes
+        self.list = type_sort.list
+        self.list_type = type_sort.list_type
+
+        self.set = type_sort.set
+        self.set_type = type_sort.set_type
+
+        self.dict = type_sort.dict
+        self.dict_key_type = type_sort.dict_key_type
+        self.dict_value_type = type_sort.dict_value_type
+
+        self.tuple = type_sort.tuple
+        self.tuples = get_tuples(type_sort, max_tuple_length)
+
+        self.func = type_sort.func
+        self.funcs = get_funcs(type_sort, max_function_args)
+
+        self.classes = get_classes(type_sort, classes_to_attrs)
+
+        # Encode subtyping relationships
+        self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
+        self.extends = Function("extends", type_sort, type_sort, BoolSort())
+        self.not_subtype = Function("not subtype", type_sort, type_sort, BoolSort())
+        self.stronger_num = Function("stronger num", type_sort, type_sort, BoolSort())
+
+        x = Const("x", type_sort)
+        y = Const("y", type_sort)
+        z = Const("z", type_sort)
+
+        self.subtype_properties = [
+            ForAll(x, self.subtype(x, x)),  # reflexivity
+            ForAll([x, y], Implies(self.extends(x, y), self.subtype(x, y))),
+            ForAll([x, y, z], Implies(And(self.subtype(x, y), self.subtype(y, z)), self.subtype(x, z))),  # transitivity
+            ForAll([x, y], Implies(And(self.subtype(x, y), self.subtype(y, x)), x == y)),
+            ForAll([x, y, z],
+                   Implies(And(self.extends(x, z), self.extends(y, z), x != y),
+                           And(self.not_subtype(x, y), self.not_subtype(y, x)))),
+            ForAll([x, y, z], Implies(And(self.subtype(x, y), self.not_subtype(y, z)), Not(self.subtype(x, z)))),
+        ]
+
+        self.generics_axioms = [
+            ForAll([x, y], Implies(self.subtype(x, self.list(y)), x == self.list(y))),
+            ForAll([x, y], Implies(self.subtype(x, self.set(y)), x == self.set(y))),
+            ForAll([x, y, z], Implies(self.subtype(x, self.dict(y, z)), x == self.dict(y, z)))
+        ]
+
+        # For numeric casting purposes:
+        # Number > Complex > Float > Int > Bool
+        self.num_strength_properties = [
+            ForAll(x, Implies(self.subtype(x, self.num), self.stronger_num(x, x))),  # Reflexivity
+            ForAll([x, y, z], Implies(And(self.stronger_num(x, y), self.stronger_num(y, z)),
+                                      self.stronger_num(x, z))),  # Transitivity
+            ForAll([x, y], Implies(And(self.stronger_num(x, y), x != y), Not(self.stronger_num(y, x)))),
+            ForAll([x, y], Implies(Not(And(self.subtype(x, self.num), self.subtype(y, self.num))),
+                                   Not(Or(self.stronger_num(x, y), self.stronger_num(y, x)))))
+        ]
+
+        self.axioms = ([
+                      self.extends(self.none, self.object),
+                      self.extends(self.num, self.object),
+                      self.extends(self.complex, self.num),
+                      self.extends(self.float, self.num),
+                      self.extends(self.int, self.num),
+                      self.extends(self.bool, self.int),
+                      self.extends(self.seq, self.object),
+                      self.extends(self.string, self.seq),
+                      self.extends(self.bytes, self.seq),
+                      self.extends(self.tuple, self.seq),
+
+                      self.extends(self.func, self.object),
+
+                      ForAll([x], self.extends(self.type(x), self.object), patterns=[self.type(x)]),
+                      ForAll([x], self.extends(self.list(x), self.seq), patterns=[self.list(x)]),
+                      ForAll([x], self.extends(self.set(x), self.object), patterns=[self.set(x)]),
+                      ForAll([x, y], self.extends(self.dict(x, y), self.object), patterns=[self.dict(x, y)]),
+
+                      self.stronger_num(self.int, self.bool),
+                      self.stronger_num(self.float, self.int),
+                      self.stronger_num(self.complex, self.float),
+                      self.stronger_num(self.num, self.complex)
+                  ]
+                  + self.tuples_subtype_axioms()
+                  + self.functions_subtype_axioms()
+                  + self.classes_subtype_axioms(class_to_base))
+
+    def tuples_subtype_axioms(self):
+        """Add the axioms for the tuples subtyping"""
+        tuples = self.tuples
+        type_sort = self.type_sort
+
+        # Initialize constants to be used in the ForAll quantifier
+        # Each tuple needs a number of quantifiers equal to its length
+        # With n tuples, from zero-length to (n - 1) length tuples, we need at most n - 1 quantifiers.
+        quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(tuples) - 1)]
+        axioms = []
+        x = Const("x", type_sort)
+        for i in range(len(tuples)):
+            # Tuple tuples[i] will have length i
+            if i == 0:
+                # Zero length tuple: An expression not a call.
+                axioms.append(self.extends(tuples[i], self.type_sort.tuple))
+                axioms.append(ForAll(x, Implies(self.subtype(x, tuples[i]), x == tuples[i])))
+            else:
+                # Tuple tuples[i] uses exactly i constants
+                consts = quantifiers_consts[:i]
+                inst = tuples[i](consts)
+                axioms.append(
+                    ForAll(consts, self.extends(inst, type_sort.tuple), patterns=[inst])
+                )
+                axioms.append(ForAll([x] + consts, Implies(self.subtype(x, inst), x == inst)))
+
+        return axioms
+
+    def functions_subtype_axioms(self):
+        """Add the axioms for the functions subtyping"""
+        funcs = self.funcs
+        type_sort = self.type_sort
+
+        # Initialize constants to be used in the ForAll quantifier
+        # Each function needs a number of quantifiers equal to its args length + 1 (for the return type).
+        # With n functions, from zero-length to (n - 1) length arguments, we need at most n quantifiers.
+        quantifiers_consts = [Const("funcs_q_{}".format(x), type_sort) for x in range(len(funcs))]
+        axioms = []
+        x = Const("x", type_sort)
+        for i in range(len(funcs)):
+            # function funcs[i] will have i arguments and 1 return type, so  it uses i + 1 constants
+            consts = quantifiers_consts[:i + 1]
+            inst = funcs[i](consts)
+            axioms.append(
+                ForAll(consts, self.extends(inst, type_sort.func), patterns=[inst])
+            )
+            axioms.append(ForAll([x] + consts, Implies(self.subtype(x, inst), x == inst)))
+        return axioms
+
+    def classes_subtype_axioms(self, sub_to_base):
+        """Add the axioms for the classes subtyping"""
+        classes = self.classes
+        type_sort = self.type_sort
+        axioms = []
+        for cls in classes:
+            base_name = sub_to_base[cls]
+            if base_name == "object":
+                axioms.append(self.extends(classes[cls], type_sort.object))
+                continue
+
+            base = classes[base_name]
+            axioms.append(self.extends(classes[cls], base))
+
+        return axioms
+
+
+def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs, attributes_map):
     """Declare the type Z3 data-type and all its constructors/accessors"""
     type_sort = Datatype("Type")
 
@@ -63,7 +242,7 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs):
 
     type_sort = type_sort.create()
 
-    create_classes_attributes(type_sort, classes_to_attrs)
+    create_classes_attributes(type_sort, classes_to_attrs, attributes_map)
 
     return type_sort
 
@@ -73,14 +252,14 @@ def declare_classes(type_sort, classes_to_attrs):
         type_sort.declare("class_{}".format(cls))
 
 
-def create_classes_attributes(type_sort, classes_to_attrs):
+def create_classes_attributes(type_sort, classes_to_attrs, attributes_map):
     for cls in classes_to_attrs:
         attrs = classes_to_attrs[cls]
 
-        Attributes[cls] = OrderedDict()
+        attributes_map[cls] = OrderedDict()
         for attr in attrs:
             attribute = Const("class_{}_attr_{}".format(cls, attr), type_sort)
-            Attributes[cls][attr] = attribute
+            attributes_map[cls][attr] = attribute
 
 
 def get_tuples(type_sort, max_tuple_length):
@@ -107,53 +286,6 @@ def get_classes(type_sort, classes_to_attrs):
     return classes
 
 
-def tuples_subtype_axioms(tuples, type_sort):
-    """Add the axioms for the tuples subtyping"""
-
-    # Initialize constants to be used in the ForAll quantifier
-    # Each tuple needs a number of quantifiers equal to its length
-    # With n tuples, from zero-length to (n - 1) length tuples, we need at most n - 1 quantifiers.
-    quantifiers_consts = [Const("tuples_q_{}".format(x), type_sort) for x in range(len(tuples) - 1)]
-    axioms = []
-    x = Const("x", type_sort)
-    for i in range(len(tuples)):
-        # Tuple tuples[i] will have length i
-        if i == 0:
-            # Zero length tuple: An expression not a call.
-            axioms.append(extends(tuples[i], type_sort.tuple))
-            axioms.append(ForAll(x, Implies(subtype(x, tuples[i]), x == tuples[i])))
-        else:
-            # Tuple tuples[i] uses exactly i constants
-            consts = quantifiers_consts[:i]
-            inst = tuples[i](consts)
-            axioms.append(
-                ForAll(consts, extends(inst, type_sort.tuple), patterns=[inst])
-            )
-            axioms.append(ForAll([x] + consts, Implies(subtype(x, inst), x == inst)))
-
-    return axioms
-
-
-def functions_subtype_axioms(funcs, type_sort):
-    """Add the axioms for the functions subtyping"""
-
-    # Initialize constants to be used in the ForAll quantifier
-    # Each function needs a number of quantifiers equal to its args length + 1 (for the return type).
-    # With n functions, from zero-length to (n - 1) length arguments, we need at most n quantifiers.
-    quantifiers_consts = [Const("funcs_q_{}".format(x), type_sort) for x in range(len(funcs))]
-    axioms = []
-    x = Const("x", type_sort)
-    for i in range(len(funcs)):
-        # function funcs[i] will have i arguments and 1 return type, so  it uses i + 1 constants
-        consts = quantifiers_consts[:i + 1]
-        inst = funcs[i](consts)
-        axioms.append(
-            ForAll(consts, extends(inst, type_sort.func), patterns=[inst])
-        )
-        axioms.append(ForAll([x] + consts, Implies(subtype(x, inst), x == inst)))
-    return axioms
-
-
 def invert_dict(d):
     result = OrderedDict()
     for key in d:
@@ -162,194 +294,34 @@ def invert_dict(d):
     return result
 
 
-def classes_subtype_axioms(classes, classes_to_attrs, sub_to_base):
-    """Add the axioms for the classes subtyping"""
-    axioms = []
-    for cls in classes:
-        base_name = sub_to_base[cls]
-        if base_name == "object":
-            axioms.append(extends(classes[cls], type_sort.object))
-            continue
-
-        base = classes[base_name]
-        axioms.append(extends(classes[cls], base))
-
-    return axioms
-
-type_sort = None
-Object = zNone = Num = Complex = Float = Int = Bool = Seq = String = Bytes = None
-List = list_type = None
-Set = set_type = None
-Dict = dict_key_type = dict_value_type = None
-Tuple = Tuples = None
-Func = Funcs = None
-Classes = None
-subtype = extends = stronger_num = None
-subtype_properties = generics_axioms = num_strength_properties = axioms = None
-solver = None
-x = y = z = None
-Type = None
-all_types = OrderedDict()
-Attributes = OrderedDict()
-
-
-def init_types(config):
-    """Initialize the type system in Z3 using configurations given by the pre-analyzer"""
-    max_tuple_length = config.max_tuple_length
-    max_function_args = config.max_function_args
-    classes_to_attrs = config.classes_to_attrs
-    class_to_base = config.class_to_base
-
-    # Using globals because they are used as module-level variables in other modules
-    global type_sort
-    global Object, zNone, Num, Complex, Float, Int, Bool, Seq, String, Bytes
-    global List, list_type
-    global Set, set_type
-    global Dict, dict_key_type, dict_value_type
-    global Tuple, Tuples
-    global Func, Funcs
-    global Classes
-    global subtype, extends, stronger_num
-    global subtype_properties, generics_axioms, num_strength_properties, axioms
-    global solver
-    global x, y, z
-    global Type
-
-    type_sort = declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs)
-
-    # Extract types constructors
-    Type = type_sort.type_type
-    Object = type_sort.object
-
-    zNone = type_sort.none
-
-    Num = type_sort.number
-    Complex = type_sort.complex
-    Float = type_sort.float
-    Int = type_sort.int
-    Bool = type_sort.bool
-
-    Seq = type_sort.sequence
-    String = type_sort.str
-    Bytes = type_sort.bytes
-    List = type_sort.list
-    list_type = type_sort.list_type
-
-    Set = type_sort.set
-    set_type = type_sort.set_type
-
-    Dict = type_sort.dict
-    dict_key_type = type_sort.dict_key_type
-    dict_value_type = type_sort.dict_value_type
-
-    Tuple = type_sort.tuple
-    Tuples = get_tuples(type_sort, max_tuple_length)
-
-    Func = type_sort.func
-    Funcs = get_funcs(type_sort, max_function_args)
-
-    Classes = get_classes(type_sort, classes_to_attrs)
-
-    # Encode subtyping relationships
-
-    subtype = Function("subtype", type_sort, type_sort, BoolSort())
-    extends = Function("extends", type_sort, type_sort, BoolSort())
-    not_subtype = Function("not subtype", type_sort, type_sort, BoolSort())
-    stronger_num = Function("stronger num", type_sort, type_sort, BoolSort())
-
-    x = Const("x", type_sort)
-    y = Const("y", type_sort)
-    z = Const("z", type_sort)
-
-    subtype_properties = [
-        ForAll(x, subtype(x, x)),  # reflexivity
-        ForAll([x, y], Implies(extends(x, y), subtype(x, y))),
-        ForAll([x, y, z], Implies(And(subtype(x, y), subtype(y, z)), subtype(x, z))),  # transitivity
-        ForAll([x, y], Implies(And(subtype(x, y), subtype(y, x)), x == y)),
-        ForAll([x, y, z], Implies(And(extends(x, z), extends(y, z), x != y), And(not_subtype(x, y), not_subtype(y, x)))),
-        ForAll([x, y, z], Implies(And(subtype(x, y), not_subtype(y, z)), Not(subtype(x, z)))),
-    ]
-
-    generics_axioms = [
-        ForAll([x, y], Implies(subtype(x, List(y)), x == List(y))),
-        ForAll([x, y], Implies(subtype(x, Set(y)), x == Set(y))),
-        ForAll([x, y, z], Implies(subtype(x, Dict(y, z)), x == Dict(y, z)))
-    ]
-
-    # For numeric casting purposes:
-    # Number > Complex > Float > Int > Bool
-    num_strength_properties = [
-        ForAll(x, Implies(subtype(x, Num), stronger_num(x, x))),  # Reflexivity
-        ForAll([x, y, z], Implies(And(stronger_num(x, y), stronger_num(y, z)), stronger_num(x, z))),  # Transitivity
-        ForAll([x, y], Implies(And(stronger_num(x, y), x != y), Not(stronger_num(y, x)))),
-        ForAll([x, y], Implies(Not(And(subtype(x, Num), subtype(y, Num))),
-                               Not(Or(stronger_num(x, y), stronger_num(y, x)))))
-    ]
-
-    axioms = ([
-        extends(zNone, Object),
-        extends(Num, Object),
-        extends(Complex, Num),
-        extends(Float, Num),
-        extends(Int, Num),
-        extends(Bool, Int),
-        extends(Seq, Object),
-        extends(String, Seq),
-        extends(Bytes, Seq),
-        extends(Tuple, Seq),
-
-        extends(Func, Object),
-
-        ForAll([x], extends(Type(x), Object), patterns=[Type(x)]),
-        ForAll([x], extends(List(x), Seq), patterns=[List(x)]),
-        ForAll([x], extends(Set(x), Object), patterns=[Set(x)]),
-        ForAll([x, y], extends(Dict(x, y), Object), patterns=[Dict(x, y)]),
-
-        stronger_num(Int, Bool),
-        stronger_num(Float, Int),
-        stronger_num(Complex, Float),
-        stronger_num(Num, Complex)
-        ]
-        + tuples_subtype_axioms(Tuples, type_sort)
-        + functions_subtype_axioms(Funcs, type_sort)
-        + classes_subtype_axioms(Classes, classes_to_attrs, class_to_base))
-
-    solver = TypesSolver()
-
-# Unique id given to newly created Z3 consts
-_element_id = 0
-
-
-def new_element_id():
-    global _element_id
-    _element_id += 1
-    return _element_id
-
-
-def new_z3_const(name, sort=None):
-    """Create a new Z3 constant with a unique name"""
-    if sort is None:
-        sort = type_sort
-    return Const("{}_{}".format(name, new_element_id()), sort)
-
-assertions = []
-assertions_errors = {}
-
-
 class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""
-    def __init__(self, solver=None, ctx=None):
+    def __init__(self, config, solver=None, ctx=None):
         super().__init__(solver, ctx)
         self.set(auto_config=False, mbqi=False, unsat_core=True)
+        self.z3_types = Z3Types(config)
+        self.element_id = 0  # Unique id given to newly created Z3 consts
+        self.assertions_vars = []
+        self.assertions_errors = {}
         self.init_axioms()
 
     def init_axioms(self):
-        self.add(subtype_properties + axioms + num_strength_properties + generics_axioms,
+        self.add(self.z3_types.subtype_properties + self.z3_types.axioms
+                 + self.z3_types.num_strength_properties + self.z3_types.generics_axioms,
                  fail_message="Subtyping error")
 
     def add(self, *args, fail_message):
-        assertion = new_z3_const("assertion_bool", BoolSort())
-        assertions.append(assertion)
-        assertions_errors[assertion] = fail_message
+        assertion = self.new_z3_const("assertion_bool", BoolSort())
+        self.assertions_vars.append(assertion)
+        self.assertions_errors[assertion] = fail_message
         super().add(Implies(assertion, And(*args)))
 
+    def new_element_id(self):
+        self.element_id += 1
+        return self.element_id
+
+    def new_z3_const(self, name, sort=None):
+        """Create a new Z3 constant with a unique name"""
+        if sort is None:
+            sort = self.z3_types.type_sort
+        return Const("{}_{}".format(name, self.new_element_id()), sort)
