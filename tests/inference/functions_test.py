@@ -1,8 +1,8 @@
-def f1(x, y):
-    a = x + y
-    b = x[0]
-    c = x * 3
-    return c * b
+
+def f1(x):
+    u = x[0]
+    v = x * 3
+    return u * v
 
 
 def f2(x):
@@ -14,23 +14,23 @@ def f3(x):
 
 
 def f4(x, y):
-    a = x["string"] + y
-    b = y + 3
-    return a | b
+    u = x["string"] + y
+    v = y + 3
+    return u | v
 
 
-def f5(a, b, i):
-    x = a * 3
-    y = b["string"]
-    z = a[i]
-    return (x[0] + z) * (y + 3)
+def f5(x, y, i):
+    t = x * 3
+    u = y["string"]
+    v = x[i]
+    return (t[0] + v) * (u + 3)
 
 
 def f7(x):
     return x["string"]
 
 
-a = f1([1, 2, 3], [])
+a = f1([1, 2, 3])
 b = f2(a[0])
 c = f3(b)
 d = f4({"": c[0]}, 2)

@@ -32,7 +32,6 @@ TODO:
 """
 
 import ast
-import frontend.z3_types as z3_types
 import frontend.z3_axioms as axioms
 import sys
 

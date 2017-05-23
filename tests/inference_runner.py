@@ -1,4 +1,5 @@
 from frontend.pre_analysis import PreAnalyzer
+from frontend.stmt_inferrer import *
 import frontend.z3_types as z3_types
 import ast
 
@@ -10,8 +11,6 @@ analyzer = PreAnalyzer(t)
 
 config = analyzer.get_all_configurations()
 solver = z3_types.TypesSolver(config)
-
-from frontend.stmt_inferrer import *
 
 context = Context()
 for stmt in t.body:
@@ -29,3 +28,4 @@ except z3_types.z3types.Z3Exception as e:
     print("Check: {}".format(check))
     if check == z3_types.unsat:
         print([solver.assertions_errors[x] for x in solver.unsat_core()])
+

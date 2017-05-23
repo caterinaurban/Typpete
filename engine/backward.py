@@ -31,12 +31,6 @@ class BackwardInterpreter(Interpreter):
         while not worklist.empty():
             current = worklist.get()  # retrieve the current node
 
-            # check that current is ready which means all successors are visited at least once
-            # otherwise put current node at end of queue and continue
-            if not all([edge.target in self.result.result for edge in self.cfg.out_edges(current)]):
-                worklist.put(current)
-                continue
-
             iteration = iterations[current.identifier]
 
             # retrieve the previous exit state of the node
@@ -52,7 +46,10 @@ class BackwardInterpreter(Interpreter):
                 # join incoming states
                 edges = self.cfg.out_edges(current)
                 for edge in edges:
-                    successor = deepcopy(self.result.get_node_result(edge.target)[0])
+                    if edge.target in self.result.result:
+                        successor = deepcopy(self.result.get_node_result(edge.target)[0])
+                    else:
+                        successor = deepcopy(initial).bottom()
                     # handle non-default edges
                     if edge.kind == Edge.Kind.IF_IN:
                         successor = successor.exit_if()

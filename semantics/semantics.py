@@ -1,6 +1,6 @@
 from abstract_domains.state import State
 from core.expressions import BinaryArithmeticOperation, BinaryOperation, BinaryComparisonOperation, UnaryOperation, \
-    UnaryArithmeticOperation, UnaryBooleanOperation
+    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation
 from core.statements import Statement, VariableAccess, LiteralEvaluation, Call
 from functools import reduce
 import re
@@ -33,7 +33,8 @@ class Semantics:
         if hasattr(self, name):
             return getattr(self, name)(stmt, state)
         else:
-            raise NotImplementedError("Semantics for statement {} not yet implemented!".format(stmt))
+            raise NotImplementedError(f"Semantics for statement {stmt} of type {type(stmt)} not yet implemented! "
+                                      f"You must provide method {name}(...)")
 
 
 class LiteralEvaluationSemantics(Semantics):
@@ -92,8 +93,8 @@ class BuiltInCallSemantics(CallSemantics):
         :param state: 
         :return: 
         """
-        assert len(stmt.arguments) == 1     # unary operations have exactly one argument
-        argument = self.semantics(stmt.arguments[0], state).result      # argument evaluation
+        assert len(stmt.arguments) == 1  # unary operations have exactly one argument
+        argument = self.semantics(stmt.arguments[0], state).result  # argument evaluation
         result = set()
         if isinstance(operator, UnaryArithmeticOperation.Operator):
             expression = set(UnaryArithmeticOperation(stmt.typ, operator, expr) for expr in argument)
@@ -101,6 +102,9 @@ class BuiltInCallSemantics(CallSemantics):
         elif isinstance(operator, UnaryBooleanOperation.Operator):
             expression = set(UnaryBooleanOperation(stmt.typ, operator, expr) for expr in argument)
             result = result.union(expression)
+        else:
+            raise NotImplementedError(
+                f"Semantics for statement {operator} of type {type(operator)} not yet implemented!")
         state.result = result
         return state
 
@@ -114,7 +118,7 @@ class BuiltInCallSemantics(CallSemantics):
         return self.unary_operation(stmt, UnaryBooleanOperation.Operator.Neg, state)
 
     def binary_operation(self, stmt: Call, operator: BinaryOperation.Operator, state: State) -> State:
-        arguments = [self.semantics(argument, state).result for argument in stmt.arguments]   # argument evaluation
+        arguments = [self.semantics(argument, state).result for argument in stmt.arguments]  # argument evaluation
         result = set()
         if isinstance(operator, BinaryArithmeticOperation.Operator):
             expression = reduce(lambda lhs, rhs: set(
@@ -126,6 +130,14 @@ class BuiltInCallSemantics(CallSemantics):
                 BinaryComparisonOperation(stmt.typ, left, operator, right) for left in lhs for right in rhs
             ), arguments)
             result = result.union(expression)
+        elif isinstance(operator, BinaryBooleanOperation.Operator):
+            expression = reduce(lambda lhs, rhs: set(
+                BinaryBooleanOperation(stmt.typ, left, operator, right) for left in lhs for right in rhs
+            ), arguments)
+            result = result.union(expression)
+        else:
+            raise NotImplementedError(
+                f"Semantics for statement {operator} of type {type(operator)} not yet implemented!")
         state.result = result
         return state
 
@@ -164,6 +176,24 @@ class BuiltInCallSemantics(CallSemantics):
         :return: state modified by the call statement
         """
         return self.binary_operation(stmt, BinaryArithmeticOperation.Operator.Div, state)
+
+    def uadd_call_semantics(self, stmt: Call, state: State) -> State:
+        """Semantics of a call to '+X' (unary plus).
+
+        :param stmt: call to '+' to be executed
+        :param state: state before executing the call statement
+        :return: state modified by the call statement
+        """
+        return self.unary_operation(stmt, UnaryArithmeticOperation.Operator.Add, state)
+
+    def usub_call_semantics(self, stmt: Call, state: State) -> State:
+        """Semantics of a call to '-X' (unary minus).
+
+        :param stmt: call to '-' to be executed
+        :param state: state before executing the call statement
+        :return: state modified by the call statement
+        """
+        return self.unary_operation(stmt, UnaryArithmeticOperation.Operator.Sub, state)
 
     def eq_call_semantics(self, stmt: Call, state: State) -> State:
         """Semantics of a call to '==' (equality).
@@ -253,6 +283,33 @@ class BuiltInCallSemantics(CallSemantics):
         :return: state modified by the call statement
         """
         return self.binary_operation(stmt, BinaryComparisonOperation.Operator.NotIn, state)
+
+    def and_call_semantics(self, stmt: Call, state: State) -> State:
+        """Semantics of a call to 'add'.
+
+        :param stmt: call to 'add' to be executed
+        :param state: state before executing the call statement
+        :return: state modified by the call statement
+        """
+        return self.binary_operation(stmt, BinaryBooleanOperation.Operator.And, state)
+
+    def or_call_semantics(self, stmt: Call, state: State) -> State:
+        """Semantics of a call to 'or'.
+
+        :param stmt: call to 'or' to be executed
+        :param state: state before executing the call statement
+        :return: state modified by the call statement
+        """
+        return self.binary_operation(stmt, BinaryBooleanOperation.Operator.Or, state)
+
+    def xor_call_semantics(self, stmt: Call, state: State) -> State:
+        """Semantics of a call to 'xor'.
+
+        :param stmt: call to 'xor' to be executed
+        :param state: state before executing the call statement
+        :return: state modified by the call statement
+        """
+        return self.binary_operation(stmt, BinaryBooleanOperation.Operator.Xor, state)
 
 
 class DefaultSemantics(LiteralEvaluationSemantics, VariableAccessSemantics, BuiltInCallSemantics):

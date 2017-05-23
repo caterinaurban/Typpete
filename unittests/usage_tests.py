@@ -3,7 +3,13 @@ from abstract_domains.usage.stack import UsedStack
 from core.expressions import VariableIdentifier
 from engine.backward import BackwardInterpreter
 from semantics.usage.usage_semantics import UsageSemantics
-from unittests.generic_tests import *
+from unittests.generic_tests import ResultCommentsFileTestCase
+import unittest
+import ast
+import os
+import logging
+
+logging.basicConfig(level=logging.INFO, filename='unittests.log', filemode='w')
 
 
 class UsageTestCase(ResultCommentsFileTestCase):
@@ -12,7 +18,7 @@ class UsageTestCase(ResultCommentsFileTestCase):
         self._source_path = source_path
 
     def runTest(self):
-        print(self)
+        logging.info(self)
         self.render_cfg()
 
         # find all variables
@@ -30,8 +36,8 @@ class UsageTestCase(ResultCommentsFileTestCase):
 
 def suite():
     s = unittest.TestSuite()
-
-    for path in glob.iglob('./usage/**.py'):
+    g = os.getcwd() + '/usage/**.py'
+    for path in glob.iglob(g):
         if os.path.basename(path) != "__init__.py":
             s.addTest(UsageTestCase(path))
     runner = unittest.TextTestRunner()

@@ -29,13 +29,14 @@ import sys
 from frontend.context import Context
 
 
+# noinspection PyUnresolvedReferences
 def _infer_assignment_target(target, context, value_type, lineno, solver):
     """Infer the type of a target in an assignment
 
     Attributes:
         target: the target whose type is to be inferred
         context: the current context level
-        value_type: the value assigned to the target
+        value_type: the type of the value assigned to the target
 
     Target cases:
         - Variable name. Ex: x = 1
@@ -135,6 +136,7 @@ def _infer_augmented_assign(node, context, solver):
     return solver.z3_types.none
 
 
+# noinspection PyUnresolvedReferences
 def _delete_element(target, context, lineno, solver):
     """Remove (if needed) a target from the context
 
@@ -210,7 +212,6 @@ def _infer_control_flow(node, context, solver):
         expr.infer(node.test, context, solver)
 
     result_type = solver.new_z3_const("control_flow")
-
     solver.add(axioms.control_flow(body_type, else_type, result_type, solver.z3_types),
                fail_message="Control flow in line {}".format(node.lineno))
 
