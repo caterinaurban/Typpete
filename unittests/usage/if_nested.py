@@ -2,7 +2,7 @@ x = 2
 y = 4
 a = 0
 b = 0
-# RESULT: a -> O, b -> N, x -> U, y -> U
+# RESULT: a -> O, b -> N, x -> U, y -> N
 if not 3 > x:  # x decision
     # inside nested if only b is modified!
     if 2 > y:  # y decision
