@@ -5,6 +5,7 @@ Limitations:
     - Functions with generic type variables are not supported.
 """
 from collections import OrderedDict
+from frontend.annotation_resolver import AnnotationResolver
 from z3 import *
 
 
@@ -303,6 +304,7 @@ class TypesSolver(Solver):
         self.element_id = 0  # Unique id given to newly created Z3 consts
         self.assertions_vars = []
         self.assertions_errors = {}
+        self.annotation_resolver = AnnotationResolver(self.z3_types)
         self.init_axioms()
 
     def init_axioms(self):
@@ -325,3 +327,6 @@ class TypesSolver(Solver):
         if sort is None:
             sort = self.z3_types.type_sort
         return Const("{}_{}".format(name, self.new_element_id()), sort)
+
+    def resolve_annotation(self, annotation):
+        return self.annotation_resolver.resolve(annotation)
