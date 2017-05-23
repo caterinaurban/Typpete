@@ -21,11 +21,10 @@ check = solver.check(solver.assertions_vars)
 
 try:
     model = solver.model()
-    for v in context.types_map:
+    for v in sorted(context.types_map):
         z3_t = context.types_map[v]
         print("{}: {}".format(v, model[z3_t]))
 except z3_types.z3types.Z3Exception as e:
     print("Check: {}".format(check))
     if check == z3_types.unsat:
         print([solver.assertions_errors[x] for x in solver.unsat_core()])
-

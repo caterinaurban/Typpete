@@ -26,7 +26,7 @@ def f5(x, y, i):
     return (t[0] + v) * (u + 3)
 
 
-def f7(x):
+def f6(x):
     return x["string"]
 
 
@@ -34,4 +34,7 @@ a = f1([1, 2, 3])
 b = f2(a[0])
 c = f3(b)
 d = f4({"": c[0]}, 2)
-e = f5(a, {"": 2j}, 2)
+e = f5(a, {"": d}, 2)
+f = b[e]
+g = f6({"st": 1})
+h = b[g]
