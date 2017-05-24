@@ -9,19 +9,19 @@ class TestInference(unittest.TestCase):
         self.file_path = file_path
 
     @staticmethod
-    def parse_comment(comment, annotation_resolver):
+    def parse_comment(comment):
         assignment_text = comment[2:]  # remove the '# ' text
         variable, type_annotation = assignment_text.split(" := ")
-        return variable, annotation_resolver.resolve(type_annotation)
+        return variable, type_annotation
 
     @classmethod
-    def parse_results(cls, source, annotation_resolver):
+    def parse_results(cls, source):
         result = {}
         for line in source:
             line = line.strip()
             if not line.startswith("#"):
                 continue
-            variable, t = cls.parse_comment(line, annotation_resolver)
+            variable, t = cls.parse_comment(line)
             result[variable] = t
         return result
 
@@ -45,7 +45,7 @@ class TestInference(unittest.TestCase):
             infer(stmt, context, solver)
 
         solver.push()
-        expected_result = cls.parse_results(open(path), solver.annotation_resolver)
+        expected_result = cls.parse_results(open(path))
         return solver, context, expected_result
 
     def runTest(self):
@@ -60,7 +60,7 @@ class TestInference(unittest.TestCase):
                           "Expected to have variable '{}' in the global context".format(v))
 
             z3_type = context.types_map[v]
-            self.assertEqual(model[z3_type], expected_result[v],
+            self.assertEqual(str(model[z3_type]), expected_result[v],
                              "Expected variable '{}' to have type '{}', but found '{}'".format(v,
                                                                                                expected_result[v],
                                                                                                model[z3_type]))
@@ -74,4 +74,7 @@ def suite(files):
     runner.run(s)
 
 if __name__ == '__main__':
-    suite(["tests/inference/expressions_test.py"])
+    suite(["tests/inference/classes_test.py",
+           "tests/inference/expressions_test.py",
+           "tests/inference/functions_test.py",
+           "tests/inference/statements_test.py"])

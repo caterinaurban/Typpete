@@ -19,8 +19,18 @@ class AnnotationResolver:
             "List\[(.+)\]": z3_types.list,
             "Dict\[(.+), (.+)\]": z3_types.dict,
             "Set\[(.+)\]": z3_types.set,
-            "Type\[(.+)\]": z3_types.type
+            "Type\[(.+)\]": z3_types.type,
         }
+
+        # Add functions regex:
+        # funcs[0] --> Callable[[], (.+)]
+        # funcs[1] --> Callable[[(.*)], (.+)]
+        # funcs[2] --> Callable[[(.*), (.*)], (.+)]
+        # ..etc.
+        for i in range(len(z3_types.funcs)):
+            args_groups = ["(.+)"] * i
+            func_regex = "Callable\[\[{}\], (.+)\]".format(", ".join(args_groups))
+            self.complex_regex[func_regex] = z3_types.funcs[i]
 
     def resolve(self, annotation):
         """Resolve the type annotation with the following grammar:
@@ -29,6 +39,7 @@ class AnnotationResolver:
             | List[t]
             | Dict[t, t]
             | Set[t]
+            | Callable[[t*], t]
             | Type[t]
         """
         if annotation in self.primitives:  # check if it's primitive type
@@ -46,5 +57,5 @@ class AnnotationResolver:
 
         # check if it's user defined type
         if annotation in self.z3_types.all_types:
-            return self.z3_types.type_sort.instance(self.z3_types.all_types[annotation])
-        raise ValueError("Invalid type annotation")
+            return getattr(self.z3_types.type_sort, "class_{}".format(annotation))
+        raise ValueError("Invalid type annotation: {}.".format(annotation))

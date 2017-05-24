@@ -23,12 +23,12 @@ x = w[u]
 
 # a := float
 # b := float
-# c := List[float]
-# d := List[List[float]]
+# c := list(float)
+# d := list(list(float))
 # f := int
-# i := Dict[int, float]
+# i := dict(int, float)
 # o := int
-# t := List[int]
+# t := list(int)
 # u := int
 # v := int
-# w := List[int]
+# w := list(int)
