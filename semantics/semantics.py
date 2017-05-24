@@ -1,7 +1,7 @@
 from abstract_domains.state import State
 from core.expressions import BinaryArithmeticOperation, BinaryOperation, BinaryComparisonOperation, UnaryOperation, \
-    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation, Slice, Index, ListDisplay
-from core.statements import Statement, VariableAccess, LiteralEvaluation, Call, SliceStmt, IndexStmt, ListDisplayStmt
+    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation, ListDisplay, Slice, Index
+from core.statements import Statement, VariableAccess, LiteralEvaluation, Call, ListDisplayStmt, SliceStmt, IndexStmt
 from functools import reduce
 import re
 import itertools
@@ -34,9 +34,8 @@ class Semantics:
         if hasattr(self, name):
             return getattr(self, name)(stmt, state)
         else:
-            raise NotImplementedError(
-                f"Semantics for statement {stmt} of type {type(stmt)} "
-                f"not yet implemented! You must provide method {name}(...)")
+            raise NotImplementedError(f"Semantics for statement {stmt} of type {type(stmt)} not yet implemented! "
+                                      f"You must provide method {name}(...)")
 
 
 class LiteralEvaluationSemantics(Semantics):

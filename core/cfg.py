@@ -1,4 +1,4 @@
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
 from core.statements import Statement
 from enum import Enum
 from typing import Dict, List, Set, Tuple, Generator, Union

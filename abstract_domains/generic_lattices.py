@@ -1,5 +1,5 @@
-from abc import abstractmethod, ABCMeta
-from typing import List, TypeVar, Type, Dict
+from abc import ABCMeta, abstractmethod
+from typing import List, TypeVar, Generic, Type, Dict
 
 from abstract_domains.lattice import Lattice, BaseLattice
 from core.expressions import VariableIdentifier
@@ -70,7 +70,7 @@ class StoreLattice(Lattice):
 L = TypeVar('L')
 
 
-class StackLattice(Lattice, metaclass=ABCMeta):
+class StackLattice(Lattice, Generic[L], metaclass=ABCMeta):
     """A generic lattice that represents a stack of elements of some other lattice L."""
 
     def __init__(self, element_lattice: Type[L], args_dict):

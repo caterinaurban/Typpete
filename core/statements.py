@@ -1,9 +1,9 @@
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
 from core.expressions import Literal, VariableIdentifier
 from typing import List, Sequence
 
 
-class ProgramPoint(object):
+class ProgramPoint:
     def __init__(self, line: int, column: int):
         """Program point representation.
         
@@ -41,12 +41,13 @@ class ProgramPoint(object):
         return "[line:{0.line}, column:{0.column}]".format(self)
 
 
-class Statement(metaclass=ABCMeta):
-    """
-    Statements.
-    https://docs.python.org/3.4/reference/simple_stmts.html
-    """
+"""
+Statements.
+https://docs.python.org/3.4/reference/simple_stmts.html
+"""
 
+
+class Statement(metaclass=ABCMeta):
     def __init__(self, pp: ProgramPoint):
         """Statement representation.
         

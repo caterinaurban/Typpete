@@ -276,7 +276,7 @@ class CfgFactory:
             self._stmts = []
 
 
-# noinspection PyMethodMayBeStatic,PyPep8Naming,PyUnusedLocal
+# noinspection PyMethodMayBeStatic,PyPep8Naming
 class CfgVisitor(ast.NodeVisitor):
     """
     This AST visitor generates a CFG recursively.
@@ -394,7 +394,7 @@ class CfgVisitor(ast.NodeVisitor):
 
         return cfg
 
-    def visit_Break(self, node):
+    def visit_Break(self, _):
         dummy = self._dummy()
         cfg = LooseControlFlowGraph({dummy}, dummy, None)
         # the type of the special edge is not yet known, may be also an IF_OUT first, before LOOP_OUT
@@ -404,7 +404,7 @@ class CfgVisitor(ast.NodeVisitor):
         )
         return cfg
 
-    def visit_Continue(self, node):
+    def visit_Continue(self, _):
         dummy = self._dummy()
         cfg = LooseControlFlowGraph({dummy}, dummy, None)
         # the type of the special edge is not yet known, may be also an IF_OUT first, before LOOP_OUT

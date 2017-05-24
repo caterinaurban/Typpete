@@ -1,4 +1,4 @@
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
 from abstract_domains.state import State
 from core.cfg import ControlFlowGraph
 from engine.result import AnalysisResult

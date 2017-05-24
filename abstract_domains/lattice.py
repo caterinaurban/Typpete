@@ -1,4 +1,4 @@
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
 from enum import Enum
 from functools import reduce
 from typing import List, TypeVar, Generic
@@ -181,7 +181,6 @@ class BaseLattice(metaclass=ABCMeta):
         return self
 
 
-# noinspection PyAbstractClass
 class Lattice(BaseLattice, Generic[L], metaclass=ABCMeta):
     """
     A generic lattice that provides a TOP and a BOTTOM element and related methods.

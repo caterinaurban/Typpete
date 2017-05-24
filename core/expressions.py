@@ -1,4 +1,4 @@
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
 from enum import Enum
 from functools import reduce
 from typing import Set, Sequence
