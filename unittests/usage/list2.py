@@ -1,7 +1,7 @@
 b = True
 x = 5
 y = 0
-# RESULT: b -> U, list1 -> (O@0:4), list2 -> (), sum -> O, x -> U, y -> N
+# RESULT: b -> U, list1 -> (O@0:4), list2 -> (O@0:2), sum -> O, x -> U, y -> N
 list1 = [1, x, 2, 3, 5, 8, y]
 sum = 0
 if b:

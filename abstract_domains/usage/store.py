@@ -76,7 +76,7 @@ class UsedStore(StoreLattice, State):
             # TODO this whole if is no longer correct when lists of lists are allowed, e.g. l = [a,2,l]
             if isinstance(right, VariableIdentifier):
                 if right != left:  # if no self-assignemnt
-                    self.variables[left].bottom()
+                    self.variables[left].change_SU_to_O()
             elif isinstance(right, ListDisplay):
                 self.variables[left].change_SU_to_O()
         else:
