@@ -16,12 +16,14 @@ class PreAnalyzer:
     def maximum_function_args(self):
         """Get the maximum number of function arguments appearing in the AST"""
         func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
-        return max([len(node.args.args) for node in func_defs] + [1])
+        # A minimum value of 2 for the max number of arguments in the built in functions
+        return max([len(node.args.args) for node in func_defs] + [2])
 
     def maximum_tuple_length(self):
         """Get the maximum length of tuples appearing in the AST"""
         tuples = [node for node in self.all_nodes if isinstance(node, ast.Tuple)]
-        return 0 if not tuples else max([len(node.elts) for node in tuples])
+        # A minimum value of 2 for the max number of arguments in the built in tuples
+        return max([len(node.elts) for node in tuples] + [2])
 
     def analyze_classes(self):
         """Pre-analyze and configure classes before the type inference
