@@ -40,13 +40,13 @@ g = f6({"st": 1})
 h = b[g]
 
 
-# a := list(int)
-# b := list(int)
-# c := list(int)
-# f1 := func_1(list(int), list(int))
-# f2 := func_1(int, list(int))
-# f3 := func_1(list(int), list(int))
-# f4 := func_2(dict(str, int), int, int)
-# f5 := func_3(list(int), dict(str, int), int, int)
-# f6 := func_1(dict(str, int), int)
+# a := List[int]
+# b := List[int]
+# c := List[int]
+# f1 := Callable[[List[int]], List[int]]
+# f2 := Callable[[int], List[int]]
+# f3 := Callable[[List[int]], List[int]]
+# f4 := Callable[[Dict[str, int], int], int]
+# f5 := Callable[[List[int], Dict[str, int], int], int]
+# f6 := Callable[[Dict[str, int]], int]
 

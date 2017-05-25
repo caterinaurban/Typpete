@@ -7,7 +7,7 @@ for x in [1, 2, 3]:
                 n = L1[i]
 
 
-# L1 := list(int)
-# L2 := list(int)
+# L1 := List[int]
+# L2 := List[int]
 # i := int
 # j := int

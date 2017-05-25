@@ -36,13 +36,13 @@ e = E()
 f = e.f()
 
 
-# A := type_type(class_A)
-# B := type_type(class_B)
-# C := type_type(class_C)
-# D := type_type(class_D)
-# E := type_type(class_E)
+# A := Type[A]
+# B := Type[B]
+# C := Type[C]
+# D := Type[D]
+# E := Type[E]
 
 # x := str
-# c := class_C
-# e := class_E
-# fab := func_1(type_type(class_B), str)
+# c := C
+# e := E
+# fab := Callable[[Type[B]], str]

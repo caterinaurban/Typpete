@@ -15,14 +15,14 @@ class TestInference(unittest.TestCase):
         return variable, type_annotation
 
     @classmethod
-    def parse_results(cls, source):
+    def parse_results(cls, source, annotation_resolver):
         result = {}
         for line in source:
             line = line.strip()
             if not line.startswith("#"):
                 continue
             variable, t = cls.parse_comment(line)
-            result[variable] = t
+            result[variable] = annotation_resolver.resolve(t)
         return result
 
     @classmethod
@@ -45,7 +45,7 @@ class TestInference(unittest.TestCase):
             infer(stmt, context, solver)
 
         solver.push()
-        expected_result = cls.parse_results(open(path))
+        expected_result = cls.parse_results(open(path), solver.annotation_resolver)
         return solver, context, expected_result
 
     def runTest(self):
@@ -60,7 +60,7 @@ class TestInference(unittest.TestCase):
                           "Expected to have variable '{}' in the global context".format(v))
 
             z3_type = context.types_map[v]
-            self.assertEqual(str(model[z3_type]), expected_result[v],
+            self.assertEqual(model[z3_type], expected_result[v],
                              "Expected variable '{}' to have type '{}', but found '{}'".format(v,
                                                                                                expected_result[v],
                                                                                                model[z3_type]))
