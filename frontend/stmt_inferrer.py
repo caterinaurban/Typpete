@@ -324,8 +324,13 @@ def _infer_func_def(node, context, solver):
     body_type = _infer_body(node.body, func_context, node.lineno, solver)
     if node.returns:
         return_type = solver.resolve_annotation(unparse_annotation(node.returns))
-        solver.add(body_type == return_type,
-                   fail_message="Return type annotation in line {}".format(node.lineno))
+
+        if len(node.body) == 1 and isinstance(node.body[0], ast.Pass):
+            # Stub function
+            body_type = return_type
+        else:
+            solver.add(body_type == return_type,
+                       fail_message="Return type annotation in line {}".format(node.lineno))
 
     func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
     result_type = solver.new_z3_const("func")
