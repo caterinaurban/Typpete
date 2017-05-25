@@ -376,6 +376,28 @@ def instance_axioms(called, args, result, types):
     return axioms
 
 
+def func_call(called, args, result, types):
+    if len(args) == 0:
+        return called == types.funcs[0](result)
+
+    subtype_axioms = []
+    z3_args = []
+    for i in range(len(args)):
+        z3_arg = getattr(types.type_sort, "func_{}_arg_{}".format(len(args), i + 1))(called)
+        z3_args.append(z3_arg)
+        arg = args[i]
+        subtype_axioms.append(And(
+            Implies(And(types.subtype(arg, types.num), types.subtype(z3_arg, types.num)),
+                    types.stronger_num(z3_arg, arg)),
+            Implies(Not(And(types.subtype(arg, types.num), types.subtype(z3_arg, types.num))),
+                    types.subtype(arg, z3_arg)),
+        ))
+
+    func_type = types.funcs[len(args)]
+    z3_args.append(result)
+    return And(subtype_axioms + [called == func_type(*z3_args)])
+
+
 def call(called, args, result, types):
     """Constraints for calls
     
@@ -385,7 +407,7 @@ def call(called, args, result, types):
     """
     return [
         Or(
-            [called == types.funcs[len(args)](args + (result,))] + instance_axioms(called, args, result, types)
+            [func_call(called, args, result, types)] + instance_axioms(called, args, result, types)
         )
     ]
 

@@ -15,14 +15,14 @@ class TestInference(unittest.TestCase):
         return variable, type_annotation
 
     @classmethod
-    def parse_results(cls, source, annotation_resolver):
+    def parse_results(cls, source, solver):
         result = {}
         for line in source:
             line = line.strip()
             if not line.startswith("#"):
                 continue
             variable, t = cls.parse_comment(line)
-            result[variable] = annotation_resolver.resolve(t)
+            result[variable] = solver.resolve_annotation(t)
         return result
 
     @classmethod
@@ -45,7 +45,7 @@ class TestInference(unittest.TestCase):
             infer(stmt, context, solver)
 
         solver.push()
-        expected_result = cls.parse_results(open(path), solver.annotation_resolver)
+        expected_result = cls.parse_results(open(path), solver)
         return solver, context, expected_result
 
     def runTest(self):
