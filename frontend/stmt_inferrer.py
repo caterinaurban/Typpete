@@ -284,6 +284,8 @@ def unparse_annotation(annotation_node):
     """
     if isinstance(annotation_node, ast.Name):
         return annotation_node.id
+    elif isinstance(annotation_node, ast.List):
+        return "[{}]".format(", ".join([unparse_annotation(elt) for elt in annotation_node.elts]))
     elif isinstance(annotation_node, ast.Subscript):
         return "{}[{}]".format(unparse_annotation(annotation_node.value), unparse_annotation(annotation_node.slice))
     elif isinstance(annotation_node, ast.Index):
@@ -293,7 +295,7 @@ def unparse_annotation(annotation_node):
                                  unparse_annotation(annotation_node.upper),
                                  unparse_annotation(annotation_node.step))
     elif isinstance(annotation_node, ast.Tuple):
-        return ", ".join([unparse_annotation(x) for x in annotation_node.elts])
+        return ", ".join([unparse_annotation(elt) for elt in annotation_node.elts])
     raise ValueError("Invalid type annotation")
 
 
