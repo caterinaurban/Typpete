@@ -1,6 +1,7 @@
 import unittest
 from frontend.pre_analysis import PreAnalyzer
 from frontend.stmt_inferrer import *
+from frontend.stubs.stubs_handler import StubsHandler
 
 
 class TestInference(unittest.TestCase):
@@ -41,6 +42,8 @@ class TestInference(unittest.TestCase):
         solver = z3_types.TypesSolver(config)
 
         context = Context()
+        stub_handler = StubsHandler()
+        stub_handler.infer_all_files(context, solver)
         for stmt in t.body:
             infer(stmt, context, solver)
 
@@ -77,4 +80,5 @@ if __name__ == '__main__':
     suite(["tests/inference/classes_test.py",
            "tests/inference/expressions_test.py",
            "tests/inference/functions_test.py",
-           "tests/inference/statements_test.py"])
+           "tests/inference/statements_test.py",
+           "tests/inference/builtins_test.py"])

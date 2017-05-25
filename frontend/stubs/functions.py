@@ -50,5 +50,53 @@ def divmod(x: float, y: float) -> Tuple[int, int]:
     pass
 
 
-def float(x: str) -> float:
+def float(x: Union[str, number]) -> float:
+    pass
+
+
+def format(x: object) -> str:
+    pass
+
+
+def hash(x: object) -> int:
+    pass
+
+
+def id(x: object) -> int:
+    pass
+
+
+def input() -> str:
+    pass
+
+
+def int(x: Union[number, str]) -> int:
+    pass
+
+
+def len(x: sequence) -> int:
+    pass
+
+
+def object() -> object:
+    pass
+
+
+def oct(x: int) -> str:
+    pass
+
+
+def pow(x, y):
+    return x ** y
+
+
+def repr(x: object) -> str:
+    pass
+
+
+def round(x: float) -> int:
+    pass
+
+
+def str(x: object) -> str:
     pass
