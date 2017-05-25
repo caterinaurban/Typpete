@@ -329,4 +329,4 @@ class TypesSolver(Solver):
         return Const("{}_{}".format(name, self.new_element_id()), sort)
 
     def resolve_annotation(self, annotation):
-        return self.annotation_resolver.resolve(annotation)
+        return self.annotation_resolver.resolve(annotation, self)
