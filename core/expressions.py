@@ -1,6 +1,5 @@
 from abc import ABCMeta, abstractmethod
 from enum import Enum
-from functools import reduce
 from typing import Set, Sequence
 
 """
@@ -47,12 +46,17 @@ class Expression(metaclass=ABCMeta):
         :return: string representing the expression
         """
 
-    @abstractmethod
     def ids(self) -> Set['Expression']:
         """Identifiers that appear in the expression.
         
         :return: set of identifiers that appear in the expression
         """
+        from core.expressions_tools import walk
+        ids = set()
+        for e in walk(self):
+            if isinstance(e, VariableIdentifier):
+                ids.add(e)
+        return ids
 
 
 """
@@ -88,9 +92,6 @@ class Literal(Expression):
         else:
             return f'{self.val}'
 
-    def ids(self) -> Set['Expression']:
-        return set()
-
 
 class Identifier(Expression):
     def __init__(self, typ, name: str):
@@ -115,9 +116,6 @@ class Identifier(Expression):
 
     def __str__(self):
         return "{0.name}".format(self)
-
-    def ids(self) -> Set['Expression']:
-        return {self}
 
 
 class VariableIdentifier(Identifier):
@@ -157,9 +155,6 @@ class ListDisplay(Expression):
 
     def __str__(self):
         return str(self.items)
-
-    def ids(self) -> Set['Expression']:
-        return reduce(lambda a, b: a.ids() | b.ids(), self.items)
 
 
 """
@@ -201,9 +196,6 @@ class AttributeReference(Expression):
 
     def __str__(self):
         return "{0.primary}.{0.attribute}".format(self)
-
-    def ids(self):
-        return self.primary.ids() | self.attribute.ids()
 
 
 class Slice(Expression):
@@ -254,9 +246,6 @@ class Slice(Expression):
     def __hash__(self):
         return hash((self.typ, self.target, self.lower, self.step, self.upper))
 
-    def ids(self):
-        return self.target.ids() | self.target.ids() | self.lower.ids() | self.step.ids() | self.upper.ids()
-
 
 class Index(Expression):
     """Index (list/dictionary access) representation.
@@ -290,9 +279,6 @@ class Index(Expression):
 
     def __hash__(self):
         return hash((self.typ, self.target, self.index))
-
-    def ids(self):
-        return self.target.ids() | self.target.ids() | self.index.ids()
 
 
 """
@@ -338,9 +324,6 @@ class UnaryOperation(Expression):
 
     def __str__(self):
         return "{0.operator}({0.expression})".format(self)
-
-    def ids(self):
-        return self.expression.ids()
 
 
 class UnaryArithmeticOperation(UnaryOperation):
@@ -443,9 +426,6 @@ class BinaryOperation(Expression):
 
     def __str__(self):
         return "{0.left} {0.operator} {0.right}".format(self)
-
-    def ids(self) -> Set['Expression']:
-        return self.left.ids() | self.right.ids()
 
 
 class BinaryArithmeticOperation(BinaryOperation):
