@@ -1,7 +1,7 @@
-x = 2
-y = 4
-a = 0
-b = 0
+x = int(input())
+y = int(input())
+a = int(input())
+b = int(input())
 # RESULT: a -> O, b -> N, x -> U, y -> N
 if not 3 > x:  # x decision
     # inside nested if only b is modified!

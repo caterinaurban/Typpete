@@ -538,3 +538,21 @@ class BinaryComparisonOperation(BinaryOperation):
         :param right: right expression of the operation
         """
         super().__init__(typ, left, operator, right)
+
+
+class Value(Expression):
+    def __init__(self, typ):
+        """(Unknown) Value representation.
+
+        :param typ: type of the value
+        """
+        super().__init__(typ)
+
+    def __str__(self):
+        return f"unknown {self.typ}"
+
+    def __eq__(self, other):
+        return False
+
+    def __hash__(self):
+        return hash(id(self))
