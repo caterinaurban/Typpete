@@ -209,6 +209,15 @@ class LooseControlFlowGraph:
         self.__dict__.update(other.__dict__)
 
 
+def _dummy(id_gen):
+    return Basic(id_gen.next, list())
+
+
+def _dummy_cfg(id_gen):
+    dummy = _dummy(id_gen)
+    return LooseControlFlowGraph({dummy}, dummy, dummy, set())
+
+
 class NodeIdentifierGenerator:
     """
     A helper class to generate a increasing sequence of node identifiers.
@@ -253,6 +262,8 @@ class CfgFactory:
 
     def append_cfg(self, other):
         if self._cfg is not None:
+            if self._cfg.loose() and other.loose():
+                self._cfg.append(_dummy_cfg(self._id_gen))
             self._cfg.append(other)
         else:
             self._cfg = other
@@ -321,9 +332,9 @@ class CfgVisitor(ast.NodeVisitor):
         return [stmt]
 
     def visit_Module(self, node):
-        start_cfg = self._dummy_cfg()
+        start_cfg = _dummy_cfg(self._id_gen)
         body_cfg = self._translate_body(node.body, allow_loose_in_edges=True, allow_loose_out_edges=True)
-        end_cfg = self._dummy_cfg()
+        end_cfg = _dummy_cfg(self._id_gen)
 
         return start_cfg.append(body_cfg).append(end_cfg)
 
@@ -348,7 +359,7 @@ class CfgVisitor(ast.NodeVisitor):
 
         # extend special edges with IF_OUT edges and additional necessary dummy nodes
         for special_edge, edge_type in body_cfg.special_edges:
-            dummy = self._dummy()
+            dummy = _dummy(self._id_gen)
             body_cfg.add_node(dummy)
 
             # add a new IF_OUT edge where the special edge is at the moment, ending in new dummy node
@@ -361,7 +372,7 @@ class CfgVisitor(ast.NodeVisitor):
         return cfg
 
     def visit_While(self, node):
-        header_node = self._dummy()
+        header_node = _dummy(self._id_gen)
 
         cfg = self._translate_body(node.body)
         body_in_node = cfg.in_node
@@ -395,7 +406,7 @@ class CfgVisitor(ast.NodeVisitor):
         return cfg
 
     def visit_Break(self, _):
-        dummy = self._dummy()
+        dummy = _dummy(self._id_gen)
         cfg = LooseControlFlowGraph({dummy}, dummy, None)
         # the type of the special edge is not yet known, may be also an IF_OUT first, before LOOP_OUT
         # so set type to DEFAULT for now but remember the special type of this edge separately
@@ -405,7 +416,7 @@ class CfgVisitor(ast.NodeVisitor):
         return cfg
 
     def visit_Continue(self, _):
-        dummy = self._dummy()
+        dummy = _dummy(self._id_gen)
         cfg = LooseControlFlowGraph({dummy}, dummy, None)
         # the type of the special edge is not yet known, may be also an IF_OUT first, before LOOP_OUT
         # so set type to DEFAULT for now but remember the special type of this edge separately
@@ -477,13 +488,6 @@ class CfgVisitor(ast.NodeVisitor):
         print(type(node).__name__)
         super().generic_visit(node)
 
-    def _dummy(self):
-        return Basic(self._id_gen.next, list())
-
-    def _dummy_cfg(self):
-        dummy = self._dummy()
-        return LooseControlFlowGraph({dummy}, dummy, dummy, set())
-
     def _translate_body(self, body, allow_loose_in_edges=False, allow_loose_out_edges=False):
         cfg_factory = CfgFactory(self._id_gen)
 
@@ -513,9 +517,9 @@ class CfgVisitor(ast.NodeVisitor):
         cfg_factory.complete_basic_block()
 
         if not allow_loose_in_edges and cfg_factory.cfg and cfg_factory.cfg.loose_in_edges:
-            cfg_factory.prepend_cfg(self._dummy_cfg())
+            cfg_factory.prepend_cfg(_dummy_cfg(self._id_gen))
         if not allow_loose_out_edges and cfg_factory.cfg and cfg_factory.cfg.loose_out_edges:
-            cfg_factory.append_cfg(self._dummy_cfg())
+            cfg_factory.append_cfg(_dummy_cfg(self._id_gen))
 
         return cfg_factory.cfg
 
