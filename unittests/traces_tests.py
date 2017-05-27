@@ -1,7 +1,10 @@
 import glob
+
+from abstract_domains.traces.traces import Traces
 from abstract_domains.usage.stack import UsedStack
 from core.expressions import VariableIdentifier
 from engine.backward import BackwardInterpreter
+from semantics.backward import DefaultBackwardSemantics
 from semantics.usage.usage_semantics import UsageSemantics
 from unittests.generic_tests import ResultCommentsFileTestCase
 import unittest
@@ -12,7 +15,7 @@ import logging
 logging.basicConfig(level=logging.INFO, filename='unittests.log', filemode='w')
 
 
-class UsageTestCase(ResultCommentsFileTestCase):
+class TracesTestCase(ResultCommentsFileTestCase):
     def __init__(self, source_path):
         super().__init__(source_path)
         self._source_path = source_path
@@ -27,11 +30,10 @@ class UsageTestCase(ResultCommentsFileTestCase):
              isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)})
         variables = [VariableIdentifier(int, name) for name in variable_names]
 
-        # Run Usage Analysis
-        backward_interpreter = BackwardInterpreter(self.cfg, UsageSemantics(), 3)
-        result = backward_interpreter.analyze(UsedStack(variables))
+        # run traces analysis
+        backward_interpreter = BackwardInterpreter(self.cfg, DefaultBackwardSemantics(), 3)
+        result = backward_interpreter.analyze(Traces(variables, True))
         self.render_result_cfg(result)
-        self.check_result_comments(result)
 
 
 def suite():
@@ -39,7 +41,7 @@ def suite():
     g = os.getcwd() + '/traces/**.py'
     for path in glob.iglob(g):
         if os.path.basename(path) != "__init__.py":
-            s.addTest(UsageTestCase(path))
+            s.addTest(TracesTestCase(path))
     runner = unittest.TextTestRunner()
     runner.run(s)
 

@@ -438,7 +438,7 @@ class CfgVisitor(ast.NodeVisitor):
         return result
 
     def visit_NameConstant(self, node):
-        return Literal(bool, node.value)
+        return Literal(bool, str(node.value))
 
     def visit_Expr(self, node):
         return self.visit(node.value)

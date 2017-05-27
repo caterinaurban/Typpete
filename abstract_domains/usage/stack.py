@@ -77,6 +77,9 @@ class UsedStack(StackLattice, State):
         self.pop()
         return self
 
+    def _output(self, output: Expression) -> 'UsedStack':
+        return self  # nothing to be done
+
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStack':
         if isinstance(left, VariableIdentifier):
             self.stack[-1].substitute_variable({left}, {right})  # TODO correct to use non-underscore interface???
