@@ -31,12 +31,12 @@ class FileTestCase(unittest.TestCase):
         self._cfg = ast_to_cfg(self.ast_root)
 
     def render_cfg(self):
-        CfgRenderer().render(self.cfg, label=f"CFG for {self.source_path}", filename=f"CFG {self.name}",
+        CfgRenderer().render(self.cfg, label=f"CFG for {self.name}", filename=f"CFG {self.name}",
                              directory=os.path.join(self._source_directory, "graphs"),
                              view=False)
 
     def render_result_cfg(self, result):
-        AnalysisResultRenderer().render((self.cfg, result), label=f"CFG with Results for {self._source_path}",
+        AnalysisResultRenderer().render((self.cfg, result), label=f"CFG with Results for {self.name}",
                                         filename=f"CFGR {self.name}",
                                         directory=os.path.join(self._source_directory, "graphs"), view=False)
 

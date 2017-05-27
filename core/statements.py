@@ -168,7 +168,7 @@ class Assignment(Statement):
         return self._right
 
     def __str__(self):
-        return "{0.pp} {0.left} = {0.right}".format(self)
+        return "{0.left} = {0.right}".format(self)
 
 
 class ListDisplayStmt(Statement):
