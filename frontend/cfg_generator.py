@@ -286,6 +286,9 @@ class CfgFactory:
             self.append_cfg(LooseControlFlowGraph({block}, block, block, set()))
             self._stmts = []
 
+    def incomplete_block(self):
+        return len(self._stmts) > 0
+
 
 # noinspection PyMethodMayBeStatic,PyPep8Naming
 class CfgVisitor(ast.NodeVisitor):
@@ -511,7 +514,10 @@ class CfgVisitor(ast.NodeVisitor):
                 cont_cfg = self.visit(child)
                 cfg_factory.append_cfg(cont_cfg)
             elif isinstance(child, ast.Pass):
-                pass
+                if cfg_factory.incomplete_block():
+                    pass
+                else:
+                    cfg_factory.append_cfg(_dummy_cfg(self._id_gen))
             else:
                 raise NotImplementedError(f"The statement {str(type(child))} is not yet translatable to CFG!")
         cfg_factory.complete_basic_block()
