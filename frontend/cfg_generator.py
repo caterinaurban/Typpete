@@ -184,7 +184,7 @@ class LooseControlFlowGraph:
         elif other.both_loose_edges:
             edge_added = True
             for e in other.both_loose_edges:
-                e._source = self.in_node
+                e._source = self.out_node
                 self.add_edge(e)  # updated/created edge is not yet in edge dict -> add
             # clear loose edge set
             other._both_loose_edges = set()
@@ -262,7 +262,7 @@ class CfgFactory:
 
     def append_cfg(self, other):
         if self._cfg is not None:
-            if self._cfg.loose() and other.loose():
+            if self._cfg.loose_out_edges and other.loose_in_edges:
                 self._cfg.append(_dummy_cfg(self._id_gen))
             self._cfg.append(other)
         else:
