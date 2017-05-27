@@ -48,7 +48,10 @@ class UsedStack(StackLattice, State):
         raise NotImplementedError("Variable assignment is not implemented!")
 
     def _assume(self, condition: Expression) -> 'UsedStack':
-        self.stack[-1].assume({condition})
+        # only update used variable in conditional edge via assume call to store
+        # if we are on a loop/if exit edge!!
+        if self._postponed_pushpop:
+            self.stack[-1].assume({condition})
 
         # make good for postponed push/pop, since that was postponed until assume has been applied to top frame
         # (the engine implements a different order of calls to exit_if/exit_loop and assume than we want)
