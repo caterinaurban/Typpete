@@ -126,7 +126,7 @@ class AnnotationResolver:
             args_types = [self.resolve(arg, solver) for arg in args_annotations]
 
             result_type = solver.new_z3_const("union")
-            solver.add(Or([solver.z3_types.subtype(result_type, arg) for arg in args_types]),
+            solver.add(Or([result_type == arg for arg in args_types]),
                        fail_message="Union in type annotation")
 
             return result_type
