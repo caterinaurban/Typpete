@@ -1,4 +1,4 @@
-from frontend.z3_types import And, Or, Implies, Exists, Not, Const
+from frontend.z3_types import And, Or, Implies, Not
 
 
 def add(left, right, result, types):
@@ -161,13 +161,13 @@ def index(indexed, ind, result, types):
     # Tuple indexing
     # Assert that 'indexed' can be a tuple of an arbitrary length, where the result is the super-type of its elements.
     t = []
-    quantifiers_consts = [Const("tuples_q_{}".format(x), types.type_sort) for x in range(len(types.tuples) - 1)]
     for cur_len in range(1, len(types.tuples)):
-        quants = quantifiers_consts[:cur_len]
-        t.append(Exists(quants, And(
-            indexed == types.tuples[cur_len](*quants),
-            *[types.subtype(x, result) for x in quants]
-        ), patterns=[types.tuples[cur_len](*quants)]))
+        tuple_args = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(indexed)
+                      for i in range(cur_len)]
+        t.append(And(
+            indexed == types.tuples[cur_len](*tuple_args),
+            *[types.subtype(x, result) for x in tuple_args]
+        ))
 
     return [
         Or(
@@ -202,14 +202,13 @@ def generator(iterable, target, types):
         - [x for x in {1: "a", 2: "b"}]
     """
     # TODO tuples
-    x = Const("x", types.type_sort)
     return [
         Or(
             iterable == types.list(target),
             iterable == types.set(target),
             And(iterable == types.string, target == types.string),
             And(iterable == types.bytes, target == types.bytes),
-            Exists(x, iterable == types.dict(target, x), patterns=[types.dict(target, x)])
+            iterable == types.dict(target, types.dict_value_type(iterable)),
         )
     ]
 
@@ -249,20 +248,19 @@ def multiple_assignment(target, value, position, types):
     # List multiple assignment
     lst = [value == types.list(target)]
 
-    # types.set multiple assignment:
+    # tuple multiple assignment:
     # Assert with tuples of different lengths, maintaining the correct position of the target in the tuple.
     t = []
-    quantifiers_consts = [Const("tuples_q_{}".format(x), types.type_sort) for x in range(len(types.tuples) - 2)]
     for cur_len in range(position + 1, len(types.tuples)):
-        before_target = quantifiers_consts[:position]  # The tuple elements before the target
-        after_target = quantifiers_consts[position:cur_len - 1]  # The tuple elements after the target
-        quants = before_target + after_target  # The quantifiers constants for this tuple length
+
+        before_target = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(value)
+                         for i in range(position)]  # The tuple elements before the target
+        after_target = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(value)
+                        for i in range(position + 1, cur_len)]  # The tuple elements after the target
+
         params = before_target + [target] + after_target  # The parameters to instantiate the tuple
 
-        if quants:
-            t.append(Exists(quants, value == types.tuples[cur_len](*params), patterns=[types.tuples[cur_len](*params)]))
-        else:
-            t.append(value == types.tuples[cur_len](*params))
+        t.append(value == types.tuples[cur_len](*params))
 
     return [Or(lst + t)]
 
@@ -291,10 +289,9 @@ def slice_assignment(lower, upper, step, sliced, value, types):
     
     Only lists support slice assignments.
     """
-    x = Const("x", types.type_sort)
     return [
         And(types.subtype(lower, types.int), types.subtype(upper, types.int), types.subtype(step, types.int),
-            Exists([x], And(sliced == types.list(x), value == types.list(x))))
+            sliced == types.list(types.list_type(sliced)), value == sliced)
     ]
 
 
@@ -336,12 +333,11 @@ def control_flow(then, orelse, result, types):
 
 def for_loop(iterable, target, types):
     """Constraints for for-loop iterable and iteration target"""
-    x = Const("x", types.type_sort)
     return [
         Or(
             iterable == types.list(target),
             iterable == types.set(target),
-            Exists([x], iterable == types.dict(target, x), patterns=[types.dict(target, x)]),
+            iterable == types.dict(target, types.dict_value_type(iterable)),
             And(iterable == types.string, target == types.string),
             And(iterable == types.bytes, target == types.bytes)
         )
