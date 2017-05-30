@@ -5,7 +5,5 @@ a = 0
 
 if 3 > x:
     foo = 10
-else:
-    pass
 
 print(a)
