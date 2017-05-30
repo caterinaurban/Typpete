@@ -185,6 +185,13 @@ class Z3Types:
 
         return axioms
 
+    def union_module_types(self, all_types, attributes, module_name):
+        for t in all_types:
+            self.all_types["{}.{}".format(module_name, t)] = all_types[t]
+
+        for t in attributes:
+            self.attributes["{}.{}".format(module_name, t)] = attributes[t]
+
 
 def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs, attributes_map):
     """Declare the type Z3 data-type and all its constructors/accessors"""
@@ -303,6 +310,7 @@ class TypesSolver(Solver):
         self.element_id = 0  # Unique id given to newly created Z3 consts
         self.assertions_vars = []
         self.assertions_errors = {}
+        self.import_contexts = {}
         self.init_axioms()
 
     def init_axioms(self):

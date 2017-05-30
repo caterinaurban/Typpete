@@ -27,6 +27,7 @@ import frontend.z3_types as z3_types
 import sys
 
 from frontend.context import Context
+from frontend.import_handler import ImportHandler
 
 
 # noinspection PyUnresolvedReferences
@@ -321,6 +322,21 @@ def _infer_class_def(node, context, solver):
     context.set_type(node.name, result_type)
 
 
+def _infer_import(node, solver):
+    import_handler = ImportHandler()
+    # TODO get base folder from configurations
+    for name in node.names:
+        import_context, all_types, attributes = import_handler.infer_import(name.name, "tests/inference", infer)
+
+        if name.asname:
+            module_name = name.asname
+        else:
+            module_name = name.name
+
+        solver.z3_types.union_module_types(all_types, attributes, module_name)
+        solver.import_contexts[module_name] = import_context
+
+
 def infer(node, context, solver):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context, solver)
@@ -350,4 +366,6 @@ def infer(node, context, solver):
         return _infer_class_def(node, context, solver)
     elif isinstance(node, ast.Expr):
         expr.infer(node.value, context, solver)
+    elif isinstance(node, ast.Import):
+        return _infer_import(node, solver)
     return solver.z3_types.none
