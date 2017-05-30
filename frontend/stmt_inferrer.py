@@ -326,7 +326,7 @@ def _infer_import(node, solver):
     import_handler = ImportHandler()
     # TODO get base folder from configurations
     for name in node.names:
-        import_context = import_handler.infer_import(name.name, "tests/inference", infer, solver)
+        import_context = import_handler.infer_import(name.name, solver.config.base_folder, infer, solver)
 
         if name.asname:
             module_name = name.asname
@@ -340,7 +340,7 @@ def _infer_import(node, solver):
 
 def _infer_import_from(node, context, solver):
     import_handler = ImportHandler()
-    import_context = import_handler.infer_import(node.module, "tests/inference", infer, solver)
+    import_context = import_handler.infer_import(node.module, solver.config.base_folder, infer, solver)
 
     if len(node.names) == 1 and node.names[0].name == "*":
         # import all

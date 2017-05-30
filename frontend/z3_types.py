@@ -311,6 +311,7 @@ class TypesSolver(Solver):
         self.assertions_vars = []
         self.assertions_errors = {}
         self.import_contexts = {}
+        self.config = config
         self.init_axioms()
 
     def init_axioms(self):

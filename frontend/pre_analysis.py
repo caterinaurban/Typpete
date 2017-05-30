@@ -102,6 +102,7 @@ class PreAnalyzer:
         config.max_tuple_length = self.maximum_tuple_length()
         config.max_function_args = self.maximum_function_args()
         config.classes_to_attrs, config.class_to_base = self.analyze_classes()
+        config.base_folder = self.base_folder
 
         return config
 
@@ -113,6 +114,7 @@ class Configuration:
         self.max_function_args = 1
         self.classes_to_attrs = OrderedDict()
         self.class_to_base = OrderedDict()
+        self.base_folder = ""
 
 
 def propagate_attributes_to_subclasses(class_defs):
