@@ -326,15 +326,16 @@ def _infer_import(node, solver):
     import_handler = ImportHandler()
     # TODO get base folder from configurations
     for name in node.names:
-        import_context, all_types, attributes = import_handler.infer_import(name.name, "tests/inference", infer)
+        import_context = import_handler.infer_import(name.name, "tests/inference", infer, solver)
 
         if name.asname:
             module_name = name.asname
         else:
             module_name = name.name
 
-        solver.z3_types.union_module_types(all_types, attributes, module_name)
         solver.import_contexts[module_name] = import_context
+
+    return solver.z3_types.none
 
 
 def infer(node, context, solver):
