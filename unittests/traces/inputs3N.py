@@ -1,5 +1,5 @@
-x = input()  # USED
-y = input()  # USED
+x = input()  # UNUSED
+y = input()  # UNUSED
 if x:
     z = x
 else:

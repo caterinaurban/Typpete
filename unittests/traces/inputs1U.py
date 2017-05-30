@@ -3,6 +3,6 @@ y = input()  # USED
 if x:
     z = x
 else:
-    z = True
+    z = x
 z = z or y
 print(z)

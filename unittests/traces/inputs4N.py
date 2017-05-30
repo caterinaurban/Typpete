@@ -1,8 +1,8 @@
 x = input()  # USED
-y = input()  # USED
+y = input()  # UNUSED
 if x:
     z = x
 else:
-    z = True
-z = z or y
+    z = x
+z = z or False
 print(z)
