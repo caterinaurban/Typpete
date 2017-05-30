@@ -16,8 +16,7 @@ class ImportHandler:
 
     @staticmethod
     def infer_import(module_name, base_folder, infer_func, solver):
-        r = open("{}/{}.py".format(base_folder, module_name))
-        t = ast.parse(r.read())
+        t = ImportHandler.get_ast(module_name, base_folder)
         context = Context()
         for stmt in t.body:
             infer_func(stmt, context, solver)

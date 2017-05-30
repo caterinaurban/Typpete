@@ -338,6 +338,26 @@ def _infer_import(node, solver):
     return solver.z3_types.none
 
 
+def _infer_import_from(node, context, solver):
+    import_handler = ImportHandler()
+    import_context = import_handler.infer_import(node.module, "tests/inference", infer, solver)
+
+    if len(node.names) == 1 and node.names[0].name == "*":
+        # import all
+        for v in import_context.types_map:
+            context.set_type(v, import_context.get_type(v))
+    else:
+        for name in node.names:
+            elt_name = name.name
+            if name.asname:
+                elt_name = name.asname
+            if name.name not in import_context.types_map:
+                raise ImportError("Cannot import name {}".format(name.name))
+            context.set_type(elt_name, import_context.get_type(name.name))
+
+    return solver.z3_types.none
+
+
 def infer(node, context, solver):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context, solver)
@@ -369,4 +389,6 @@ def infer(node, context, solver):
         expr.infer(node.value, context, solver)
     elif isinstance(node, ast.Import):
         return _infer_import(node, solver)
+    elif isinstance(node, ast.ImportFrom):
+        return _infer_import_from(node, context, solver)
     return solver.z3_types.none

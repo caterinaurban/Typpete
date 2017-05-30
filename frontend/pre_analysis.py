@@ -17,12 +17,16 @@ class PreAnalyzer:
 
     def walk(self, prog_ast):
         result = list(ast.walk(prog_ast))
-        imports = [node for node in result if isinstance(node, ast.Import)]
+        import_nodes = [node for node in result if isinstance(node, ast.Import)]
+        import_from_nodes = [node for node in result if isinstance(node, ast.ImportFrom)]
         import_handler = ImportHandler()
-        for node in imports:
+        for node in import_nodes:
             for name in node.names:
                 new_ast = import_handler.get_ast(name.name, self.base_folder)
                 result += self.walk(new_ast)
+        for node in import_from_nodes:
+            new_ast = import_handler.get_ast(node.module, self.base_folder)
+            result += self.walk(new_ast)
 
         return result
 
