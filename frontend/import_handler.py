@@ -3,19 +3,24 @@ from frontend.context import Context
 
 
 class ImportHandler:
-    def infer_import_from(self, module_name, relative_level, names):
-        if not relative_level and self.is_builtin(module_name):
-            # TODO import builtins
-            pass
-        # TODO
-
+    """Handler for importing other modules during the type inference"""
     @staticmethod
     def get_ast(module_name, base_folder):
+        """Get the AST of a python module
+        
+        :param module_name: the name of the python module
+        :param base_folder: the directory path where this module exists
+        """
         r = open("{}/{}.py".format(base_folder, module_name))
         return ast.parse(r.read())
 
     @staticmethod
     def infer_import(module_name, base_folder, infer_func, solver):
+        """Infer the types of a python module"""
+        if ImportHandler.is_builtin(module_name):
+            # TODO import from builtins
+            pass
+
         t = ImportHandler.get_ast(module_name, base_folder)
         context = Context()
         for stmt in t.body:
@@ -23,5 +28,8 @@ class ImportHandler:
 
         return context
 
-    def is_builtin(self, module_name):
-        raise NotImplementedError("Not implemented yet")
+    @staticmethod
+    def is_builtin(module_name):
+        """Check if the imported python module is builtin"""
+        # TODO
+        pass

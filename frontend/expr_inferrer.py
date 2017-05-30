@@ -365,7 +365,21 @@ def infer_func_call(node, context, solver):
 
 
 def infer_attribute(node, context, from_call, solver):
+    """Infer the type of attribute access
+    
+    Cases:
+        - Instance attribute access. ex:
+            class A:
+                def f(self):
+                    pass
+            A().f()
+        - Module access. ex:
+            import A
+            A.f()
+    """
     result_type = solver.new_z3_const("attribute")
+
+    # Check if it's a module access
     if isinstance(node.value, ast.Name) and node.value.id in solver.import_contexts:
         solver.add(result_type == solver.import_contexts[node.value.id].types_map[node.attr],
                    fail_message="Module attribute access in line {}".format(node.lineno))

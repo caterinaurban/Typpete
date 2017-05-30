@@ -323,30 +323,34 @@ def _infer_class_def(node, context, solver):
 
 
 def _infer_import(node, solver):
+    """Infer the imported module in normal import statement"""
     import_handler = ImportHandler()
-    # TODO get base folder from configurations
     for name in node.names:
         import_context = import_handler.infer_import(name.name, solver.config.base_folder, infer, solver)
 
         if name.asname:
+            # import X as Y
             module_name = name.asname
         else:
             module_name = name.name
 
+        # Store the module context in the SMT solver.
         solver.import_contexts[module_name] = import_context
 
     return solver.z3_types.none
 
 
 def _infer_import_from(node, context, solver):
+    """Infer the imported module in an `import from` statement"""
     import_handler = ImportHandler()
     import_context = import_handler.infer_import(node.module, solver.config.base_folder, infer, solver)
 
     if len(node.names) == 1 and node.names[0].name == "*":
-        # import all
+        # import all module elements
         for v in import_context.types_map:
             context.set_type(v, import_context.get_type(v))
     else:
+        # Import only stated names
         for name in node.names:
             elt_name = name.name
             if name.asname:
