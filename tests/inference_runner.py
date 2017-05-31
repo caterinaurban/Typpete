@@ -5,7 +5,7 @@ import frontend.z3_types as z3_types
 import ast
 import sys
 
-r = open("tests/inference/classes_test.py")
+r = open("tests/inference/test.py")
 t = ast.parse(r.read())
 
 analyzer = PreAnalyzer(t)
@@ -16,7 +16,7 @@ solver = z3_types.TypesSolver(config)
 stubs_handler = StubsHandler()
 context = Context()
 
-stubs_handler.infer_all_files(context, solver)
+stubs_handler.infer_all_files(context, solver, config.used_names)
 
 for stmt in t.body:
     infer(stmt, context, solver)

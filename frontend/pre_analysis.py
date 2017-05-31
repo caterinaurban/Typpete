@@ -25,6 +25,12 @@ class PreAnalyzer:
         # A minimum value of 2 for the max number of arguments in the built in tuples
         return max([len(node.elts) for node in tuples] + [2])
 
+    def get_all_used_names(self):
+        """Get all used variable names and used-defined classes names"""
+        names = [node.id for node in self.all_nodes if isinstance(node, ast.Name)]
+        names += [node.name for node in self.all_nodes if isinstance(node, ast.ClassDef)]
+        return names
+
     def analyze_classes(self):
         """Pre-analyze and configure classes before the type inference
         
@@ -87,6 +93,7 @@ class PreAnalyzer:
         config.max_tuple_length = self.maximum_tuple_length()
         config.max_function_args = self.maximum_function_args()
         config.classes_to_attrs, config.class_to_base = self.analyze_classes()
+        config.used_names = self.get_all_used_names()
 
         return config
 
@@ -98,6 +105,7 @@ class Configuration:
         self.max_function_args = 1
         self.classes_to_attrs = OrderedDict()
         self.class_to_base = OrderedDict()
+        self.used_names = []
 
 
 def propagate_attributes_to_subclasses(class_defs):
