@@ -358,7 +358,14 @@ def try_except(then, orelse, final, result, types):
 
 
 def instance_axioms(called, args, result, types):
-    """Constraints for class instantiation"""
+    """Constraints for class instantiation
+    
+    A class instantiation corresponds to a normal function call to the __init__ function, where
+    the return type will be an instance of this class.
+    
+    The called maybe of any user-defined type in the program, so the call is asserted
+    with the __init__ function of every call
+    """
 
     if len(args) + 1 >= len(types.funcs):  # Instantiating a class with more number of args than the max possible number
         return []
@@ -366,8 +373,13 @@ def instance_axioms(called, args, result, types):
     # Assert with __init__ function of all classes in the program
     axioms = []
     for t in types.all_types:
+        # Get the instance accessor from the type_sort data type.
         instance = getattr(types.type_sort, "instance")(types.all_types[t])
+
+        # Get the __init__ function of the current class
         init_func = types.attributes[t]["__init__"]
+
+        # Assert that it's a call to this __init__ function
         axioms.append(
             And(called == types.all_types[t],
                 result == instance,

@@ -195,7 +195,7 @@ def infer_unary_operation(node, context, solver):
     Examples: -5, not 1, ~2
     """
     if isinstance(node.op, ast.Not):  # (not expr) always gives bool type
-        return solver.z3_types.iool
+        return solver.z3_types.bool
 
     unary_type = infer(node.operand, context, solver)
 
