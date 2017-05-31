@@ -143,10 +143,10 @@ def _infer_div(left_type, right_type, lineno, solver):
     return result_type
 
 
-def _infer_arithmetic(left_type, right_type, lineno, solver):
+def _infer_arithmetic(left_type, right_type, is_mod, lineno, solver):
     """Infer the type of an arithmetic operation, and add the corresponding axioms"""
     result_type = solver.new_z3_const("arithmetic_result")
-    solver.add(axioms.arithmetic(left_type, right_type, result_type, solver.z3_types),
+    solver.add(axioms.arithmetic(left_type, right_type, result_type, is_mod, solver.z3_types),
                fail_message="Arithmetic operation in line {}".format(lineno))
     return result_type
 
@@ -170,7 +170,7 @@ def binary_operation_type(left_type, op, right_type, lineno, solver):
     elif isinstance(op, (ast.BitOr, ast.BitXor, ast.BitAnd)):
         inference_func = _infer_bitwise
     else:
-        inference_func = _infer_arithmetic
+        return _infer_arithmetic(left_type, right_type, isinstance(op, ast.Mod), lineno, solver)
 
     return inference_func(left_type, right_type, lineno, solver)
 

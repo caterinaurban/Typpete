@@ -74,21 +74,28 @@ def div(left, right, result, types):
     ]
 
 
-def arithmetic(left, right, result, types):
+def arithmetic(left, right, result, is_mod, types):
     """Constraints for arithmetic operation
 
     Cases:
         - Number_1 (op) Number_2 --> Stronger(Number_1, Number_2)
+        - String formatting
         
     Ex:
         - 2 ** 3.0
         - 3 - 4
+        - "Case #%i: %i" % (u, v)
     """
-    return [
-        And(types.subtype(left, types.num), types.subtype(right, types.num)),
-        Implies(types.stronger_num(left, right), result == left),
-        Implies(types.stronger_num(right, left), result == right)
+    axioms = [
+        And(types.subtype(left, types.num), types.subtype(right, types.num),
+            Implies(types.stronger_num(left, right), result == left),
+            Implies(types.stronger_num(right, left), result == right))
     ]
+
+    if is_mod:
+        axioms += [And(Or(left == types.string, left == types.bytes), result == left)]
+
+    return [Or(axioms)]
 
 
 def bitwise(left, right, result, types):
@@ -101,7 +108,7 @@ def bitwise(left, right, result, types):
         - 1 & 2
         - True ^ False
     """
-    return arithmetic(left, right, result, types) + [
+    return arithmetic(left, right, result, False, types) + [
         And(types.subtype(left, types.int), types.subtype(right, types.int))]
 
 
