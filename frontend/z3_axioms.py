@@ -105,6 +105,26 @@ def bitwise(left, right, result, types):
         And(types.subtype(left, types.int), types.subtype(right, types.int))]
 
 
+def bool_op(values, result, types):
+    """Constrains for boolean operations (and/or)
+    
+    The result is the supertype (or numerically stronger) of all operands.
+     
+    Ex:
+        - 2 and str --> object
+        - False or 1 --> int
+    """
+    return [
+        Or(
+            types.subtype(x, result),
+            And(types.subtype(x, types.num),
+                types.subtype(result, types.num),
+                types.stronger_num(result, x))
+        )
+        for x in values
+    ]
+
+
 def unary_invert(unary, types):
     """Constraints for the invert unary operation
     
