@@ -14,15 +14,6 @@ from core.expressions_tools import walk
 class UsedStore(StoreLattice, State):
     def __init__(self, variables: List[VariableIdentifier]):
         super().__init__(variables, {int: UsedLattice, list: UsedListStartLattice})
-        self._inside_print = False
-
-    @property
-    def inside_print(self):
-        return self._inside_print
-
-    @inside_print.setter
-    def inside_print(self, flag: bool):
-        self._inside_print = flag
 
     def __repr__(self):
         variables = ", ".join("{} -> {}".format(variable, value) for variable, value in self.variables.items())
@@ -84,14 +75,6 @@ class UsedStore(StoreLattice, State):
         return self
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
-        if self.inside_print:
-            if issubclass(variable.typ, Number):
-                self.variables[variable].used = Used.U
-            elif issubclass(variable.typ, Sequence):
-                self.variables[variable].suo[Used.U] = inf
-                self.variables[variable].closure()
-            else:
-                raise NotImplementedError(f"Type {variable.typ} not yet supported!")
         return {variable}
 
     def _assign_variable(self, left: Expression, right: Expression) -> 'UsedStore':
@@ -139,6 +122,14 @@ class UsedStore(StoreLattice, State):
         raise NotImplementedError("UsedStore does not support exit_if")
 
     def _output(self, output: Expression) -> 'UsedStore':
+        for variable in output.ids():
+            if issubclass(variable.typ, Number):
+                self.variables[variable].used = Used.U
+            elif issubclass(variable.typ, Sequence):
+                self.variables[variable].suo[Used.U] = inf
+                self.variables[variable].closure()
+            else:
+                raise NotImplementedError(f"Type {variable.typ} not yet supported!")
         return self  # nothing to be done
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStore':

@@ -169,6 +169,28 @@ class BuiltInCallSemantics(CallSemantics):
         argument = self.semantics(stmt.arguments[0], state).result  # argument evaluation
         return state.output(argument)
 
+    def int_call_semantics(self, stmt: Call, state: State) -> State:
+        if len(stmt.arguments) != 1:
+            raise NotImplementedError(f"No semantics implemented for the multiple arguments to int()")
+
+        state = self.semantics(stmt.arguments[0], state)
+
+        for expr in state.result:
+            expr.typ = int
+
+        return state
+
+    def bool_call_semantics(self, stmt: Call, state: State) -> State:
+        if len(stmt.arguments) != 1:
+            raise NotImplementedError(f"No semantics implemented for the multiple arguments to bool()")
+
+        state = self.semantics(stmt.arguments[0], state)
+
+        for expr in state.result:
+            expr.typ = int
+
+        return state
+
     def unary_operation(self, stmt: Call, operator: UnaryOperation.Operator, state: State) -> State:
         assert len(stmt.arguments) == 1  # unary operations have exactly one argument
         argument = self.semantics(stmt.arguments[0], state).result  # argument evaluation

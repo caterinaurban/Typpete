@@ -14,18 +14,7 @@ class UsedStack(StackLattice, State):
         :param variables: list of program variables
         """
         super().__init__(UsedStore, {'variables': variables})
-        self._inside_print = False
         self._postponed_pushpop = []  # postponed stack pushs/pops that are later executed in ``_assume()``
-
-    @property
-    def inside_print(self):
-        return self._inside_print
-
-    @inside_print.setter
-    def inside_print(self, flag: bool):
-        self._inside_print = flag
-        for store in self.stack:
-            store.inside_print = flag
 
     def push(self):
         if self.is_bottom():
@@ -88,7 +77,10 @@ class UsedStack(StackLattice, State):
         return self
 
     def _output(self, output: Expression) -> 'UsedStack':
-        return self  # nothing to be done
+        if self.is_bottom():
+            return self
+        self.stack[-1]._output(output)
+        return self
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStack':
         if isinstance(left, VariableIdentifier):
