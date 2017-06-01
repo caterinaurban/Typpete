@@ -138,6 +138,9 @@ class UsedStore(StoreLattice, State):
     def exit_if(self):
         raise NotImplementedError("UsedStore does not support exit_if")
 
+    def _output(self, output: Expression) -> 'UsedStore':
+        return self  # nothing to be done
+
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStore':
         if isinstance(left, VariableIdentifier):
             self._use(left, right)._kill(left, right)

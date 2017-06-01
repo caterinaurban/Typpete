@@ -1,6 +1,6 @@
 from abstract_domains.state import State
 from core.expressions import BinaryArithmeticOperation, BinaryOperation, BinaryComparisonOperation, UnaryOperation, \
-    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation, ListDisplay, Slice, Index
+    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation, Input, ListDisplay, Slice, Index
 from core.statements import Statement, VariableAccess, LiteralEvaluation, Call, ListDisplayStmt, SliceStmt, IndexStmt
 from functools import reduce
 import re
@@ -155,14 +155,21 @@ class CallSemantics(Semantics):
 class BuiltInCallSemantics(CallSemantics):
     """Semantics of built-in function/method calls."""
 
-    def unary_operation(self, stmt: Call, operator: UnaryOperation.Operator, state: State) -> State:
-        """
+    def input_call_semantics(self, stmt: Call, state: State) -> State:
+        state.result = {Input(stmt.typ)}
+        return state
+
+    def print_call_semantics(self, stmt: Call, state: State) -> State:
+        """Semantics of a call to 'print'.
         
-        :param stmt: 
-        :param operator: 
-        :param state: 
-        :return: 
+        :param stmt: call to 'print' to be executed
+        :param state: state before executing the call statement
+        :return: state modified by the call statement
         """
+        argument = self.semantics(stmt.arguments[0], state).result  # argument evaluation
+        return state.output(argument)
+
+    def unary_operation(self, stmt: Call, operator: UnaryOperation.Operator, state: State) -> State:
         assert len(stmt.arguments) == 1  # unary operations have exactly one argument
         argument = self.semantics(stmt.arguments[0], state).result  # argument evaluation
         result = set()
@@ -355,7 +362,7 @@ class BuiltInCallSemantics(CallSemantics):
         return self.binary_operation(stmt, BinaryComparisonOperation.Operator.NotIn, state)
 
     def and_call_semantics(self, stmt: Call, state: State) -> State:
-        """Semantics of a call to 'add'.
+        """Semantics of a call to 'and'.
 
         :param stmt: call to 'add' to be executed
         :param state: state before executing the call statement

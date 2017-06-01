@@ -120,6 +120,9 @@ class DummyState(StoreLattice, State):
     def exit_if(self):
         return self  # nothing to be done
 
+    def _output(self, output: Expression) -> 'DummyState':
+        return self  # nothing to be done
+
     def _substitute_variable(self, left: Expression, right: Expression):
         raise NotImplementedError("")
 
