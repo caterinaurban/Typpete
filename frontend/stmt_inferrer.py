@@ -289,9 +289,30 @@ def _init_func_context(args, context, solver):
     return local_context, args_types
 
 
+def _infer_args_defaults(args_types, defaults, context, solver):
+    """Infer the default values of function arguments (if any)
+    
+    :param args_types: Z3 constants for arguments types
+    :param defaults: AST nodes for default values of arguments
+    :param context: The parent of the function context
+    :param solver: The inference Z3 solver
+    
+    
+    A default array of length `n` represents the default values of the last `n` arguments
+    """
+    for i in range(len(defaults)):
+        arg_idx = i + len(args_types) - len(defaults)  # The defaults array correspond to the last arguments
+        default_type = expr.infer(defaults[i], context, solver)
+        solver.add(solver.z3_types.subtype(default_type, args_types[arg_idx]),
+                   fail_message="Function default argument in line {}".format(defaults[i].lineno))
+
+
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
     func_context, args_types = _init_func_context(node.args.args, context, solver)
+
+    _infer_args_defaults(args_types, node.args.defaults, context, solver)
+
     return_type = _infer_body(node.body, func_context, node.lineno, solver)
 
     func_type = solver.z3_types.funcs[len(args_types)](args_types + (return_type,))
