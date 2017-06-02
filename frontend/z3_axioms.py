@@ -388,6 +388,27 @@ def instance_axioms(called, args, result, types):
     return axioms
 
 
+def function_call_axioms(called, args, result, types):
+    """Constraints for function calls
+    
+    To support default arguments values, an axiom for every possible arguments length is added, provided that the
+    defaults count for the function matches the inferred one.
+    """
+    axioms = []
+    for i in range(len(args), len(types.funcs)):  # Only assert with functions with length >= call arguments length
+        rem_args = i - len(args)  # The remaining arguments are expected to have default value in the func definition.
+        rem_args_types = ()
+        for j in range(rem_args):
+            arg_idx = len(args) + j + 1
+            arg_accessor = getattr(types.type_sort, "func_{}_arg_{}".format(i, arg_idx))  # Get the default arg type
+            rem_args_types += (arg_accessor(called),)
+
+        axioms.append(And(called == types.funcs[i](args + rem_args_types + (result,)),
+                          types.defaults_count(called) >= len(rem_args_types)))
+
+    return axioms
+
+
 def call(called, args, result, types):
     """Constraints for calls
     
@@ -397,7 +418,7 @@ def call(called, args, result, types):
     """
     return [
         Or(
-            [called == types.funcs[len(args)](args + (result,))] + instance_axioms(called, args, result, types)
+           function_call_axioms(called, args, result, types) + instance_axioms(called, args, result, types)
         )
     ]
 

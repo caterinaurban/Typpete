@@ -60,6 +60,9 @@ class Z3Types:
         self.not_subtype = Function("not subtype", type_sort, type_sort, BoolSort())
         self.stronger_num = Function("stronger num", type_sort, type_sort, BoolSort())
 
+        # A mapping for function type to the number of default arguments it has
+        self.defaults_count = Function("defaults count", type_sort, IntSort())
+
         x = Const("x", type_sort)
         y = Const("y", type_sort)
         z = Const("z", type_sort)

@@ -319,6 +319,8 @@ def _infer_func_def(node, context, solver):
     result_type = solver.new_z3_const("func")
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
+    solver.add(solver.z3_types.defaults_count(result_type) == len(node.args.defaults),
+               fail_message="Number of default arguments values in function definition in line {}".format(node.lineno))
 
     context.set_type(node.name, result_type)
 
