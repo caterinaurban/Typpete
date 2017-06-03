@@ -13,9 +13,6 @@ def fab(a):
 
 x = fab(B)
 y = x + "st"
-# y = x + 1  # --> Invalid
-
-# ------------------------------
 
 
 class C:
@@ -24,8 +21,6 @@ class C:
 c = C()
 c.x += True
 d = [1, 2, 3][c.x]
-
-# --------------------------------------------
 
 
 class D:
@@ -39,3 +34,15 @@ class E(D):
 
 e = E()
 f = e.f()
+
+
+# A := Type[A]
+# B := Type[B]
+# C := Type[C]
+# D := Type[D]
+# E := Type[E]
+
+# x := str
+# c := C
+# e := E
+# fab := Callable[[Type[B]], str]

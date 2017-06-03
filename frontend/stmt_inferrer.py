@@ -274,6 +274,31 @@ def _infer_try(node, context, solver):
     return result_type
 
 
+def unparse_annotation(annotation_node):
+    """Unparse to the AST node for the type annotation into its original text
+    
+    Cases:
+        - Name, ex: x: int
+        - Subscript, ex: x: List[int]
+        - Tuple: ex: x: Dict[str, int]
+    """
+    if isinstance(annotation_node, ast.Name):
+        return annotation_node.id
+    elif isinstance(annotation_node, ast.List):
+        return "[{}]".format(", ".join([unparse_annotation(elt) for elt in annotation_node.elts]))
+    elif isinstance(annotation_node, ast.Subscript):
+        return "{}[{}]".format(unparse_annotation(annotation_node.value), unparse_annotation(annotation_node.slice))
+    elif isinstance(annotation_node, ast.Index):
+        return unparse_annotation(annotation_node.value)
+    elif isinstance(annotation_node, ast.Slice):
+        return "{}:{}:{}".format(unparse_annotation(annotation_node.lower),
+                                 unparse_annotation(annotation_node.upper),
+                                 unparse_annotation(annotation_node.step))
+    elif isinstance(annotation_node, ast.Tuple):
+        return ", ".join([unparse_annotation(elt) for elt in annotation_node.elts])
+    raise ValueError("Invalid type annotation")
+
+
 def _init_func_context(args, context, solver):
     """Initialize the local function scope, and the arguments types"""
     local_context = Context(parent_context=context)
@@ -282,7 +307,10 @@ def _init_func_context(args, context, solver):
 
     args_types = ()
     for arg in args:
-        arg_type = solver.new_z3_const("func_arg")
+        if arg.annotation:
+            arg_type = solver.resolve_annotation(unparse_annotation(arg.annotation))
+        else:
+            arg_type = solver.new_z3_const("func_arg")
         local_context.set_type(arg.arg, arg_type)
         args_types = args_types + (arg_type,)
 
@@ -292,9 +320,14 @@ def _init_func_context(args, context, solver):
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
     func_context, args_types = _init_func_context(node.args.args, context, solver)
-    return_type = _infer_body(node.body, func_context, node.lineno, solver)
 
-    func_type = solver.z3_types.funcs[len(args_types)](args_types + (return_type,))
+    body_type = _infer_body(node.body, func_context, node.lineno, solver)
+    if node.returns:
+        return_type = solver.resolve_annotation(unparse_annotation(node.returns))
+        solver.add(body_type == return_type,
+                   fail_message="Return type annotation in line {}".format(node.lineno))
+
+    func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
     result_type = solver.new_z3_const("func")
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))

@@ -20,3 +20,15 @@ u = 2
 v = 8
 w = t[u:v:u]
 x = w[u]
+
+# a := float
+# b := float
+# c := List[float]
+# d := List[List[float]]
+# f := int
+# i := Dict[int, float]
+# o := int
+# t := List[int]
+# u := int
+# v := int
+# w := List[int]

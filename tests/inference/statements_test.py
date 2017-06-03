@@ -6,3 +6,8 @@ for x in [1, 2, 3]:
             if L1[i] == L2[j]:
                 n = L1[i]
 
+
+# L1 := List[int]
+# L2 := List[int]
+# i := int
+# j := int
