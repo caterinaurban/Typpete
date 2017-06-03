@@ -22,74 +22,72 @@ Infers the types for the following expressions:
     - ListComp(expr elt, comprehension* generators)
     - SetComp(expr elt, comprehension* generators)
     - DictComp(expr key, expr value, comprehension* generators)
+    - Attribute(expr value, identifier attr, expr_context ctx)
 
 TODO:
     - Lambda(arguments args, expr body)
     - GeneratorExp(expr elt, comprehension* generators)
     - YieldFrom(expr value)
-    - Call(expr func, expr* args, keyword* keywords)
-    - Attribute(expr value, identifier attr, expr_co0ontext ctx)
     - Starred(expr value, expr_context ctx)
 """
 
 import ast
-import frontend.z3_types as z3_types
 import frontend.z3_axioms as axioms
 import sys
 
 from frontend.context import Context
 
 
-def infer_numeric(node):
+def infer_numeric(node, solver):
     """Infer the type of a numeric node"""
     if type(node.n) == int:
-        return z3_types.Int
+        return solver.z3_types.int
     if type(node.n) == float:
-        return z3_types.Float
+        return solver.z3_types.float
     if type(node.n) == complex:
-        return z3_types.Complex
+        return solver.z3_types.complex
 
 
-def _get_elements_type(elts, context, lineno):
+def _get_elements_type(elts, context, lineno, solver):
     """Return the elements type of a collection"""
-    elts_type = z3_types.new_z3_const("elts")
+    elts_type = solver.new_z3_const("elts")
     if len(elts) == 0:
         return elts_type
     for i in range(0, len(elts)):
-        cur_type = infer(elts[i], context)
-        z3_types.type_solver.add(cur_type == elts_type, fail_message="List literal in line {}".format(lineno))
+        cur_type = infer(elts[i], context, solver)
+        solver.add(cur_type == elts_type, fail_message="List literal in line {}".format(lineno))
 
     return elts_type
 
 
-def infer_list(node, context):
+def infer_list(node, context, solver):
     """Infer the type of a homogeneous list
 
     Returns: TList(Type t), where t is the type of the list elements
     """
-    return z3_types.List(_get_elements_type(node.elts, context, node.lineno))
+    return solver.z3_types.list(_get_elements_type(node.elts, context, node.lineno, solver))
 
 
-def infer_dict(node, context):
+def infer_dict(node, context, solver):
     """Infer the type of a dictionary with homogeneous key set and value set
 
     Returns: TDictionary(Type k_t, Type v_t), where:
             k_t is the type of dictionary keys
             v_t is the type of dictionary values
     """
-    keys_type = _get_elements_type(node.keys, context, node.lineno)
-    values_type = _get_elements_type(node.values, context, node.lineno)
-    return z3_types.Dict(keys_type, values_type)
+    keys_type = _get_elements_type(node.keys, context, node.lineno, solver)
+    values_type = _get_elements_type(node.values, context, node.lineno, solver)
+    return solver.z3_types.dict(keys_type, values_type)
 
 
-def infer_tuple(node, context):
+def infer_tuple(node, context, solver):
     """Infer the type of a tuple
 
     Returns: TTuple(Type[] t), where t is a list of the tuple's elements types
     """
     tuple_types = ()
     for elem in node.elts:
-        elem_type = infer(elem, context)
+        elem_type = infer(elem, context, solver)
         tuple_types = tuple_types + (elem_type,)
 
     # Instantiate the correct z3 tuple type based on length of tuple elements:
@@ -99,69 +97,69 @@ def infer_tuple(node, context):
     # len(tuple_types) == 5 --> Tuple5(tuple_types)
 
     if len(tuple_types) == 0:
-        return z3_types.Tuples[0]
+        return solver.z3_types.tuples[0]
 
-    return z3_types.Tuples[len(tuple_types)](tuple_types)
+    return solver.z3_types.tuples[len(tuple_types)](tuple_types)
 
 
-def infer_name_constant(node):
+def infer_name_constant(node, solver):
     """Infer the type of name constants like: True, False, None"""
     if isinstance(node.value, bool):
-        return z3_types.Bool
+        return solver.z3_types.bool
     elif node.value is None:
-        return z3_types.zNone
+        return solver.z3_types.none
     raise NotImplementedError("The inference for {} is not supported.".format(node.value))
 
 
-def infer_set(node, context):
+def infer_set(node, context, solver):
     """Infer the type of a homogeneous set
 
     Returns: TSet(Type t), where t is the type of the set elements
     """
-    return z3_types.Set(_get_elements_type(node.elts, context, node.lineno))
+    return solver.z3_types.set(_get_elements_type(node.elts, context, node.lineno, solver))
 
 
-def _infer_add(left_type, right_type, lineno):
+def _infer_add(left_type, right_type, lineno, solver):
     """Infer the type of an addition operation, and add the corresponding axioms"""
-    result_type = z3_types.new_z3_const("addition_result")
-    z3_types.type_solver.add(axioms.add(left_type, right_type, result_type),
-                             fail_message="Addition in line {}".format(lineno))
+    result_type = solver.new_z3_const("addition_result")
+    solver.add(axioms.add(left_type, right_type, result_type, solver.z3_types),
+               fail_message="Addition in line {}".format(lineno))
     return result_type
 
 
-def _infer_mult(left_type, right_type, lineno):
+def _infer_mult(left_type, right_type, lineno, solver):
     """Infer the type of a multiplication operation, and add the corresponding axioms"""
-    result_type = z3_types.new_z3_const("multiplication_result")
-    z3_types.type_solver.add(axioms.mult(left_type, right_type, result_type),
-                             fail_message="Multiplication in line {}".format(lineno))
+    result_type = solver.new_z3_const("multiplication_result")
+    solver.add(axioms.mult(left_type, right_type, result_type, solver.z3_types),
+               fail_message="Multiplication in line {}".format(lineno))
     return result_type
 
 
-def _infer_div(left_type, right_type, lineno):
+def _infer_div(left_type, right_type, lineno, solver):
     """Infer the type of a division operation, and add the corresponding axioms"""
-    result_type = z3_types.new_z3_const("division_result")
-    z3_types.type_solver.add(axioms.div(left_type, right_type, result_type),
-                             fail_message="Division in line {}".format(lineno))
+    result_type = solver.new_z3_const("division_result")
+    solver.add(axioms.div(left_type, right_type, result_type, solver.z3_types),
+               fail_message="Division in line {}".format(lineno))
     return result_type
 
 
-def _infer_arithmetic(left_type, right_type, lineno):
+def _infer_arithmetic(left_type, right_type, lineno, solver):
     """Infer the type of an arithmetic operation, and add the corresponding axioms"""
-    result_type = z3_types.new_z3_const("arithmetic_result")
-    z3_types.type_solver.add(axioms.arithmetic(left_type, right_type, result_type),
-                             fail_message="Arithmetic operation in line {}".format(lineno))
+    result_type = solver.new_z3_const("arithmetic_result")
+    solver.add(axioms.arithmetic(left_type, right_type, result_type, solver.z3_types),
+               fail_message="Arithmetic operation in line {}".format(lineno))
     return result_type
 
 
-def _infer_bitwise(left_type, right_type, lineno):
+def _infer_bitwise(left_type, right_type, lineno, solver):
     """Infer the type of a bitwise operation, and add the corresponding axioms"""
-    result_type = z3_types.new_z3_const("bitwise_result")
-    z3_types.type_solver.add(axioms.bitwise(left_type, right_type, result_type),
-                             fail_message="Bitwise operation in line {}".format(lineno))
+    result_type = solver.new_z3_const("bitwise_result")
+    solver.add(axioms.bitwise(left_type, right_type, result_type, solver.z3_types),
+               fail_message="Bitwise operation in line {}".format(lineno))
     return result_type
 
 
-def binary_operation_type(left_type, op, right_type, lineno):
+def binary_operation_type(left_type, op, right_type, lineno, solver):
     """Infer the type of a binary operation result"""
     if isinstance(op, ast.Add):
         inference_func = _infer_add
@@ -174,10 +172,10 @@ def binary_operation_type(left_type, op, right_type, lineno):
     else:
         inference_func = _infer_arithmetic
 
-    return inference_func(left_type, right_type, lineno)
+    return inference_func(left_type, right_type, lineno, solver)
 
 
-def infer_binary_operation(node, context):
+def infer_binary_operation(node, context, solver):
     """Infer the type of binary operations
 
     Handled cases:
@@ -185,48 +183,48 @@ def infer_binary_operation(node, context):
         - Sequence concatenation, ex: [1,2,3] + [4,5,6] --> [1,2,3,4,5,6]
         - Arithmetic and bitwise operations, ex: (1 + 2) * 7 & (2 | -123) / 3
     """
-    left_type = infer(node.left, context)
-    right_type = infer(node.right, context)
+    left_type = infer(node.left, context, solver)
+    right_type = infer(node.right, context, solver)
 
-    return binary_operation_type(left_type, node.op, right_type, node.lineno)
+    return binary_operation_type(left_type, node.op, right_type, node.lineno, solver)
 
 
-def infer_unary_operation(node, context):
+def infer_unary_operation(node, context, solver):
     """Infer the type for unary operations
 
     Examples: -5, not 1, ~2
     """
     if isinstance(node.op, ast.Not):  # (not expr) always gives bool type
-        return z3_types.Bool
+        return solver.z3_types.bool
 
-    unary_type = infer(node.operand, context)
+    unary_type = infer(node.operand, context, solver)
 
     if isinstance(node.op, ast.Invert):
-        z3_types.type_solver.add(axioms.unary_invert(unary_type),
-                                 fail_message="Invert operation in line {}".format(node.lineno))
-        return z3_types.Int
+        solver.add(axioms.unary_invert(unary_type, solver.z3_types),
+                   fail_message="Invert operation in line {}".format(node.lineno))
+        return solver.z3_types.int
     else:
-        result_type = z3_types.new_z3_const("unary_result")
-        z3_types.type_solver.add(axioms.unary_other(unary_type, result_type),
-                                 fail_message="Unary operation in line {}".format(node.lineno))
+        result_type = solver.new_z3_const("unary_result")
+        solver.add(axioms.unary_other(unary_type, result_type, solver.z3_types),
+                   fail_message="Unary operation in line {}".format(node.lineno))
         return result_type
 
 
-def infer_if_expression(node, context):
+def infer_if_expression(node, context, solver):
     """Infer expressions like: {(a) if (test) else (b)}.
 
     Return a union type of both (a) and (b) types.
     """
-    a_type = infer(node.body, context)
-    b_type = infer(node.orelse, context)
+    a_type = infer(node.body, context, solver)
+    b_type = infer(node.orelse, context, solver)
 
-    result_type = z3_types.new_z3_const("if_expr")
-    z3_types.type_solver.add(axioms.if_expr(a_type, b_type, result_type),
-                             fail_message="If expression in line {}".format(node.lineno))
+    result_type = solver.new_z3_const("if_expr")
+    solver.add(axioms.if_expr(a_type, b_type, result_type, solver.z3_types),
+               fail_message="If expression in line {}".format(node.lineno))
     return result_type
 
 
-def infer_subscript(node, context):
+def infer_subscript(node, context, solver):
     """Infer expressions like: x[1], x["a"], x[1:2], x[1:].
     Where x	may be: a list, dict, tuple, str
 
@@ -234,38 +232,38 @@ def infer_subscript(node, context):
         node: the subscript node to be inferred
     """
 
-    indexed_type = infer(node.value, context)
+    indexed_type = infer(node.value, context, solver)
 
     if isinstance(node.slice, ast.Index):
-        index_type = infer(node.slice.value, context)
-        result_type = z3_types.new_z3_const("index")
-        z3_types.type_solver.add(axioms.index(indexed_type, index_type, result_type),
-                                 fail_message="Indexing in line {}".format(node.lineno))
+        index_type = infer(node.slice.value, context, solver)
+        result_type = solver.new_z3_const("index")
+        solver.add(axioms.index(indexed_type, index_type, result_type, solver.z3_types),
+                   fail_message="Indexing in line {}".format(node.lineno))
         return result_type
     else:  # Slicing
         # Some slicing may contain 'None' bounds, ex: a[1:], a[::]. Make Int the default type.
-        lower_type = upper_type = step_type = z3_types.Int
+        lower_type = upper_type = step_type = solver.z3_types.int
         if node.slice.lower:
-            lower_type = infer(node.slice.lower, context)
+            lower_type = infer(node.slice.lower, context, solver)
         if node.slice.upper:
-            upper_type = infer(node.slice.upper, context)
+            upper_type = infer(node.slice.upper, context, solver)
         if node.slice.step:
-            step_type = infer(node.slice.step, context)
+            step_type = infer(node.slice.step, context, solver)
 
-        result_type = z3_types.new_z3_const("slice")
+        result_type = solver.new_z3_const("slice")
 
-        z3_types.type_solver.add(axioms.slicing(lower_type, upper_type, step_type, indexed_type, result_type),
-                                 fail_message="Slicing in line {}".format(node.lineno))
+        solver.add(axioms.slicing(lower_type, upper_type, step_type, indexed_type, result_type, solver.z3_types),
+                   fail_message="Slicing in line {}".format(node.lineno))
         return result_type
 
 
-def infer_compare(node, context):
+def infer_compare(node, context, solver):
     # TODO: verify that types in comparison are comparable
-    infer(node.left, context)
+    infer(node.left, context, solver)
     for comparator in node.comparators:
-        infer(comparator, context)
+        infer(comparator, context, solver)
 
-    return z3_types.Bool
+    return solver.z3_types.bool
 
 
 def infer_name(node, context):
@@ -278,12 +276,12 @@ def infer_name(node, context):
     return context.get_type(node.id)
 
 
-def infer_generators(generators, local_context, lineno):
+def infer_generators(generators, local_context, lineno, solver):
     for gen in generators:
-        iter_type = infer(gen.iter, local_context)
-        target_type = z3_types.new_z3_const("generator_target")
-        z3_types.type_solver.add(axioms.generator(iter_type, target_type),
-                                 fail_message="Generator in line {}".format(lineno))
+        iter_type = infer(gen.iter, local_context, solver)
+        target_type = solver.new_z3_const("generator_target")
+        solver.add(axioms.generator(iter_type, target_type, solver.z3_types),
+                   fail_message="Generator in line {}".format(lineno))
 
         if not isinstance(gen.target, ast.Name):
             if not isinstance(gen.target, (ast.Tuple, ast.List)):
@@ -293,7 +291,7 @@ def infer_generators(generators, local_context, lineno):
         local_context.set_type(gen.target.id, target_type)
 
 
-def infer_sequence_comprehension(node, sequence_type, context):
+def infer_sequence_comprehension(node, sequence_type, context, solver):
     """Infer the type of a list comprehension
 
     Attributes:
@@ -311,11 +309,11 @@ def infer_sequence_comprehension(node, sequence_type, context):
         The iteration target should be always a variable name.
     """
     local_context = Context(parent_context=context)
-    infer_generators(node.generators, local_context, node.lineno)
-    return sequence_type(infer(node.elt, local_context))
+    infer_generators(node.generators, local_context, node.lineno, solver)
+    return sequence_type(infer(node.elt, local_context, solver))
 
 
-def infer_dict_comprehension(node, context):
+def infer_dict_comprehension(node, context, solver):
     """Infer the type of a dictionary comprehension
 
     Attributes:
@@ -331,80 +329,98 @@ def infer_dict_comprehension(node, context):
         The iteration target should be always a variable name.
     """
     local_context = Context(parent_context=context)
-    infer_generators(node.generators, local_context, node.lineno)
-    key_type = infer(node.key, local_context)
-    val_type = infer(node.value, local_context)
-    return z3_types.Dict(key_type, val_type)
+    infer_generators(node.generators, local_context, node.lineno, solver)
+    key_type = infer(node.key, local_context, solver)
+    val_type = infer(node.value, local_context, solver)
+    return solver.z3_types.dict(key_type, val_type, solver)
 
 
-def _get_args_types(args, context):
+def _get_args_types(args, context, instance, solver):
     """Return inferred types for function call arguments"""
     # TODO kwargs
 
-    args_types = ()
+    args_types = () if instance is None else (instance,)
     for arg in args:
-        args_types = args_types + (infer(arg, context),)
+        args_types = args_types + (infer(arg, context, solver),)
     return args_types
 
 
-def infer_func_call(node, context):
+def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
-    func_type = infer(node.func, context)
-    args_types = _get_args_types(node.args, context)
+    instance = None
+    if isinstance(node.func, ast.Attribute):
+        called, instance = infer(node.func, context, solver, True)
+    else:
+        called = infer(node.func, context, solver)
+    args_types = _get_args_types(node.args, context, instance, solver)
 
-    result_type = z3_types.new_z3_const("call")
+    result_type = solver.new_z3_const("call")
 
     # TODO covariant and invariant subtyping
-    z3_types.type_solver.add(func_type == z3_types.Funcs[len(args_types)](args_types + (result_type,)),
-                             fail_message="Call in line {}".format(node.lineno))
+
+    solver.add(axioms.call(called, args_types, result_type, solver.z3_types),
+               fail_message="Call in line {}".format(node.lineno))
+
     return result_type
 
 
-def infer(node, context):
+def infer_attribute(node, context, from_call, solver):
+    instance = infer(node.value, context, solver)
+    result_type = solver.new_z3_const("attribute")
+    solver.add(axioms.attribute(instance, node.attr, result_type, solver.z3_types),
+               fail_message="Attribute access in line {}".format(node.lineno))
+    if from_call:
+        return result_type, instance
+    return result_type
+
+
+def infer(node, context, solver, from_call=False):
     """Infer the type of a given AST node"""
     if isinstance(node, ast.Num):
-        return infer_numeric(node)
+        return infer_numeric(node, solver)
     elif isinstance(node, ast.Str):
-        return z3_types.String
+        return solver.z3_types.string
     elif (sys.version_info[0] >= 3 and sys.version_info[1] >= 6 and
             (isinstance(node, ast.FormattedValue) or isinstance(node, ast.JoinedStr))):
         # Formatted strings were introduced in Python 3.6
-        return z3_types.String
+        return solver.z3_types.string
     elif isinstance(node, ast.Bytes):
-        return z3_types.Bytes
+        return solver.z3_types.bytes
     elif isinstance(node, ast.List):
-        return infer_list(node, context)
+        return infer_list(node, context, solver)
     elif isinstance(node, ast.Dict):
-        return infer_dict(node, context)
+        return infer_dict(node, context, solver)
     elif isinstance(node, ast.Tuple):
-        return infer_tuple(node, context)
+        return infer_tuple(node, context, solver)
     elif isinstance(node, ast.NameConstant):
-        return infer_name_constant(node)
+        return infer_name_constant(node, solver)
     elif isinstance(node, ast.Set):
-        return infer_set(node, context)
+        return infer_set(node, context, solver)
     elif isinstance(node, ast.BinOp):
-        return infer_binary_operation(node, context)
+        return infer_binary_operation(node, context, solver)
     elif isinstance(node, ast.UnaryOp):
-        return infer_unary_operation(node, context)
+        return infer_unary_operation(node, context, solver)
     elif isinstance(node, ast.IfExp):
-        return infer_if_expression(node, context)
+        return infer_if_expression(node, context, solver)
     elif isinstance(node, ast.Subscript):
-        return infer_subscript(node, context)
+        return infer_subscript(node, context, solver)
     elif sys.version_info[0] >= 3 and sys.version_info[1] >= 5 and isinstance(node, ast.Await):
         # Await and Async were introduced in Python 3.5
-        return infer(node.value, context)
+        return infer(node.value, context, solver)
     elif isinstance(node, ast.Yield):
-        return infer(node.value, context)
+        return infer(node.value, context, solver)
     elif isinstance(node, ast.Compare):
-        return infer_compare(node, context)
+        return infer_compare(node, context, solver)
     elif isinstance(node, ast.Name):
         return infer_name(node, context)
     elif isinstance(node, ast.ListComp):
-        return infer_sequence_comprehension(node, z3_types.List, context)
+        return infer_sequence_comprehension(node, solver.z3_types.list, context, solver)
     elif isinstance(node, ast.SetComp):
-        return infer_sequence_comprehension(node, z3_types.Set, context)
+        return infer_sequence_comprehension(node, solver.z3_types.set, context, solver)
     elif isinstance(node, ast.DictComp):
-        return infer_dict_comprehension(node, context)
+        return infer_dict_comprehension(node, context, solver)
     elif isinstance(node, ast.Call):
-        return infer_func_call(node, context)
+        return infer_func_call(node, context, solver)
+    elif isinstance(node, ast.Attribute):
+        return infer_attribute(node, context, from_call, solver)
     raise NotImplementedError("Inference for expression {} is not implemented yet.".format(type(node).__name__))
