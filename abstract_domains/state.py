@@ -137,6 +137,24 @@ class State(Lattice, metaclass=ABCMeta):
         return self
 
     @abstractmethod
+    def _output(self, output: Expression) -> 'State':
+        """Outputs something in the current state.
+
+        :param output: expression representing the output
+        :return: current state modified by the output
+        """
+
+    def output(self, output: Set[Expression]) -> 'State':
+        """Outputs something in the current state.
+
+        :param output: set of expressions representing the output
+        :return: current state modified by the output
+        """
+        self.big_join([deepcopy(self)._output(expr) for expr in output])
+        self.result = set()  # outputs have no result, only side-effects
+        return self
+
+    @abstractmethod
     def _substitute_variable(self, left: Expression, right: Expression) -> 'State':
         """Substitute an expression to a variable.
 

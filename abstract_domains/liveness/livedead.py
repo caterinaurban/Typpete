@@ -70,6 +70,9 @@ class LiveDead(StoreLattice, State):
     def exit_if(self):
         return self  # nothing to be done
 
+    def _output(self, output: Expression) -> 'LiveDead':
+        return self  # nothing to be done
+
     def _substitute_variable(self, left: Expression, right: Expression) -> 'LiveDead':
         if isinstance(left, VariableIdentifier):
             self.variables[left] = LiveDeadLattice(LiveDeadLattice.Liveness.Dead)
