@@ -1,9 +1,7 @@
-from functools import reduce
+
 from typing import List, Set, Tuple, FrozenSet
 from itertools import chain, combinations, product
 from copy import deepcopy
-
-from math import ceil
 
 from abstract_domains.state import State
 from core.expressions import Expression, VariableIdentifier, UnaryBooleanOperation, Literal, BinaryBooleanOperation, \
@@ -68,7 +66,9 @@ class Traces(State):
             return self.trace[0][idx] == value
 
         def replace(self, idx: int, value: str) -> 'Traces.Trace':
-            self.trace = [(self.trace[0][:idx] + (value,) + self.trace[0][idx + 1:])] + self.trace
+            head = list(self.trace[0])
+            head[idx] = value
+            self.trace = [tuple(head)] + self.trace
             return self
 
         def variety(self, variables: List[VariableIdentifier], inputs: List[VariableIdentifier]) -> List[str]:
@@ -142,16 +142,6 @@ class Traces(State):
                     values.add(tuple(trace.variety(self.variables, self._in)))
                 count = len(values)  # ceil( len(values) / reduce(lambda x, y: x * y, [v[1] for v in varieties]) )
                 return " variety: " + " ".join(str(x) + "=" + str(v) for (x, v) in varieties) + " count: " + str(count)
-            else:
-                return ""
-
-        def count_repr(s):
-            if self._in and s:
-                values = set()
-                for trace in s:
-                    values.add(tuple(trace.variety(self.variables, self._in)))
-                tot = len(values) # // len(self._in)
-                return " count: " + str(tot)
             else:
                 return ""
 

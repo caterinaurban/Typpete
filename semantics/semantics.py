@@ -85,6 +85,7 @@ class CallSemantics(Semantics):
 class BuiltInCallSemantics(CallSemantics):
     """Semantics of built-in function/method calls."""
 
+    # noinspection PyMethodMayBeStatic
     def input_call_semantics(self, stmt: Call, state: State) -> State:
         state.result = {Input(stmt.typ)}
         return state
