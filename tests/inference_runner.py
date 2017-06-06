@@ -17,10 +17,11 @@ for stmt in t.body:
     infer(stmt, context, solver)
 
 solver.push()
-check = solver.check(solver.assertions_vars)
+check = solver.optimize.check()
 
 if check == z3_types.unsat:
     print("Check: unsat")
+    solver.check(solver.assertions_vars)
     print([solver.assertions_errors[x] for x in solver.unsat_core()])
 else:
     solver.optimize.check()
