@@ -295,16 +295,20 @@ def invert_dict(d):
     return result
 
 
+set_param("auto-config", False)
+set_param("smt.mbqi", False)
+
 class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""
     def __init__(self, config, solver=None, ctx=None):
         super().__init__(solver, ctx)
-        self.set(auto_config=False, mbqi=False, unsat_core=True)
+        self.set(unsat_core=True)
         self.z3_types = Z3Types(config)
         self.element_id = 0  # Unique id given to newly created Z3 consts
         self.assertions_vars = []
         self.assertions_errors = {}
         self.annotation_resolver = AnnotationResolver(self.z3_types)
+        self.optimize = Optimize(ctx)
         self.init_axioms()
 
     def init_axioms(self):
@@ -316,6 +320,7 @@ class TypesSolver(Solver):
         assertion = self.new_z3_const("assertion_bool", BoolSort())
         self.assertions_vars.append(assertion)
         self.assertions_errors[assertion] = fail_message
+        self.optimize.add(*args)
         super().add(Implies(assertion, And(*args)))
 
     def new_element_id(self):

@@ -51,10 +51,12 @@ def _infer_assignment_target(target, context, value_type, lineno, solver):
         if target.id in context.types_map:
             solver.add(axioms.assignment(context.get_type(target.id), value_type, solver.z3_types),
                        fail_message="Assignment in line {}".format(lineno))
+            solver.optimize.add_soft(context.get_type(target.id) == value_type)
         else:
             assignment_target_type = solver.new_z3_const("assign")
             solver.add(axioms.assignment(assignment_target_type, value_type, solver.z3_types),
                        fail_message="Assignment in line {}".format(lineno))
+            solver.optimize.add_soft(assignment_target_type == value_type)
             context.set_type(target.id, assignment_target_type)
     elif isinstance(target, (ast.Tuple, ast.List)):
         for i in range(len(target.elts)):
@@ -180,7 +182,7 @@ def _infer_body(body, context, lineno, solver):
         stmts_types.append(stmt_type)
         solver.add(axioms.body(body_type, stmt_type, solver.z3_types),
                    fail_message="Body type in line {}".format(lineno))
-
+        solver.optimize.add_soft(body_type == stmt_type)
     # The body type should be none if all statements have none type.
     solver.add(z3_types.Implies(z3_types.And([x == solver.z3_types.none for x in stmts_types]),
                                 body_type == solver.z3_types.none),

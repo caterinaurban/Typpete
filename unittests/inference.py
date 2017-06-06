@@ -54,7 +54,8 @@ class TestInference(unittest.TestCase):
 
         self.assertNotEqual(solver.check(solver.assertions_vars), z3_types.unsat)
 
-        model = solver.model()
+        solver.optimize.check()
+        model = solver.optimize.model()
         for v in expected_result:
             self.assertIn(v, context.types_map,
                           "Expected to have variable '{}' in the global context".format(v))

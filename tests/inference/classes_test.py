@@ -12,7 +12,6 @@ def fab(a):
     return a().f()
 
 x = fab(B)
-y = x + "st"
 
 
 class C:
@@ -41,7 +40,6 @@ f = e.f()
 # C := Type[C]
 # D := Type[D]
 # E := Type[E]
-
 # x := str
 # c := C
 # e := E
