@@ -21,10 +21,6 @@ class Expression(metaclass=ABCMeta):
     def typ(self):
         return self._typ
 
-    @typ.setter
-    def typ(self, typ):
-        self._typ = typ
-
     @abstractmethod
     def __eq__(self, other: 'Expression'):
         """Expression equality.

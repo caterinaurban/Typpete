@@ -79,7 +79,7 @@ class UsedStack(StackLattice, State):
     def _output(self, output: Expression) -> 'UsedStack':
         if self.is_bottom():
             return self
-        self.stack[-1]._output(output)
+        self.stack[-1].output({output})
         return self
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStack':

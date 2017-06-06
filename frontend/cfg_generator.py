@@ -469,7 +469,15 @@ class CfgVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
-        return Call(pp, node.func.id, [self.visit(arg) for arg in node.args], typing.Any)
+
+        if node.func.id == 'int':
+            typ = int
+        elif node.func.id == 'bool':
+            typ = bool
+        else:
+            typ = typing.Any
+
+        return Call(pp, node.func.id, [self.visit(arg) for arg in node.args], typ)
 
     def visit_List(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)

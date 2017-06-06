@@ -1,6 +1,6 @@
 from abstract_domains.state import State
 from core.expressions import BinaryArithmeticOperation, BinaryOperation, BinaryComparisonOperation, UnaryOperation, \
-    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation, Input, ListDisplay, Slice, Index
+    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation, Input, ListDisplay, Slice, Index, Literal
 from core.statements import Statement, VariableAccess, LiteralEvaluation, Call, ListDisplayStmt, SliceStmt, IndexStmt
 from functools import reduce
 import re
@@ -175,8 +175,14 @@ class BuiltInCallSemantics(CallSemantics):
 
         state = self.semantics(stmt.arguments[0], state)
 
+        result = set()
         for expr in state.result:
-            expr.typ = int
+            if isinstance(expr, Input):
+                result.add(Input(stmt.typ))
+            elif isinstance(expr, Literal):
+                result.add(Literal(stmt.typ, expr.val))
+            else:
+                raise NotImplementedError(f"int(arg) call is not supported for arg of type {type(expr)}")
 
         return state
 
@@ -186,8 +192,14 @@ class BuiltInCallSemantics(CallSemantics):
 
         state = self.semantics(stmt.arguments[0], state)
 
+        result = set()
         for expr in state.result:
-            expr.typ = int
+            if isinstance(expr, Input):
+                result.add(Input(stmt.typ))
+            elif isinstance(expr, Literal):
+                result.add(Literal(stmt.typ, expr.val))
+            else:
+                raise NotImplementedError(f"bool(arg) call is not supported for arg of type {type(expr)}")
 
         return state
 
