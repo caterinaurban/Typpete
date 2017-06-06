@@ -86,6 +86,7 @@ def _infer_assignment_target(target, context, value_type, lineno, solver):
         attr_type = expr.infer(target, context, solver)[0]
         solver.add(axioms.assignment(attr_type, value_type, solver.z3_types),
                    fail_message="Attribute assignment in line {}".format(lineno))
+        solver.optimize.add_soft(attr_type == value_type)
     else:
         raise TypeError("The inference for {} assignment is not supported.".format(type(target).__name__))
 
@@ -114,6 +115,7 @@ def _infer_augmented_assign(node, context, solver):
     if isinstance(node.target, ast.Name):
         solver.add(axioms.assignment(target_type, result_type, solver.z3_types),
                    fail_message="Augmented assignment in line {}".format(node.lineno))
+        solver.optimize.add_soft(target_type == result_type)
     elif isinstance(node.target, ast.Subscript):
         indexed_type = expr.infer(node.target.value, context, solver)
         if isinstance(node.target.slice, ast.Index):
@@ -135,6 +137,7 @@ def _infer_augmented_assign(node, context, solver):
     elif isinstance(node.target, ast.Attribute):
         solver.add(axioms.assignment(target_type, value_type, solver.z3_types),
                    fail_message="Augmented attribute assignment in line {}".format(node.lineno))
+        solver.optimize.add_soft(target_type == result_type)
     return solver.z3_types.none
 
 
@@ -216,7 +219,8 @@ def _infer_control_flow(node, context, solver):
     result_type = solver.new_z3_const("control_flow")
     solver.add(axioms.control_flow(body_type, else_type, result_type, solver.z3_types),
                fail_message="Control flow in line {}".format(node.lineno))
-
+    solver.optimize.add_soft(result_type == body_type)
+    solver.optimize.add_soft(result_type == else_type)
     return result_type
 
 
@@ -265,6 +269,9 @@ def _infer_try(node, context, solver):
 
     solver.add(axioms.try_except(body_type, else_type, final_type, result_type, solver.z3_types),
                fail_message="Try/Except block in line {}".format(node.lineno))
+    solver.optimize.add_soft(result_type == body_type)
+    solver.optimize.add_soft(result_type == else_type)
+    solver.optimize.add_soft(result_type == final_type)
 
     # TODO: Infer exception handlers as classes
 
