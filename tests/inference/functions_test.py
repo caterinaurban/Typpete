@@ -38,3 +38,15 @@ e = f5(a, {"": d}, 2)
 f = b[e]
 g = f6({"st": 1})
 h = b[g]
+
+
+# a := List[int]
+# b := List[int]
+# c := List[int]
+# f1 := Callable[[List[int]], List[int]]
+# f2 := Callable[[int], List[int]]
+# f3 := Callable[[List[int]], List[int]]
+# f4 := Callable[[Dict[str, int], int], int]
+# f5 := Callable[[List[int], Dict[str, int], int], int]
+# f6 := Callable[[Dict[str, int]], int]
+

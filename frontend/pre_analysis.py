@@ -33,7 +33,7 @@ class PreAnalyzer:
     def maximum_function_args(self):
         """Get the maximum number of function arguments appearing in the AST"""
         func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
-        return 1 if not func_defs else max([len(node.args.args) for node in func_defs])
+        return max([len(node.args.args) for node in func_defs] + [1])
 
     def maximum_tuple_length(self):
         """Get the maximum length of tuples appearing in the AST"""
@@ -188,7 +188,7 @@ def add_init_if_not_existing(class_node):
             return
     class_node.body.append(ast.FunctionDef(
         name="__init__",
-        args=ast.arguments(args=[ast.arg(arg="self")]),
+        args=ast.arguments(args=[ast.arg(arg="self", annotation=None)]),
         body=[ast.Pass()],
         decorator_list=[],
         returns=None,

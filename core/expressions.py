@@ -91,6 +91,27 @@ class Literal(Expression):
         return set()
 
 
+class Input(Expression):
+    def __init__(self, typ):
+        """Input expression representation.
+
+        :param typ: type of the input
+        """
+        super().__init__(typ)
+
+    def __eq__(self, other):
+        return self.typ == other.typ
+
+    def __hash__(self):
+        return hash(self.typ)
+
+    def __str__(self):
+        return 'input()'
+
+    def ids(self) -> Set['Expression']:
+        return set()
+
+
 class Identifier(Expression):
     def __init__(self, typ, name: str):
         """Identifier expression representation.

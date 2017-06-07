@@ -74,21 +74,28 @@ def div(left, right, result, types):
     ]
 
 
-def arithmetic(left, right, result, types):
+def arithmetic(left, right, result, is_mod, types):
     """Constraints for arithmetic operation
 
     Cases:
         - Number_1 (op) Number_2 --> Stronger(Number_1, Number_2)
+        - String formatting
         
     Ex:
         - 2 ** 3.0
         - 3 - 4
+        - "Case #%i: %i" % (u, v)
     """
-    return [
-        And(types.subtype(left, types.num), types.subtype(right, types.num)),
-        Implies(types.stronger_num(left, right), result == left),
-        Implies(types.stronger_num(right, left), result == right)
+    axioms = [
+        And(types.subtype(left, types.num), types.subtype(right, types.num),
+            Implies(types.stronger_num(left, right), result == left),
+            Implies(types.stronger_num(right, left), result == right))
     ]
+
+    if is_mod:
+        axioms += [And(Or(left == types.string, left == types.bytes), result == left)]
+
+    return [Or(axioms)]
 
 
 def bitwise(left, right, result, types):
@@ -101,8 +108,28 @@ def bitwise(left, right, result, types):
         - 1 & 2
         - True ^ False
     """
-    return arithmetic(left, right, result, types) + [
+    return arithmetic(left, right, result, False, types) + [
         And(types.subtype(left, types.int), types.subtype(right, types.int))]
+
+
+def bool_op(values, result, types):
+    """Constrains for boolean operations (and/or)
+    
+    The result is the supertype (or numerically stronger) of all operands.
+     
+    Ex:
+        - 2 and str --> object
+        - False or 1 --> int
+    """
+    return [
+        Or(
+            types.subtype(x, result),
+            And(types.subtype(x, types.num),
+                types.subtype(result, types.num),
+                types.stronger_num(result, x))
+        )
+        for x in values
+    ]
 
 
 def unary_invert(unary, types):
@@ -358,7 +385,14 @@ def try_except(then, orelse, final, result, types):
 
 
 def instance_axioms(called, args, result, types):
-    """Constraints for class instantiation"""
+    """Constraints for class instantiation
+    
+    A class instantiation corresponds to a normal function call to the __init__ function, where
+    the return type will be an instance of this class.
+    
+    The called maybe of any user-defined type in the program, so the call is asserted
+    with the __init__ function of every call
+    """
 
     if len(args) + 1 >= len(types.funcs):  # Instantiating a class with more number of args than the max possible number
         return []
@@ -366,8 +400,13 @@ def instance_axioms(called, args, result, types):
     # Assert with __init__ function of all classes in the program
     axioms = []
     for t in types.all_types:
+        # Get the instance accessor from the type_sort data type.
         instance = getattr(types.type_sort, "instance")(types.all_types[t])
+
+        # Get the __init__ function of the current class
         init_func = types.attributes[t]["__init__"]
+
+        # Assert that it's a call to this __init__ function
         axioms.append(
             And(called == types.all_types[t],
                 result == instance,
