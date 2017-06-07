@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from core.expressions import Literal, VariableIdentifier
-from typing import List
+from typing import List, Sequence
 
 
 class ProgramPoint:
@@ -142,13 +142,12 @@ class Call(Statement):
         return "{}({})".format(self.name, ", ".join("{}".format(argument) for argument in self.arguments))
 
 
-"""
-Assignment Statements.
-https://docs.python.org/3.4/reference/simple_stmts.html#assignment-statements
-"""
-
-
 class Assignment(Statement):
+    """Assignment Statements.
+    
+    https://docs.python.org/3.4/reference/simple_stmts.html#assignment-statements
+    """
+
     def __init__(self, pp: ProgramPoint, left: Statement, right: Statement):
         """Assignment statement representation.
 
@@ -169,4 +168,96 @@ class Assignment(Statement):
         return self._right
 
     def __str__(self):
-        return "{0.pp} {0.left} = {0.right}".format(self)
+        return "{0.left} = {0.right}".format(self)
+
+
+class ListDisplayStmt(Statement):
+    """List display statement representation.
+    
+    https://docs.python.org/3/reference/expressions.html#list-displays
+    """
+
+    def __init__(self, pp: ProgramPoint, items: Sequence[Statement]):
+        """List display statement representation.
+
+        :param pp: program point associated with the list display
+        :param items: list display items
+        """
+        super().__init__(pp)
+        self._items = items
+
+    @property
+    def items(self):
+        return self._items
+
+    def __str__(self):
+        return str(self.items)
+
+
+class SliceStmt(Statement):
+    """Slice statement (list/dictionary access) representation.
+    """
+
+    def __init__(self, pp: ProgramPoint, target: Statement, lower: Statement, step: Statement, upper: Statement):
+        """Slice statement (list/dictionary access) representation.
+
+        :param pp: program point associated with statement
+        :param target
+        :param lower
+        :param upper
+        :param step
+        """
+        super().__init__(pp)
+        self._target = target
+        self._lower = lower
+        self._step = step
+        self._upper = upper
+
+    @property
+    def target(self):
+        return self._target
+
+    @property
+    def lower(self):
+        return self._lower
+
+    @property
+    def step(self):
+        return self._step
+
+    @property
+    def upper(self):
+        return self._upper
+
+    def __str__(self):
+        if self.step:
+            return "{}[{}:{}:{}]".format(self.target or "", self.lower, self.step, self.upper or "")
+        else:
+            return "{}[{}:{}]".format(self.target, self.lower or "", self.upper or "")
+
+
+class IndexStmt(Statement):
+    """Index statement (list/dictionary access) representation.
+    """
+
+    def __init__(self, pp: ProgramPoint, target: Statement, index: Statement):
+        """Index statement (list/dictionary access) representation.
+
+        :param pp: program point associated with statement
+        :param target
+        :param index
+        """
+        super().__init__(pp)
+        self._target = target
+        self._index = index
+
+    @property
+    def target(self):
+        return self._target
+
+    @property
+    def index(self):
+        return self._index
+
+    def __str__(self):
+        return "{}[{}]".format(self.target, self.index)
