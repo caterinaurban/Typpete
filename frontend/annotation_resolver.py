@@ -125,6 +125,13 @@ class AnnotationResolver:
             args_annotations = self.resolve_args(annotation[6:-1])
             args_types = [self.resolve(arg, solver) for arg in args_annotations]
 
+            # The result of the union type is only one of args, Z3 picks the appropriate one
+            # according to the added constraints.
+            # Therefore, using more than one type from the union in the same program isn't yet supported.
+            # For example, the following is not supported:
+            # def f(x: Union[int, str]): ...
+            # f(1)
+            # f("str")
             result_type = solver.new_z3_const("union")
             solver.add(Or([result_type == arg for arg in args_types]),
                        fail_message="Union in type annotation")
