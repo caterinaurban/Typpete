@@ -1,13 +1,14 @@
 from frontend.stmt_inferrer import infer
 import ast
+import frontend.stubs.stubs_paths as paths
 
 
 class StubsHandler:
     def __init__(self, pre_analyzer):
-        self.files = ["frontend/stubs/functions.py"]
         self.asts = []
 
-        for file in self.files:
+        files = paths.all_files
+        for file in files:
             r = open(file)
             tree = ast.parse(r.read())
             pre_analyzer.add_stub_ast(tree)
