@@ -322,7 +322,7 @@ def _infer_class_def(node, context, solver):
     context.set_type(node.name, result_type)
 
 
-def _infer_import(node, solver):
+def _infer_import(node, context, solver):
     """Infer the imported module in normal import statement"""
     import_handler = ImportHandler()
     for name in node.names:
@@ -334,8 +334,8 @@ def _infer_import(node, solver):
         else:
             module_name = name.name
 
-        # Store the module context in the SMT solver.
-        solver.import_contexts[module_name] = import_context
+        # Store the module context in the current context.
+        context.set_type(module_name, import_context)
 
     return solver.z3_types.none
 
@@ -392,7 +392,7 @@ def infer(node, context, solver):
     elif isinstance(node, ast.Expr):
         expr.infer(node.value, context, solver)
     elif isinstance(node, ast.Import):
-        return _infer_import(node, solver)
+        return _infer_import(node, context, solver)
     elif isinstance(node, ast.ImportFrom):
         return _infer_import_from(node, context, solver)
     return solver.z3_types.none

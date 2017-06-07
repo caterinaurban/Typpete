@@ -23,6 +23,10 @@ try:
     model = solver.model()
     for v in sorted(context.types_map):
         z3_t = context.types_map[v]
+
+        if isinstance(z3_t, Context):
+            continue
+
         print("{}: {}".format(v, model[z3_t]))
 except z3_types.z3types.Z3Exception as e:
     print("Check: {}".format(check))

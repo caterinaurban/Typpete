@@ -377,17 +377,18 @@ def infer_attribute(node, context, from_call, solver):
             import A
             A.f()
     """
+    # Check if it's a module access
+    instance = infer(node.value, context, solver)
+
+    if isinstance(instance, Context):
+        # module import
+        if from_call:
+            return instance.get_type(node.attr), None
+        else:
+            return instance.get_type(node.attr)
+
     result_type = solver.new_z3_const("attribute")
 
-    # Check if it's a module access
-    if isinstance(node.value, ast.Name) and node.value.id in solver.import_contexts:
-        solver.add(result_type == solver.import_contexts[node.value.id].types_map[node.attr],
-                   fail_message="Module attribute access in line {}".format(node.lineno))
-        if from_call:
-            return result_type, None
-        else:
-            return result_type
-    instance = infer(node.value, context, solver)
     solver.add(axioms.attribute(instance, node.attr, result_type, solver.z3_types),
                fail_message="Attribute access in line {}".format(node.lineno))
     if from_call:

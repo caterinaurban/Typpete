@@ -310,7 +310,6 @@ class TypesSolver(Solver):
         self.element_id = 0  # Unique id given to newly created Z3 consts
         self.assertions_vars = []
         self.assertions_errors = {}
-        self.import_contexts = {}
         self.config = config
         self.init_axioms()
 
