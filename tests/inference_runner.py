@@ -9,11 +9,11 @@ r = open("tests/inference/test.py")
 t = ast.parse(r.read())
 
 analyzer = PreAnalyzer(t)
-
+stubs_handler = StubsHandler(analyzer)
 
 config = analyzer.get_all_configurations()
 solver = z3_types.TypesSolver(config)
-stubs_handler = StubsHandler()
+
 context = Context()
 
 stubs_handler.infer_all_files(context, solver, config.used_names)
@@ -37,7 +37,7 @@ def print_complete_solver(solver):
 
 
 check = solver.check(solver.assertions_vars)
-print_complete_solver(solver)
+# print_complete_solver(solver)
 try:
     model = solver.model()
     for v in sorted(context.types_map):
