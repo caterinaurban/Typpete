@@ -3,7 +3,7 @@ from frontend.stmt_inferrer import *
 import frontend.z3_types as z3_types
 import ast
 
-r = open("tests/inference/classes_test.py")
+r = open("tests/inference/test.py")
 t = ast.parse(r.read())
 
 analyzer = PreAnalyzer(t)

@@ -46,6 +46,8 @@ class TestInference(unittest.TestCase):
 
         solver.push()
         expected_result = cls.parse_results(open(path), solver.annotation_resolver)
+
+        r.close()
         return solver, context, expected_result
 
     def runTest(self):
@@ -74,7 +76,8 @@ def suite(files):
     runner.run(s)
 
 if __name__ == '__main__':
-    suite(["tests/inference/classes_test.py",
-           "tests/inference/expressions_test.py",
+    suite(["tests/inference/expressions_test.py",
+           "tests/inference/classes_test.py",
            "tests/inference/functions_test.py",
-           "tests/inference/statements_test.py"])
+           "tests/inference/statements_test.py"
+     ])

@@ -343,7 +343,7 @@ def _infer_class_def(node, context, solver):
     for stmt in node.body:
         infer(stmt, class_context, solver)
 
-    class_attrs = solver.z3_types.attributes[node.name]
+    class_attrs = solver.z3_types.instance_attributes[node.name]
     instance_type = solver.z3_types.classes[node.name]
 
     for attr in class_context.types_map:
