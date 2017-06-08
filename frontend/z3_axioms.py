@@ -1,4 +1,4 @@
-from frontend.z3_types import And, Or, Implies, Exists, Not, Const, Z3Types
+from frontend.z3_types import And, Or, Implies, Exists, Not, Const
 
 
 def add(left, right, result, types):

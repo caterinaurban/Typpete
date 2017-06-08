@@ -145,7 +145,6 @@ def _delete_element(target, context, lineno, solver):
         - del subscript:
                     * Tuple/String --> Immutable. Raise exception.
                     * List/Dict --> Do nothing to the context.
-    TODO: Attribute deletion
     """
     if isinstance(target, (ast.Tuple, ast.List)):  # Multiple deletions
         for elem in target.elts:
@@ -157,6 +156,8 @@ def _delete_element(target, context, lineno, solver):
         indexed_type = expr.infer(target.value, context, solver)
         solver.add(axioms.delete_subscript(indexed_type, solver.z3_types),
                    fail_message="Deletion in line {}".format(lineno))
+    elif isinstance(target, ast.Attribute):
+        raise NotImplementedError("Attribute deletion is not supported.")
 
 
 def _infer_delete(node, context, solver):
