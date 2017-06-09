@@ -195,7 +195,12 @@ def slicing(lower, upper, step, sliced, result, types):
     """
     return [
         And(types.subtype(lower, types.int), types.subtype(upper, types.int), types.subtype(step, types.int),
-            types.subtype(sliced, types.seq), result == sliced)
+            Or(
+                sliced == types.string,
+                sliced == types.bytes,
+                types.subtype(sliced, types.tuple),
+                sliced == types.list(types.list_type(sliced))
+            ), result == sliced)
     ]
 
 
@@ -270,33 +275,19 @@ def multiple_assignment(target, value, position, types):
     return [Or(lst + t)]
 
 
-def index_assignment(indexed, ind, value, types):
-    """Constraints for index subscript assignment
+def subscript_assignment(target, types):
+    """Constraints for subscript assignment
     
     Cases:
-        - Dict
-        - List
+        - Index assignment
+        - Slice assignment
         
-    Ex:
-        - a["string"] = 2.0
-        - b[0] = foo()
+    strings, bytes and tuples are immutable objects. i.e., they don't support subscript assignments
     """
     return [
-        Or(
-            indexed == types.dict(ind, value),
-            And(types.subtype(ind, types.int), indexed == types.list(value))
-        )
-    ]
-
-
-def slice_assignment(lower, upper, step, sliced, value, types):
-    """Constraints for slice assignment
-    
-    Only lists support slice assignments.
-    """
-    return [
-        And(types.subtype(lower, types.int), types.subtype(upper, types.int), types.subtype(step, types.int),
-            sliced == types.list(types.list_type(sliced)), value == sliced)
+        target != types.string,
+        target != types.bytes,
+        Not(types.subtype(target, types.tuple))
     ]
 
 
