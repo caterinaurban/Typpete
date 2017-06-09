@@ -403,8 +403,10 @@ def function_call_axioms(called, args, result, types):
             arg_accessor = getattr(types.type_sort, "func_{}_arg_{}".format(i, arg_idx))  # Get the default arg type
             rem_args_types += (arg_accessor(called),)
 
-        axioms.append(And(called == types.funcs[i](args + rem_args_types + (result,)),
-                          types.defaults_count(called) >= len(rem_args_types)))
+        # Get the default args count accessor
+        defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(i))
+        axioms.append(And(called == types.funcs[i]((defaults_accessor(called),) + args + rem_args_types + (result,)),
+                          defaults_accessor(called) >= rem_args))
 
     return axioms
 

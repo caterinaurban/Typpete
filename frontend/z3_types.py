@@ -60,9 +60,6 @@ class Z3Types:
         self.not_subtype = Function("not subtype", type_sort, type_sort, BoolSort())
         self.stronger_num = Function("stronger num", type_sort, type_sort, BoolSort())
 
-        # A mapping for function type to the number of default arguments it has
-        self.defaults_count = Function("defaults count", type_sort, IntSort())
-
         x = Const("x", type_sort)
         y = Const("y", type_sort)
         z = Const("z", type_sort)
@@ -162,9 +159,10 @@ class Z3Types:
         quantifiers_consts = [Const("funcs_q_{}".format(x), type_sort) for x in range(len(funcs))]
         axioms = []
         x = Const("x", type_sort)
+        defaults_const = Const("defaults_const", IntSort())
         for i in range(len(funcs)):
             # function funcs[i] will have i arguments and 1 return type, so  it uses i + 1 constants
-            consts = quantifiers_consts[:i + 1]
+            consts = [defaults_const] + quantifiers_consts[:i + 1]
             inst = funcs[i](consts)
             axioms.append(
                 ForAll(consts, self.extends(inst, type_sort.func), patterns=[inst])
@@ -228,8 +226,9 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs, att
     # Create dynamic function args length constructors, based on the configurations given by the pre-analysis
     type_sort.declare("func")
 
+    # The first accessor of the function is the number of default args it has
     for cur_len in range(max_function_args + 1):
-        accessors = []
+        accessors = [("func_{}_defaults_args".format(cur_len), IntSort())]
         # Create arguments accessors
         for arg in range(cur_len):
             accessor = ("func_{}_arg_{}".format(cur_len, arg + 1), type_sort)

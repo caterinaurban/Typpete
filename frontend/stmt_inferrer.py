@@ -311,16 +311,19 @@ def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
     func_context, args_types = _init_func_context(node.args.args, context, solver)
 
-    _infer_args_defaults(args_types, node.args.defaults, context, solver)
+    if hasattr(node.args, "defaults"):
+        # Use the default args to infer the function parameters
+        _infer_args_defaults(args_types, node.args.defaults, context, solver)
+        defaults_len = len(node.args.defaults)
+    else:
+        defaults_len = 0
 
     return_type = _infer_body(node.body, func_context, node.lineno, solver)
 
-    func_type = solver.z3_types.funcs[len(args_types)](args_types + (return_type,))
+    func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
     result_type = solver.new_z3_const("func")
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
-    solver.add(solver.z3_types.defaults_count(result_type) == len(node.args.defaults),
-               fail_message="Number of default arguments values in function definition in line {}".format(node.lineno))
 
     context.set_type(node.name, result_type)
 
