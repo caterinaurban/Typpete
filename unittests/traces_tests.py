@@ -1,11 +1,9 @@
 import glob
 
 from abstract_domains.traces.traces import Traces
-from abstract_domains.usage.stack import UsedStack
 from core.expressions import VariableIdentifier
 from engine.backward import BackwardInterpreter
 from semantics.backward import DefaultBackwardSemantics
-from semantics.usage.usage_semantics import UsageSemantics
 from unittests.generic_tests import ResultCommentsFileTestCase
 import unittest
 import ast

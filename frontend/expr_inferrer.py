@@ -143,10 +143,10 @@ def _infer_div(left_type, right_type, lineno, solver):
     return result_type
 
 
-def _infer_arithmetic(left_type, right_type, lineno, solver):
+def _infer_arithmetic(left_type, right_type, is_mod, lineno, solver):
     """Infer the type of an arithmetic operation, and add the corresponding axioms"""
     result_type = solver.new_z3_const("arithmetic_result")
-    solver.add(axioms.arithmetic(left_type, right_type, result_type, solver.z3_types),
+    solver.add(axioms.arithmetic(left_type, right_type, result_type, is_mod, solver.z3_types),
                fail_message="Arithmetic operation in line {}".format(lineno))
     return result_type
 
@@ -170,7 +170,7 @@ def binary_operation_type(left_type, op, right_type, lineno, solver):
     elif isinstance(op, (ast.BitOr, ast.BitXor, ast.BitAnd)):
         inference_func = _infer_bitwise
     else:
-        inference_func = _infer_arithmetic
+        return _infer_arithmetic(left_type, right_type, isinstance(op, ast.Mod), lineno, solver)
 
     return inference_func(left_type, right_type, lineno, solver)
 
@@ -187,6 +187,23 @@ def infer_binary_operation(node, context, solver):
     right_type = infer(node.right, context, solver)
 
     return binary_operation_type(left_type, node.op, right_type, node.lineno, solver)
+
+
+def infer_boolean_operation(node, context, solver):
+    """Infer the type of boolean operations
+    
+    Ex:
+        - 2 and str --> object
+        - False or 1 --> int
+    """
+    values_types = []
+    for value in node.values:
+        values_types.append(infer(value, context, solver))
+
+    result_type = solver.new_z3_const("boolOp")
+    solver.add(axioms.bool_op(values_types, result_type, solver.z3_types),
+               fail_message="Boolean operation in line {}".format(node.lineno))
+    return result_type
 
 
 def infer_unary_operation(node, context, solver):
@@ -398,6 +415,8 @@ def infer(node, context, solver, from_call=False):
         return infer_set(node, context, solver)
     elif isinstance(node, ast.BinOp):
         return infer_binary_operation(node, context, solver)
+    elif isinstance(node, ast.BoolOp):
+        return infer_boolean_operation(node, context, solver)
     elif isinstance(node, ast.UnaryOp):
         return infer_unary_operation(node, context, solver)
     elif isinstance(node, ast.IfExp):

@@ -1,10 +1,9 @@
-x = False
+x = bool(input())
 # RESULT: x -> U, y -> O
-y = True
+y = bool(input())
 if x:
     x = x and y
     y = False
-x = x
 if x:
      x = x and y
      y = False
