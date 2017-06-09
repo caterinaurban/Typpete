@@ -38,8 +38,8 @@ def mult(left, right, result, types):
     """
     return [
         Or(
-            And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
             And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
+            And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
             And(types.subtype(left, types.num), types.subtype(right, left), result == left),
             And(types.subtype(left, types.num), types.subtype(left, right), result == right),
         )
