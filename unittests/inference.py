@@ -35,14 +35,15 @@ class TestInference(unittest.TestCase):
         """
         r = open(path)
         t = ast.parse(r.read())
+        r.close()
 
         analyzer = PreAnalyzer(t)
+        stub_handler = StubsHandler(analyzer)
 
         config = analyzer.get_all_configurations()
         solver = z3_types.TypesSolver(config)
 
         context = Context()
-        stub_handler = StubsHandler()
         stub_handler.infer_all_files(context, solver, config.used_names)
         for stmt in t.body:
             infer(stmt, context, solver)
@@ -77,8 +78,8 @@ def suite(files):
     runner.run(s)
 
 if __name__ == '__main__':
-    suite(["tests/inference/classes_test.py",
-           "tests/inference/expressions_test.py",
+    suite(["tests/inference/expressions_test.py",
+           "tests/inference/classes_test.py",
            "tests/inference/functions_test.py",
            "tests/inference/statements_test.py",
            "tests/inference/builtins_test.py"])
