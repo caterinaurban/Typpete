@@ -5,14 +5,14 @@ class Octagon(NumericalDomain):
     def default(self):
         self.top()
 
-    def _less_equal(self, other: 'BaseLattice') -> bool:
+    def _less_equal(self, other: 'Octagon') -> bool:
+        return all([x < y for x,y in zip(self.dbm, other.dbm)])
+
+    def _meet(self, other: 'Octagon'):
         pass
 
-    def _meet(self, other: 'BaseLattice'):
+    def _join(self, other: 'Octagon') -> 'Octagon':
         pass
 
-    def _join(self, other: 'BaseLattice') -> 'BaseLattice':
-        pass
-
-    def _widening(self, other: 'BaseLattice'):
+    def _widening(self, other: 'Octagon'):
         pass
