@@ -42,7 +42,7 @@ class TestInference(unittest.TestCase):
         solver = z3_types.TypesSolver(config)
 
         context = Context()
-        stub_handler = StubsHandler()
+        stub_handler = StubsHandler(analyzer)
         stub_handler.infer_all_files(context, solver, config.used_names)
         for stmt in t.body:
             infer(stmt, context, solver)
