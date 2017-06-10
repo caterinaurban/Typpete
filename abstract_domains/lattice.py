@@ -181,33 +181,21 @@ class BaseLattice(metaclass=ABCMeta):
         return self
 
 
-class Lattice(BaseLattice, Generic[L], metaclass=ABCMeta):
-    """
-    A generic lattice that provides a TOP and a BOTTOM element and related methods.
+class Kind(Enum):
+    TOP = 3
+    ELEMENT = 2
+    BOTTOM = 1
 
-    If you want to provide the TOP/BOTTOM element yourself, subclass `BaseLattice` instead.
 
-    An instance of this class represents a mutable lattice element.
+class SpecialElementMixin(BaseLattice, Generic[L], metaclass=ABCMeta):
+    """A Mixin to add a capability to distinguish between user-defined and special elements like TOP/BOTTOM."""
 
-    Subclassing lattices are expected to provide the method:
-
-    * `default()`
-
-    **Note**: Subclasses must ensure that the `kind` property is set appropriately at any point in time.
-    """
-
-    class Kind(Enum):
-        TOP = 3
-        ELEMENT = 2
-        BOTTOM = 1
-
-    # noinspection PyMissingConstructor
     def __init__(self, initial_element: L = None):
         """Create a lattice element.
 
         :param initial_element: initial lattice element (or None to use default())
         """
-        self._kind = Lattice.Kind.ELEMENT
+        self._kind = Kind.ELEMENT
         if initial_element is not None:
             self._element = initial_element
         else:
@@ -219,24 +207,71 @@ class Lattice(BaseLattice, Generic[L], metaclass=ABCMeta):
 
     @element.setter
     def element(self, element):
-        self._kind = Lattice.Kind.ELEMENT
+        self._kind = Kind.ELEMENT
         self._element = element
 
     def __repr__(self):
-        return str(self.element) if self._kind is Lattice.Kind.ELEMENT else self._kind.name
+        return str(self.element) if self._kind is Kind.ELEMENT else self._kind.name
 
-    def bottom(self) -> 'Lattice[L]':
-        self._kind = Lattice.Kind.BOTTOM
+
+class TopElementMixin(SpecialElementMixin, BaseLattice, Generic[L], metaclass=ABCMeta):
+    """A Mixin to add a special TOP element to another lattice."""
+
+    def __init__(self, initial_element: L = None):
+        """Create a lattice element.
+
+        :param initial_element: initial lattice element (or None to use default())
+        """
+        super().__init__(initial_element)
+
+    def top(self) -> 'Lattice[L]':
+        self._kind = Kind.TOP
         self._element = None
         return self
 
-    def top(self) -> 'Lattice[L]':
-        self._kind = Lattice.Kind.TOP
+    def is_top(self) -> bool:
+        return self._kind == Kind.TOP
+
+
+class BottomElementMixin(SpecialElementMixin, BaseLattice, Generic[L], metaclass=ABCMeta):
+    """A Mixin to add a special BOTTOM element to another lattice."""
+
+    def __init__(self, initial_element: L = None):
+        """Create a lattice element.
+
+        :param initial_element: initial lattice element (or None to use default())
+        """
+        super().__init__(initial_element)
+
+    def bottom(self) -> 'Lattice[L]':
+        self._kind = Kind.BOTTOM
         self._element = None
         return self
 
     def is_bottom(self) -> bool:
-        return self._kind == Lattice.Kind.BOTTOM
+        return self._kind == Kind.BOTTOM
 
-    def is_top(self) -> bool:
-        return self._kind == Lattice.Kind.TOP
+
+class Lattice(TopElementMixin, BottomElementMixin, BaseLattice, Generic[L], metaclass=ABCMeta):
+    """
+    A generic lattice that provides a TOP and a BOTTOM element and related methods.
+
+    If you want to provide the TOP/BOTTOM element yourself, subclass `BaseLattice` instead.
+
+    An instance of this class represents a mutable lattice element.
+
+    Subclassing lattices are expected to provide the method:
+
+    * `default()`
+
+    **Note**: Subclasses must ensure that the `kind` property is set appropriately at any point in time. This is 
+    guaranteed when using only the `element` property to set the element. 
+    """
+
+    # noinspection PyMissingConstructor
+    def __init__(self, initial_element: L = None):
+        """Create a lattice element.
+
+        :param initial_element: initial lattice element (or None to use default())
+        """
+        super().__init__(initial_element)
