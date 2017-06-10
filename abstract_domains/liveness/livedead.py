@@ -13,9 +13,6 @@ class LiveDeadLattice(Lattice):
         Dead = 0  # dead variable
         Live = 1  # live variable
 
-    def __init__(self, initial_element: 'LiveDeadLattice.Liveness' = None):
-        super().__init__(initial_element)
-
     def default(self):
         self.element = LiveDeadLattice.Liveness.Dead
         return self
@@ -52,7 +49,7 @@ class LiveDead(StoreLattice, State):
     def _assume(self, condition: Expression) -> 'LiveDead':
         for identifier in condition.ids():
             if isinstance(identifier, VariableIdentifier):
-                self.variables[identifier] = LiveDeadLattice(LiveDeadLattice.Liveness.Live)
+                self.variables[identifier].element = LiveDeadLattice.Liveness.Live
         return self
 
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
@@ -75,10 +72,10 @@ class LiveDead(StoreLattice, State):
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'LiveDead':
         if isinstance(left, VariableIdentifier):
-            self.variables[left] = LiveDeadLattice(LiveDeadLattice.Liveness.Dead)
+            self.variables[left].element = LiveDeadLattice.Liveness.Dead
             for identifier in right.ids():
                 if isinstance(identifier, VariableIdentifier):
-                    self.variables[identifier] = LiveDeadLattice(LiveDeadLattice.Liveness.Live)
+                    self.variables[identifier].element = LiveDeadLattice.Liveness.Live
                 else:
                     raise NotImplementedError("")
         else:

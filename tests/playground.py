@@ -59,9 +59,6 @@ print("\nAnalysis\n")
 
 
 class DummyLattice(Lattice):
-    def __init__(self):
-        super().__init__(Literal(int, '0'))  # the default element can be set in superclass constructor
-
     def default(self):
         self.element = Literal(int, '0')  # the default element can be set via default method overwrite
         return self
