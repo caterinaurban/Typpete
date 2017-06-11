@@ -32,3 +32,9 @@ class TestCDBM(TestCase):
 
         with self.assertRaises(AssertionError):
             CDBM(5)
+
+    def test_iterators(self):
+        dbm = CDBM(6)
+        dbm[0, 0] = 10
+        for k,v in dbm.items():
+            print(f"{k}: {v},")
