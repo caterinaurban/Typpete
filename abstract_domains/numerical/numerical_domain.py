@@ -1,7 +1,7 @@
 from abc import ABCMeta
 
-from abstract_domains.lattice import Lattice
+from abstract_domains.lattice import BaseLattice
 
 
-class NumericalDomain(Lattice, metaclass=ABCMeta):
+class NumericalDomain(BaseLattice, metaclass=ABCMeta):
     pass
