@@ -1,5 +1,6 @@
 from z3 import Or
 
+
 class AnnotationResolver:
     """Resolver for type annotations in functions"""
     def __init__(self, z3_types):
@@ -49,7 +50,7 @@ class AnnotationResolver:
 
         return args
 
-    def resolve(self, annotation, solver):
+    def resolve(self, annotation, solver, generics_map=None):
         """Resolve the type annotation with the following grammar:
         
         t = object | int | bool | float | complex | str | bytes | None
@@ -69,7 +70,7 @@ class AnnotationResolver:
         if annotation[:4] == "List":
             # Parse List type
             assert annotation[4] == "[" and annotation[-1] == "]"
-            return self.z3_types.list(self.resolve(annotation[5:-1], solver))
+            return self.z3_types.list(self.resolve(annotation[5:-1], solver, generics_map))
 
         if annotation[:4] == "Dict":
             # Parse Dict type
@@ -77,19 +78,19 @@ class AnnotationResolver:
 
             # Get the types of the dict args
             args_annotations = self.resolve_args(annotation[5: -1])
-            args_types = [self.resolve(arg, solver) for arg in args_annotations]
+            args_types = [self.resolve(arg, solver, generics_map) for arg in args_annotations]
             return self.z3_types.dict(*args_types)
 
         if annotation[:3] == "Set":
             # Parse Set type
             assert annotation[3] == "[" and annotation[-1] == "]"
-            return self.z3_types.set(self.resolve(annotation[4:-1], solver))
+            return self.z3_types.set(self.resolve(annotation[4:-1], solver, generics_map))
             pass
 
         if annotation[:4] == "Type":
             # Parse Type type
             assert annotation[4] == "[" and annotation[-1] == "]"
-            return self.z3_types.type(self.resolve(annotation[5:-1], solver))
+            return self.z3_types.type(self.resolve(annotation[5:-1], solver, generics_map))
             pass
 
         if annotation[:5] == "Tuple":
@@ -98,7 +99,7 @@ class AnnotationResolver:
 
             # Get the types of the tuple args
             args_annotations = self.resolve_args(annotation[6:-1])
-            args_types = [self.resolve(arg, solver) for arg in args_annotations]
+            args_types = [self.resolve(arg, solver, generics_map) for arg in args_annotations]
             return self.z3_types.tuples[len(args_types)](*args_types)
 
         if annotation[:8] == "Callable":
@@ -112,8 +113,8 @@ class AnnotationResolver:
 
             # Get the args and return types
             args_annotations = self.resolve_args(args_and_return[0][1:-1])
-            args_types = [self.resolve(arg, solver) for arg in args_annotations]
-            return_type = self.resolve(args_and_return[1], solver)
+            args_types = [self.resolve(arg, solver, generics_map) for arg in args_annotations]
+            return_type = self.resolve(args_and_return[1], solver, generics_map)
 
             return self.z3_types.funcs[len(args_types)](*(args_types + [return_type]))
 
@@ -123,7 +124,7 @@ class AnnotationResolver:
 
             # Get the types of the union args
             args_annotations = self.resolve_args(annotation[6:-1])
-            args_types = [self.resolve(arg, solver) for arg in args_annotations]
+            args_types = [self.resolve(arg, solver, generics_map) for arg in args_annotations]
 
             # The result of the union type is only one of args, Z3 picks the appropriate one
             # according to the added constraints.
@@ -138,4 +139,29 @@ class AnnotationResolver:
 
             return result_type
 
-        raise ValueError("Invalid type annotation: {}.".format(annotation))
+        if generics_map is None:
+            raise ValueError("Invalid type annotation: {}.".format(annotation))
+
+        if annotation in generics_map:
+            return generics_map[annotation]
+
+        result_type = solver.new_z3_const("generic")
+        generics_map[annotation] = result_type
+        return result_type
+
+    def add_annotated_function_axioms(self, args_types, solver, annotations, result_type):
+        args_annotations = annotations[0]
+        result_annotation = annotations[1]
+
+        if len(args_types) != len(args_annotations):
+            raise TypeError("The function expects {} arguments. {} were given.".format(len(args_annotations),
+                                                                                       len(args_types)))
+        generics_map = {}
+
+        for i in range(len(args_annotations)):
+            arg_type = self.resolve(args_annotations[i], solver, generics_map)
+            solver.add(solver.z3_types.subtype(args_types[i], arg_type),
+                       fail_message="Generic parameter type")
+
+        solver.add(result_type == self.resolve(result_annotation, solver, generics_map),
+                   fail_message="Generic return type")

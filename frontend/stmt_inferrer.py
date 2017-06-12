@@ -295,8 +295,26 @@ def _init_func_context(args, context, solver):
     return local_context, args_types
 
 
+def annotated(node):
+    """Check the arguments and return are annotated in a function definition"""
+    if not node.returns:
+        return False
+    for arg in node.args.args:
+        if not arg.annotation:
+            return False
+    return True
+
+
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
+    if annotated(node):
+        return_annotation = unparse_annotation(node.returns)
+        args_annotations = []
+        for arg in node.args.args:
+            args_annotations.append(unparse_annotation(arg.annotation))
+        context.annotated_functions[node.name] = (args_annotations, return_annotation)
+        return
+
     func_context, args_types = _init_func_context(node.args.args, context, solver)
 
     if node.returns:

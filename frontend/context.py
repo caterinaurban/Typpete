@@ -7,6 +7,7 @@ class Context:
 
     def __init__(self, parent_context=None):
         self.types_map = {}
+        self.annotated_functions = {}
         self.parent_context = parent_context
 
     def get_type(self, var_name):
