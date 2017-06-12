@@ -42,8 +42,6 @@ class CDBM(metaclass=ABCMeta):
             row = [inf] * min((i + 2) // 2 * 2, size)
             self._m.append(row)
 
-        self._set_diagonal_zero()
-
     @property
     def size(self):
         return self._size
@@ -52,8 +50,6 @@ class CDBM(metaclass=ABCMeta):
     def strongly_closed(self):
         triang_eq = all([self[i, j] <= self[i, k] + self[k, j]
                          for i in range(self.size) for j in range(self.size) for k in range(self.size)])
-        print([self[i, j] <= self[i, k] + self[k, j]
-               for i in range(self.size) for j in range(self.size) for k in range(self.size)])
         for i in range(self.size):
             for j in range(self.size):
                 for k in range(self.size):
@@ -62,13 +58,13 @@ class CDBM(metaclass=ABCMeta):
         cond = all([self[i, j] <= nan2inf((self[i, i ^ 1] + self[j ^ 1, j]) // 2)
                     for i in range(self.size) for j in range(self.size)])
         diag_zero = all([self[i, i] == 0 for i in range(self.size)])
-        print(f"triang_eq={triang_eq}, cond={cond}, diag_zero={diag_zero}")
+        # print(f"triang_eq={triang_eq}, cond={cond}, diag_zero={diag_zero}")
         return triang_eq and cond and diag_zero
 
     @property
     def tightly_closed(self):
         unary_cond_tight = all([isinf(self[i, i ^ 1]) or self[i, i ^ 1] % 2 == 0 for i in range(self.size)])
-        print(f"unary_cond_tight={unary_cond_tight}")
+        # print(f"unary_cond_tight={unary_cond_tight}")
         return self.strongly_closed and unary_cond_tight
 
     def __getitem__(self, index_tuple: Tuple[int, int]):
@@ -120,16 +116,12 @@ class CDBM(metaclass=ABCMeta):
         
         :return: True, if there where negative diagonal elements before they where set to 0, False otherwise.
         """
-        current = self
-        next = type(self)()
         for k in range(self.size):
             for i in range(self.size):
                 for j in range(self.size):  # TODO optimize to not set upper right diagonal entries
-                    next[i, j] = min(current[i, j], current[i, k] + current[k, j])
-            current = next
-            next = type(self)()
+                    self[i, j] = min(self[i, j], self[i, k] + self[k, j])
 
-        negative_diagonal_elements = any([self[i, i] for i in range(self.size)])
+        negative_diagonal_elements = any([self[i, i] < 0 for i in range(self.size)])
 
         self._set_diagonal_zero()
 
@@ -137,18 +129,15 @@ class CDBM(metaclass=ABCMeta):
 
     @abstractmethod
     def close(self):
-        """Calculates closure and sets internal representation matrix to closed canonical form.
+        """Calculates closure and sets internal representation matrix to closed canonical form if possible.
         
-        Depending on the exact type of this CDBM, this may implement a strong (e.g. for floats) or a tight (e.g. for Integers) closure.
-        """
-
-    @abstractmethod
-    def close_element(self, row, col):
-        """Calculates one step of incremental closure and sets internal representation matrix to closed canonical form.
+        If no canonical form is existent, the internal representation may stay in a unclosed form and this method 
+        returns `False`. 
         
-        **NOTE**: this method only works correctly if only the element at (row, col)
-        (in the reduced representation - corresponds to 2 coherent elements in the full matrix)
-        differs from a closed form matrix.
+        Depending on the exact type of this CDBM, this may implement a strong (e.g. for floats) or a tight (e.g. for 
+        Integers) closure.
+         
+        :return: `True`, iff closure successful, i.e. iff constraint system satisfiable and closed canonical form exists
         """
 
     def replace(self, other):
@@ -164,52 +153,37 @@ class IntegerCDBM(CDBM):
         super().__init__(*args, **kwargs)
 
     def close(self):
-        work_dbm = IntegerCDBM(self.size)  # create default=top DBM (all elements set to inf, diagonal to zero)
+        """Calculates closure and sets internal representation matrix to closed canonical form if possible.
+        
+        Algorithm from paper: An Improved Tight Closure Algorithm for Integer Octagonal Constraints - Roberto 
+        Bagnara, Patricia M. Hill, Enea Zaffanella 
+        """
+        self._set_diagonal_zero()
+        self._shortest_path_closure()
+
+        # check for Q-consistency
+        for i in range(self.size):
+            if self[i, i] < 0:
+                return False
+
+        # Tightening
+        for i in range(self.size):
+            ii = (i, i ^ 1)
+            self[ii] = nan2inf(self[ii] // 2 * 2)  # NOTE: corrected error from paper
+
+        # check for Z-consistency
+        for i in range(self.size):
+            for j in range(self.size):
+                # print(f"check {i},{j^1} + {i^1},{j} = {self[i, j ^ 1]} + {self[i ^ 1, j]} = {self[i, j ^ 1] + self[i ^ 1, j]}")
+                if self[i, j ^ 1] + self[i ^ 1, j] < 0:
+                    return False
+
+        # strong coherence
         for i in range(self.size):
             for j in range((i // 2 + 1) * 2):
-                if i != j and self[i, j] < inf:  # ignore diagonal elements and unset conditions (inf)
-                    work_dbm[i, j] = self[i, j]
-                    print("WORK_DBM")
-                    print(work_dbm)
-                    work_dbm.close_element(i, j)
-                    print("WORK_DBM AFTER CLOSE")
-                    print(work_dbm)
-
-        return self.replace(work_dbm)
-
-    def close_element(self, row, col):
-        # compute indices involving r and c
-        rc = (row, col)
-        rr = (row ^ 1, row)
-        cc = (col, col ^ 1)
-
-        # loop through rows
-        for i in range(self.size):
-            # compute indices involving i
-            ir = (i, row)
-            ic = (i, col ^ 1)
-            ci = (col, i ^ 1)
-            # loop through columns
-            for j in range((i // 2 + 1) * 2):
-                # compute indices involving j
-                ij = (i, j)
-                cj = (col, j)
-                rj = (row ^ 1, j)
-                # first update step
-                if i == (j ^ 1):
-                    self[ij] = min(self[ij], 2 * self[rc] + 2 * self[ic] + self[rr])
-                    self[ij] = min(self[ij], 2 * self[rc] + 2 * self[ir] + self[cc])
-                    self[ij] = min(self[ij], (self[ir] + self[rc] + self[ci]) // 2 * 2)
-                else:
-                    self[ij] = min(self[ij], self[ir] + self[rc] + self[cj])
-                    self[ij] = min(self[ij], self[ic] + self[rc] + self[rj])
-
-        # loop through rows and columns
-        for i in range(self.size):
-            for j in range((i // 2 + 1) * 2):
-                # compute indices involving i and j
                 ij = (i, j)
                 ii = (i, i ^ 1)
                 jj = (j ^ 1, j)
-                # second update step
                 self[ij] = min(self[ij], (self[ii] + self[jj]) // 2)
+
+        return True

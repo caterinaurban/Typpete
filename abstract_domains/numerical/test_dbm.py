@@ -1,6 +1,5 @@
 from unittest import TestCase
 from abstract_domains.numerical.dbm import IntegerCDBM
-from math import inf
 
 
 class TestCDBM(TestCase):
@@ -41,58 +40,82 @@ class TestCDBM(TestCase):
         #     print(f"{k}: {v},")
 
     def test_close(self):
-        # dbm = IntegerCDBM(4)
-        # dbm.close()
-        # # print(dbm)
-        # self.assertTrue(dbm.tightly_closed)
-        #
-        # dbm = IntegerCDBM(4)
-        # dbm[1, 0] = 11
-        # dbm[1, 3] = 5
-        # dbm[2, 3] = 32
-        # dbm[3, 2] = 23
-        # dbm.close()
-        # # print(dbm)
-        # self.assertTrue(dbm.tightly_closed)
+        dbm = IntegerCDBM(4)
+        consistent = dbm.close()
+        # print(dbm)
+        self.assertTrue(not consistent or dbm.tightly_closed)
 
         dbm = IntegerCDBM(4)
         dbm[1, 0] = 11
+        dbm[1, 3] = 5
+        dbm[2, 3] = 32
+        dbm[3, 2] = 23
+        consistent = dbm.close()
+        # print(dbm)
+        self.assertTrue(not consistent or dbm.tightly_closed)
+
+        dbm = IntegerCDBM(4)
         dbm[2, 0] = -5
-        dbm[3, 0] = 32
         dbm[3, 1] = -23
-        print("BEFORE CLOSE")
-        print(dbm)
-        dbm.close()
-        print("AFTER CLOSE")
-        print(dbm)
-        self.assertTrue(dbm.tightly_closed)
-
-        # dbm = IntegerCDBM(6)
-        # dbm[0, 1] = 10
-        # dbm[2, 4] = 5
-        # dbm[3, 0] = 4
-        # dbm.close()
-        # # print(dbm)
-        # self.assertTrue(dbm.tightly_closed)
-
-        # dbm = IntegerCDBM(6)
-        # dbm[1, 0] = 11
-        # dbm[1, 3] = 5
-        # dbm[2, 0] = -32
-        # dbm[3, 0] = 23
-        # dbm[4, 0] = -7
-        # dbm[5, 0] = 7
-        # dbm.close()
+        consistent = dbm.close()
         # print(dbm)
-        # self.assertTrue(dbm.tightly_closed)
+        self.assertTrue(not consistent or dbm.tightly_closed)
 
-        # dbm = IntegerCDBM(6)
-        # dbm[1, 0] = 11
-        # dbm[1, 3] = 5
-        # dbm[2, 3] = 32
-        # dbm[3, 2] = 23
-        # dbm[4, 2] = 7
-        # dbm[5, 1] = 7
-        # dbm.close()
+        dbm = IntegerCDBM(6)
+        dbm[0, 1] = 10
+        dbm[2, 4] = 5
+        dbm[3, 0] = 4
+        consistent = dbm.close()
         # print(dbm)
-        # self.assertTrue(dbm.tightly_closed)
+        self.assertTrue(not consistent or dbm.tightly_closed)
+
+        dbm = IntegerCDBM(6)
+        dbm[1, 0] = 11
+        dbm[1, 3] = 5
+        dbm[2, 0] = -32
+        dbm[3, 0] = 23
+        dbm[4, 0] = -7
+        dbm[5, 0] = 7
+        consistent = dbm.close()
+        # print(dbm)
+        self.assertTrue(not consistent or dbm.tightly_closed)
+
+        dbm = IntegerCDBM(6)
+        dbm[1, 0] = 11
+        dbm[1, 3] = 5
+        dbm[2, 3] = 32
+        dbm[3, 2] = 23
+        dbm[4, 2] = 7
+        dbm[5, 1] = 7
+        consistent = dbm.close()
+        # print(dbm)
+        self.assertTrue(not consistent or dbm.tightly_closed)
+
+        dbm = IntegerCDBM(6)
+        dbm[1, 0] = 11
+        dbm[1, 3] = 5
+        dbm[2, 3] = 32
+        dbm[3, 2] = 34
+        dbm[4, 2] = 7
+        dbm[5, 1] = 7
+        dbm[3, 3] = 33
+        consistent = dbm.close()
+        # print(dbm)
+        self.assertTrue(not consistent or dbm.tightly_closed)
+
+        dbm = IntegerCDBM(6)
+        dbm[0, 0] = 1
+        dbm[1, 1] = 1
+        dbm[2, 2] = 1
+        dbm[3, 3] = 1
+        dbm[4, 4] = 1
+        dbm[5, 5] = 1
+        consistent = dbm.close()
+        # print(dbm)
+        self.assertTrue(not consistent or dbm.tightly_closed)
+
+        dbm = IntegerCDBM(6)
+        dbm[4, 0] = 1
+        consistent = dbm.close()
+        # print(dbm)
+        self.assertTrue(not consistent or dbm.tightly_closed)
