@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from copy import deepcopy
 from math import inf, nan, isinf, isnan
 from typing import Tuple
 
@@ -41,8 +42,7 @@ class CDBM(metaclass=ABCMeta):
             row = [inf] * min((i + 2) // 2 * 2, size)
             self._m.append(row)
 
-        for i in range(self.size):
-            self[i, i] = 0
+        self._set_diagonal_zero()
 
     @property
     def size(self):
@@ -109,6 +109,31 @@ class CDBM(metaclass=ABCMeta):
     def items(self):
         for key in self.keys():
             yield key, self[key]
+
+    def _set_diagonal_zero(self):
+        for i in range(self.size):
+            self[i, i] = 0
+        return self
+
+    def _shortest_path_closure(self):
+        """Uses Floyd-Warshall Algorithm to calculate shortest-path closure.
+        
+        :return: True, if there where negative diagonal elements before they where set to 0, False otherwise.
+        """
+        current = self
+        next = type(self)()
+        for k in range(self.size):
+            for i in range(self.size):
+                for j in range(self.size):  # TODO optimize to not set upper right diagonal entries
+                    next[i, j] = min(current[i, j], current[i, k] + current[k, j])
+            current = next
+            next = type(self)()
+
+        negative_diagonal_elements = any([self[i, i] for i in range(self.size)])
+
+        self._set_diagonal_zero()
+
+        return negative_diagonal_elements
 
     @abstractmethod
     def close(self):
