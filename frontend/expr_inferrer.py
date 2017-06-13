@@ -377,13 +377,11 @@ def infer_func_call(node, context, solver):
         args_types = _get_args_types(node.args, context, instance, solver)
     else:
         args_types = _get_args_types(node.args, context, instance, solver)
-        if isinstance(node.func, ast.Name) and node.func.id in context.annotated_functions:
-            return _infer_annotated_function_call(args_types, solver, context.annotated_functions[node.func.id])
+        if isinstance(node.func, ast.Name) and context.has_annotated_func(node.func.id):
+            return _infer_annotated_function_call(args_types, solver, context.get_annotated_func(node.func.id))
         called = infer(node.func, context, solver)
 
     result_type = solver.new_z3_const("call")
-
-    # TODO covariant and invariant subtyping
 
     solver.add(axioms.call(called, args_types, result_type, solver.z3_types),
                fail_message="Call in line {}".format(node.lineno))

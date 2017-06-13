@@ -35,3 +35,17 @@ class Context:
         if self.parent_context is None:
             return False
         return self.parent_context.has_variable(var_name)
+
+    def has_annotated_func(self, func_name):
+        if func_name in self.annotated_functions:
+            return True
+        if self.parent_context is None:
+            return False
+        return self.parent_context.has_annotated_func(func_name)
+
+    def get_annotated_func(self, func_name):
+        if func_name in self.annotated_functions:
+            return self.annotated_functions[func_name]
+        if self.parent_context is None:
+            raise NameError("Name {} is not defined".format(func_name))
+        return self.parent_context.get_annotated_func(func_name)
