@@ -87,7 +87,7 @@ class AnnotationResolver:
             return self.z3_types.set(self.resolve(annotation[4:-1], solver, generics_map))
             pass
 
-        if annotation[:4] == "Type":
+        if annotation[:4] == "Type" and annotation[4] == '[':
             # Parse Type type
             assert annotation[4] == "[" and annotation[-1] == "]"
             return self.z3_types.type(self.resolve(annotation[5:-1], solver, generics_map))
@@ -142,6 +142,27 @@ class AnnotationResolver:
         if generics_map is None:
             raise ValueError("Invalid type annotation: {}.".format(annotation))
 
+        if annotation[:7] == "TypeVar":
+            # The first encountered TypeVar for a specific type variable defines
+            # its supertypes.
+            # Example: TypeVar[T, [int, str]], defines a type variable T which has supertypes int and string
+            assert annotation[7] == "[" and annotation[-1] == "]"
+            args_annotations = self.resolve_args(annotation[8: -1])
+            type_var_name = args_annotations[0]
+
+            if type_var_name in generics_map:
+                raise TypeError("Type variable {} is already defined before".format(type_var_name))
+
+            supers_annotations = self.resolve_args(args_annotations[1][1:-1])
+            supers_types = [self.resolve(x, solver, generics_map) for x in supers_annotations]
+            result_type = solver.new_z3_const("generic")
+
+            solver.add([solver.z3_types.subtype(result_type, x) for x in supers_types],
+                       fail_message="Subtyping in type variable")
+
+            generics_map[type_var_name] = result_type
+            return result_type
+
         if annotation in generics_map:
             return generics_map[annotation]
 
@@ -150,6 +171,11 @@ class AnnotationResolver:
         return result_type
 
     def add_annotated_function_axioms(self, args_types, solver, annotations, result_type):
+        """Add axioms for a function call to an annotated function
+        
+        Reprocess the type annotations for every function call to prevent binding a certain type
+        to the function definition
+        """
         args_annotations = annotations[0]
         result_annotation = annotations[1]
 

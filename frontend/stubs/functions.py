@@ -76,9 +76,9 @@ def complex() -> complex:
     pass
 
 
-def dict():
+def dict() -> Dict[T, U]:
     """Create a new dictionary."""
-    return {}
+    pass
 
 
 def dir() -> List[str]:
