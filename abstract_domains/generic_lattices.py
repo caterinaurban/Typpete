@@ -25,7 +25,7 @@ class StoreLattice(Lattice):
         return self._variables
 
     def __repr__(self):
-        variables = "\n".join("{} -> {} ".format(variable, value) for variable, value in self.variables.items())
+        variables = ", ".join("{} -> {}".format(variable, value) for variable, value in self.variables.items())
         return variables
 
     # noinspection PyCallingNonCallable

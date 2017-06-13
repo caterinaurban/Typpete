@@ -140,6 +140,19 @@ class CDBM(metaclass=ABCMeta):
         :return: `True`, iff closure successful, i.e. iff constraint system satisfiable and closed canonical form exists
         """
 
+    def intersection(self, other: 'CDBM') -> 'CDBM':
+        return self.zip(other, min)
+
+    def union(self, other: 'CDBM') -> 'CDBM':
+        return self.zip(other, max)
+
+    def zip(self, other: 'CDBM', f) -> 'CDBM':
+        if self.size != other.size:
+            raise ValueError("Can not zip DBMs with unequal sizes!")
+        for key in self.keys():
+            self[key] = f(self[key], other[key])
+        return self
+
     def replace(self, other):
         self.__dict__.update(other.__dict__)
         return self

@@ -196,6 +196,7 @@ class SpecialElementMixin(BaseLattice, Generic[L], metaclass=ABCMeta):
 
     def __init__(self):
         """Create a default lattice element."""
+        self._element = None
         self._kind = Kind.ELEMENT
         super().__init__()
 
