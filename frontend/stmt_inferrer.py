@@ -59,7 +59,8 @@ def _infer_one_target(target, context, solver):
     target_type = expr.infer(target, context, solver)
 
     if isinstance(target, ast.Subscript):
-        solver.add(axioms.subscript_assignment(target_type, solver.z3_types),
+
+        solver.add(axioms.subscript_assignment(expr.infer(target.value, context, solver), solver.z3_types),
                    fail_message="Subscript assignment in line {}".format(target.lineno))
 
     return target_type
