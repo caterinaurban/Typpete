@@ -89,11 +89,18 @@ def _infer_assignment_target(target, context, value_type, solver):
                fail_message="Assignment in line {}".format(target.lineno))
 
 
+def _is_type_var_declaration(node):
+    return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "TypeVar"
+
+
 def _infer_assign(node, context, solver):
     """Infer the types of target variables in an assignment node."""
 
-    for target in node.targets:
-        _infer_assignment_target(target, context, expr.infer(node.value, context, solver), solver)
+    if _is_type_var_declaration(node.value):
+        solver.annotation_resolver.add_type_var(node.value)
+    else:
+        for target in node.targets:
+            _infer_assignment_target(target, context, expr.infer(node.value, context, solver), solver)
 
     return solver.z3_types.none
 
@@ -253,31 +260,6 @@ def _infer_try(node, context, solver):
     return result_type
 
 
-def unparse_annotation(annotation_node):
-    """Unparse to the AST node for the type annotation into its original text
-    
-    Cases:
-        - Name, ex: x: int
-        - Subscript, ex: x: List[int]
-        - Tuple: ex: x: Dict[str, int]
-    """
-    if isinstance(annotation_node, ast.Name):
-        return annotation_node.id
-    elif isinstance(annotation_node, ast.List):
-        return "[{}]".format(", ".join([unparse_annotation(elt) for elt in annotation_node.elts]))
-    elif isinstance(annotation_node, ast.Subscript):
-        return "{}[{}]".format(unparse_annotation(annotation_node.value), unparse_annotation(annotation_node.slice))
-    elif isinstance(annotation_node, ast.Index):
-        return unparse_annotation(annotation_node.value)
-    elif isinstance(annotation_node, ast.Slice):
-        return "{}:{}:{}".format(unparse_annotation(annotation_node.lower),
-                                 unparse_annotation(annotation_node.upper),
-                                 unparse_annotation(annotation_node.step))
-    elif isinstance(annotation_node, ast.Tuple):
-        return ", ".join([unparse_annotation(elt) for elt in annotation_node.elts])
-    raise ValueError("Invalid type annotation")
-
-
 def _init_func_context(args, context, solver):
     """Initialize the local function scope, and the arguments types"""
     local_context = Context(parent_context=context)
@@ -287,7 +269,7 @@ def _init_func_context(args, context, solver):
     args_types = ()
     for arg in args:
         if arg.annotation:
-            arg_type = solver.resolve_annotation(unparse_annotation(arg.annotation))
+            arg_type = solver.resolve_annotation(arg.annotation)
         else:
             arg_type = solver.new_z3_const("func_arg")
         local_context.set_type(arg.arg, arg_type)
@@ -309,17 +291,17 @@ def annotated(node):
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
     if annotated(node):
-        return_annotation = unparse_annotation(node.returns)
+        return_annotation = node.returns
         args_annotations = []
         for arg in node.args.args:
-            args_annotations.append(unparse_annotation(arg.annotation))
+            args_annotations.append(arg.annotation)
         context.annotated_functions[node.name] = (args_annotations, return_annotation)
         return
 
     func_context, args_types = _init_func_context(node.args.args, context, solver)
 
     if node.returns:
-        return_type = solver.resolve_annotation(unparse_annotation(node.returns))
+        return_type = solver.resolve_annotation(node.returns)
         if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
            or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
             # Stub function
