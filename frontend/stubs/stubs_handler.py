@@ -29,6 +29,13 @@ class StubsHandler:
                            if (isinstance(node, ast.ClassDef) and
                                node.name in used_names)]
 
+        # TypeVar definitions
+        relevant_nodes += [node for node in tree.body
+                           if (isinstance(node, ast.Assign) and
+                               isinstance(node.value, ast.Call) and
+                               isinstance(node.value.func, ast.Name) and
+                               node.value.func.id == "TypeVar")]
+
         for stmt in relevant_nodes:
             infer(stmt, context, solver)
 

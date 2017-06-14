@@ -53,8 +53,9 @@ class AnnotationResolver:
             generics_map[annotation.id] = result_type
 
             supers_types = [self.resolve(x, solver, generics_map) for x in self.type_vars[annotation.id]]
-            solver.add(Or([solver.z3_types.subtype(result_type, x) for x in supers_types]),
-                       fail_message="Generic type in line {}".format(annotation.lineno))
+            if supers_types:
+                solver.add(Or([solver.z3_types.subtype(result_type, x) for x in supers_types]),
+                           fail_message="Generic type in line {}".format(annotation.lineno))
             return result_type
 
         if isinstance(annotation, ast.Subscript):
