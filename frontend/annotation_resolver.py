@@ -155,13 +155,15 @@ class AnnotationResolver:
         solver.add(result_type == self.resolve(result_annotation, solver, generics_map),
                    fail_message="Generic return type")
 
-    def add_type_var(self, type_var_node):
+    def add_type_var(self, target, type_var_node):
+        if not isinstance(target, ast.Name):
+            raise TypeError("TypeVar assignment target should be a variable name.")
         if not type_var_node.args:
             raise TypeError("Invalid type variable declaration in line {}.".format(type_var_node.lineno))
         args = type_var_node.args
         if not isinstance(args[0], ast.Str):
             raise TypeError("Name of type variable in line {} should be a string".format(type_var_node.lineno))
-        type_var_name = args[0].s
+        type_var_name = target.id
         type_var_supers = args[1:]
 
         if len(type_var_supers) == 1:

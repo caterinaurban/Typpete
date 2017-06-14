@@ -97,7 +97,7 @@ def _infer_assign(node, context, solver):
     """Infer the types of target variables in an assignment node."""
 
     if _is_type_var_declaration(node.value):
-        solver.annotation_resolver.add_type_var(node.value)
+        solver.annotation_resolver.add_type_var(node.targets[0], node.value)
     else:
         for target in node.targets:
             _infer_assignment_target(target, context, expr.infer(node.value, context, solver), solver)
