@@ -51,8 +51,10 @@ class AnnotationResolver:
 
             result_type = solver.new_z3_const("generic")
             generics_map[annotation.id] = result_type
+
             supers_types = [self.resolve(x, solver, generics_map) for x in self.type_vars[annotation.id]]
-            solver.add([solver.z3_types.subtype(result_type, x) for x in supers_types])
+            solver.add(Or([solver.z3_types.subtype(result_type, x) for x in supers_types]),
+                       fail_message="Generic type in line {}".format(annotation.lineno))
             return result_type
 
         if isinstance(annotation, ast.Subscript):
@@ -153,17 +155,15 @@ class AnnotationResolver:
                    fail_message="Generic return type")
 
     def add_type_var(self, type_var_node):
-        if not type_var_node.args.args:
+        if not type_var_node.args:
             raise TypeError("Invalid type variable declaration in line {}.".format(type_var_node.lineno))
-        args = type_var_node.args.args
+        args = type_var_node.args
         if not isinstance(args[0], ast.Str):
             raise TypeError("Name of type variable in line {} should be a string".format(type_var_node.lineno))
-        type_var_name = type_var_node.args.args[0].s
+        type_var_name = args[0].s
+        type_var_supers = args[1:]
 
-        type_var_supers = []
-        if len(args) > 1:
-            if not isinstance(args[1], ast.List):
-                raise TypeError("Supers of type variable in line {} should be a list".format(type_var_node.lineno))
-            type_var_supers = args[1]
+        if len(type_var_supers) == 1:
+            raise TypeError("A single constraint is not allowed in TypeVar in line {}".format(type_var_node.lineno))
 
         self.type_vars[type_var_name] = type_var_supers
