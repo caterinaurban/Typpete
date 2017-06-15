@@ -12,14 +12,18 @@ from z3 import *
 class Z3Types:
     def __init__(self, config):
         self.all_types = OrderedDict()
-        self.attributes = OrderedDict()
+        self.instance_attributes = OrderedDict()
+        self.class_attributes = OrderedDict()
 
         max_tuple_length = config.max_tuple_length
         max_function_args = config.max_function_args
-        classes_to_attrs = config.classes_to_attrs
+        classes_to_instance_attrs = config.classes_to_instance_attrs
+        classes_to_class_attrs = config.classes_to_class_attrs
         class_to_base = config.class_to_base
 
-        type_sort = declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs, self.attributes)
+        type_sort = declare_type_sort(max_tuple_length, max_function_args,
+                                      classes_to_instance_attrs, classes_to_class_attrs,
+                                      self.instance_attributes, self.class_attributes)
         self.type_sort = type_sort
 
         # Extract types constructors
@@ -53,13 +57,12 @@ class Z3Types:
         self.func = type_sort.func
         self.funcs = get_funcs(type_sort, max_function_args)
 
-        self.classes = get_classes(type_sort, classes_to_attrs)
+        self.classes = get_classes(type_sort, classes_to_instance_attrs)
 
         # Encode subtyping relationships
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
         self.extends = Function("extends", type_sort, type_sort, BoolSort())
         self.not_subtype = Function("not subtype", type_sort, type_sort, BoolSort())
-        self.stronger_num = Function("stronger num", type_sort, type_sort, BoolSort())
 
         x = Const("x", type_sort)
         y = Const("y", type_sort)
@@ -77,28 +80,18 @@ class Z3Types:
         ]
 
         self.generics_axioms = [
+            ForAll([x, y], Implies(self.subtype(x, self.type(y)), x == self.type(y))),
             ForAll([x, y], Implies(self.subtype(x, self.list(y)), x == self.list(y))),
             ForAll([x, y], Implies(self.subtype(x, self.set(y)), x == self.set(y))),
             ForAll([x, y, z], Implies(self.subtype(x, self.dict(y, z)), x == self.dict(y, z)))
-        ]
-
-        # For numeric casting purposes:
-        # Number > Complex > Float > Int > Bool
-        self.num_strength_properties = [
-            ForAll(x, Implies(self.subtype(x, self.num), self.stronger_num(x, x))),  # Reflexivity
-            ForAll([x, y, z], Implies(And(self.stronger_num(x, y), self.stronger_num(y, z)),
-                                      self.stronger_num(x, z))),  # Transitivity
-            ForAll([x, y], Implies(And(self.stronger_num(x, y), x != y), Not(self.stronger_num(y, x)))),
-            ForAll([x, y], Implies(Not(And(self.subtype(x, self.num), self.subtype(y, self.num))),
-                                   Not(Or(self.stronger_num(x, y), self.stronger_num(y, x)))))
         ]
 
         self.axioms = ([
                       self.extends(self.none, self.object),
                       self.extends(self.num, self.object),
                       self.extends(self.complex, self.num),
-                      self.extends(self.float, self.num),
-                      self.extends(self.int, self.num),
+                      self.extends(self.float, self.complex),
+                      self.extends(self.int, self.float),
                       self.extends(self.bool, self.int),
                       self.extends(self.seq, self.object),
                       self.extends(self.string, self.seq),
@@ -111,11 +104,6 @@ class Z3Types:
                       ForAll([x], self.extends(self.list(x), self.seq), patterns=[self.list(x)]),
                       ForAll([x], self.extends(self.set(x), self.object), patterns=[self.set(x)]),
                       ForAll([x, y], self.extends(self.dict(x, y), self.object), patterns=[self.dict(x, y)]),
-
-                      self.stronger_num(self.int, self.bool),
-                      self.stronger_num(self.float, self.int),
-                      self.stronger_num(self.complex, self.float),
-                      self.stronger_num(self.num, self.complex)
                   ]
                   + self.tuples_subtype_axioms()
                   + self.functions_subtype_axioms()
@@ -187,7 +175,8 @@ class Z3Types:
         return axioms
 
 
-def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs, attributes_map):
+def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_attrs, classes_to_class_attrs,
+                      instance_attributes_map, class_attributes_map):
     """Declare the type Z3 data-type and all its constructors/accessors"""
     type_sort = Datatype("Type")
 
@@ -239,11 +228,12 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs, att
         type_sort.declare("func_{}".format(cur_len), *accessors)
 
     type_sort.declare("type_type", ("instance", type_sort))
-    declare_classes(type_sort, classes_to_attrs)
+    declare_classes(type_sort, classes_to_instance_attrs)
 
     type_sort = type_sort.create()
 
-    create_classes_attributes(type_sort, classes_to_attrs, attributes_map)
+    create_classes_attributes(type_sort, classes_to_instance_attrs, instance_attributes_map)
+    create_classes_attributes(type_sort, classes_to_class_attrs, class_attributes_map)
 
     return type_sort
 
@@ -313,8 +303,7 @@ class TypesSolver(Solver):
         self.init_axioms()
 
     def init_axioms(self):
-        self.add(self.z3_types.subtype_properties + self.z3_types.axioms
-                 + self.z3_types.num_strength_properties + self.z3_types.generics_axioms,
+        self.add(self.z3_types.subtype_properties + self.z3_types.axioms + self.z3_types.generics_axioms,
                  fail_message="Subtyping error")
 
     def add(self, *args, fail_message):
@@ -335,4 +324,4 @@ class TypesSolver(Solver):
         return Const("{}_{}".format(name, self.new_element_id()), sort)
 
     def resolve_annotation(self, annotation):
-        return self.annotation_resolver.resolve(annotation)
+        return self.annotation_resolver.resolve(annotation, self)

@@ -1,5 +1,5 @@
-n = 4
-x = 22
+n = int(input())
+x = int(input())
 i = 0
 while i < n:
     x = x / 2

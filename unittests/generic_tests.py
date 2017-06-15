@@ -31,12 +31,12 @@ class FileTestCase(unittest.TestCase):
         self._cfg = ast_to_cfg(self.ast_root)
 
     def render_cfg(self):
-        CfgRenderer().render(self.cfg, label=f"CFG for {self.source_path}", filename=f"CFG {self.name}",
+        CfgRenderer().render(self.cfg, label=f"CFG for {self.name}", filename=f"CFG {self.name}",
                              directory=os.path.join(self._source_directory, "graphs"),
                              view=False)
 
     def render_result_cfg(self, result):
-        AnalysisResultRenderer().render((self.cfg, result), label=f"CFG with Results for {self._source_path}",
+        AnalysisResultRenderer().render((self.cfg, result), label=f"CFG with Results for {self.name}",
                                         filename=f"CFGR {self.name}",
                                         directory=os.path.join(self._source_directory, "graphs"), view=False)
 
@@ -117,7 +117,7 @@ class ResultCommentsFileTestCase(FileTestCase):
 
             # special treatment for expected result comments after last statement of a block but before any other
             # statement of succeeding (= larger start line number) block
-            if node.stmts and stmt.pp.line < line_of_comment < actual_result_line:
+            if node.stmts and node.stmts[-1].pp.line < line_of_comment < actual_result_line:
                 actual_result = states[-1]  # take last result in block as actual result
                 actual_result_line = line_of_comment
 

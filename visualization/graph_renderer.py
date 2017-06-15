@@ -3,6 +3,7 @@ import graphviz as gv
 from itertools import zip_longest
 import numbers
 from uuid import uuid4 as uuid
+import html
 
 
 class GraphRenderer:
@@ -43,8 +44,12 @@ class GraphRenderer:
             return string[:halflen] + "..." + string[-halflen:]
         return string
 
-    def _list2lines(self, l):
-        return self._escape_dot_label("\n".join(map(str, l)))
+    @staticmethod
+    def _list2lines(l, escape=True):
+        escape_func = html.escape if escape else lambda x: x
+        return '''<<TABLE BORDER="0" CELLBORDER="0">{}</TABLE>>'''.format(
+            '\n'.join(map('''<TR><TD ALIGN="LEFT">{}</TD></TR>'''.format,
+                          map(lambda s: escape_func(str(s)), l or [""]))))
 
     @abstractmethod
     def _render_graph(self, data):
@@ -170,8 +175,11 @@ class AnalysisResultRenderer(GraphRenderer):
 
             if isinstance(node, (Basic, Loop)):
                 states = result.get_node_result(node)
-                node_result = [item for items in zip_longest(states, node.stmts) for item in items if item is not None]
-                self._graph.node(str(node), label=self._list2lines(node_result),
+                # special format states here and pass formatted strings along
+                states = map(lambda x: '<FONT COLOR="#191919" POINT-SIZE="11">{}</FONT>'.format(html.escape(str(x))), states)
+                stmts = map(lambda x: '<B>{}</B>'.format(html.escape(str(x))), node.stmts)
+                node_result = [item for items in zip_longest(states, stmts) for item in items if item is not None]
+                self._graph.node(str(node), label=self._list2lines(node_result, escape=False),
                                  xlabel=str(node.identifier),
                                  fillcolor=fillcolor, shape='box')
             else:

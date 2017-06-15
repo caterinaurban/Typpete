@@ -1,3 +1,5 @@
+from z3 import Or
+
 class AnnotationResolver:
     """Resolver for type annotations in functions"""
     def __init__(self, z3_types):
@@ -10,7 +12,9 @@ class AnnotationResolver:
             "complex": z3_types.complex,
             "str": z3_types.string,
             "bytes": z3_types.bytes,
-            "None": z3_types.none
+            "None": z3_types.none,
+            "number": z3_types.num,
+            "sequence": z3_types.seq
         }
 
     @staticmethod
@@ -45,7 +49,7 @@ class AnnotationResolver:
 
         return args
 
-    def resolve(self, annotation):
+    def resolve(self, annotation, solver):
         """Resolve the type annotation with the following grammar:
         
         t = object | int | bool | float | complex | str | bytes | None
@@ -65,7 +69,7 @@ class AnnotationResolver:
         if annotation[:4] == "List":
             # Parse List type
             assert annotation[4] == "[" and annotation[-1] == "]"
-            return self.z3_types.list(self.resolve(annotation[5:-1]))
+            return self.z3_types.list(self.resolve(annotation[5:-1], solver))
 
         if annotation[:4] == "Dict":
             # Parse Dict type
@@ -73,19 +77,19 @@ class AnnotationResolver:
 
             # Get the types of the dict args
             args_annotations = self.resolve_args(annotation[5: -1])
-            args_types = [self.resolve(arg) for arg in args_annotations]
+            args_types = [self.resolve(arg, solver) for arg in args_annotations]
             return self.z3_types.dict(*args_types)
 
         if annotation[:3] == "Set":
             # Parse Set type
             assert annotation[3] == "[" and annotation[-1] == "]"
-            return self.z3_types.set(self.resolve(annotation[4:-1]))
+            return self.z3_types.set(self.resolve(annotation[4:-1], solver))
             pass
 
         if annotation[:4] == "Type":
             # Parse Type type
             assert annotation[4] == "[" and annotation[-1] == "]"
-            return self.z3_types.type(self.resolve(annotation[5:-1]))
+            return self.z3_types.type(self.resolve(annotation[5:-1], solver))
             pass
 
         if annotation[:5] == "Tuple":
@@ -94,7 +98,7 @@ class AnnotationResolver:
 
             # Get the types of the tuple args
             args_annotations = self.resolve_args(annotation[6:-1])
-            args_types = [self.resolve(arg) for arg in args_annotations]
+            args_types = [self.resolve(arg, solver) for arg in args_annotations]
             return self.z3_types.tuples[len(args_types)](*args_types)
 
         if annotation[:8] == "Callable":
@@ -108,9 +112,30 @@ class AnnotationResolver:
 
             # Get the args and return types
             args_annotations = self.resolve_args(args_and_return[0][1:-1])
-            args_types = [self.resolve(arg) for arg in args_annotations]
-            return_type = self.resolve(args_and_return[1])
+            args_types = [self.resolve(arg, solver) for arg in args_annotations]
+            return_type = self.resolve(args_and_return[1], solver)
 
             return self.z3_types.funcs[len(args_types)](*(args_types + [return_type]))
+
+        if annotation[:5] == "Union":
+            # Parse Union type
+            assert annotation[5] == "[" and annotation[-1] == "]"
+
+            # Get the types of the union args
+            args_annotations = self.resolve_args(annotation[6:-1])
+            args_types = [self.resolve(arg, solver) for arg in args_annotations]
+
+            # The result of the union type is only one of args, Z3 picks the appropriate one
+            # according to the added constraints.
+            # Therefore, using more than one type from the union in the same program isn't yet supported.
+            # For example, the following is not supported:
+            # def f(x: Union[int, str]): ...
+            # f(1)
+            # f("str")
+            result_type = solver.new_z3_const("union")
+            solver.add(Or([result_type == arg for arg in args_types]),
+                       fail_message="Union in type annotation")
+
+            return result_type
 
         raise ValueError("Invalid type annotation: {}.".format(annotation))
