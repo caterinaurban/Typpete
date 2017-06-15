@@ -1,6 +1,7 @@
 import unittest
 from frontend.pre_analysis import PreAnalyzer
 from frontend.stmt_inferrer import *
+from frontend.stubs.stubs_handler import StubsHandler
 
 
 class TestInference(unittest.TestCase):
@@ -15,14 +16,14 @@ class TestInference(unittest.TestCase):
         return variable, type_annotation
 
     @classmethod
-    def parse_results(cls, source, annotation_resolver):
+    def parse_results(cls, source, solver):
         result = {}
         for line in source:
             line = line.strip()
             if not line.startswith("#"):
                 continue
             variable, t = cls.parse_comment(line)
-            result[variable] = annotation_resolver.resolve(t)
+            result[variable] = solver.resolve_annotation(t)
         return result
 
     @classmethod
@@ -34,18 +35,21 @@ class TestInference(unittest.TestCase):
         """
         r = open(path)
         t = ast.parse(r.read())
+        r.close()
 
         analyzer = PreAnalyzer(t)
+        stub_handler = StubsHandler(analyzer)
 
         config = analyzer.get_all_configurations()
         solver = z3_types.TypesSolver(config)
 
         context = Context()
+        stub_handler.infer_all_files(context, solver, config.used_names)
         for stmt in t.body:
             infer(stmt, context, solver)
 
         solver.push()
-        expected_result = cls.parse_results(open(path), solver.annotation_resolver)
+        expected_result = cls.parse_results(open(path), solver)
         return solver, context, expected_result
 
     def runTest(self):
@@ -74,7 +78,8 @@ def suite(files):
     runner.run(s)
 
 if __name__ == '__main__':
-    suite(["tests/inference/classes_test.py",
-           "tests/inference/expressions_test.py",
+    suite(["tests/inference/expressions_test.py",
+           "tests/inference/classes_test.py",
            "tests/inference/functions_test.py",
-           "tests/inference/statements_test.py"])
+           "tests/inference/statements_test.py",
+           "tests/inference/builtins_test.py"])
