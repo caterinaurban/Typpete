@@ -44,5 +44,4 @@ f = e.f()
 
 # x := str
 # c := C
-# e := E
 # fab := Callable[[Type[B]], str]

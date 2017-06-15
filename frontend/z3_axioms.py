@@ -16,12 +16,10 @@ def add(left, right, result, types):
     """
     return [
         Or(
-            And(types.subtype(left, types.num), types.subtype(right, types.num), types.subtype(result, types.num)),
-            And(types.subtype(left, types.seq), left == right, left == result)
+            And(types.subtype(left, types.seq), left == right, left == result),
+            And(types.subtype(left, types.num), types.subtype(right, left), result == left),
+            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
         ),
-
-        Implies(And(types.subtype(left, types.num), types.stronger_num(left, right)), result == left),
-        Implies(And(types.subtype(left, types.num), types.stronger_num(right, left)), result == right)
     ]
 
 
@@ -40,19 +38,10 @@ def mult(left, right, result, types):
     """
     return [
         Or(
-            And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
             And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
-            And(types.subtype(left, types.num), types.subtype(right, types.num), types.subtype(result, types.num))
-        ),
-
-        Implies(
-            And(types.subtype(left, types.num), types.subtype(right, types.num), types.stronger_num(left, right)),
-            result == left
-        ),
-
-        Implies(
-            And(types.subtype(left, types.num), types.subtype(right, types.num), types.stronger_num(right, left)),
-            result == right
+            And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
+            And(types.subtype(left, types.num), types.subtype(right, left), result == left),
+            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
         )
     ]
 
@@ -87,9 +76,8 @@ def arithmetic(left, right, result, is_mod, types):
         - "Case #%i: %i" % (u, v)
     """
     axioms = [
-        And(types.subtype(left, types.num), types.subtype(right, types.num),
-            Implies(types.stronger_num(left, right), result == left),
-            Implies(types.stronger_num(right, left), result == right))
+        And(types.subtype(left, types.num), types.subtype(right, left), result == left),
+        And(types.subtype(right, types.num), types.subtype(left, right), result == right),
     ]
 
     if is_mod:
@@ -121,15 +109,7 @@ def bool_op(values, result, types):
         - 2 and str --> object
         - False or 1 --> int
     """
-    return [
-        Or(
-            types.subtype(x, result),
-            And(types.subtype(x, types.num),
-                types.subtype(result, types.num),
-                types.stronger_num(result, x))
-        )
-        for x in values
-    ]
+    return [types.subtype(x, result) for x in values]
 
 
 def unary_invert(unary, types):
@@ -215,7 +195,12 @@ def slicing(lower, upper, step, sliced, result, types):
     """
     return [
         And(types.subtype(lower, types.int), types.subtype(upper, types.int), types.subtype(step, types.int),
-            types.subtype(sliced, types.seq), result == sliced)
+            Or(
+                sliced == types.string,
+                sliced == types.bytes,
+                types.subtype(sliced, types.tuple),
+                sliced == types.list(types.list_type(sliced))
+            ), result == sliced)
     ]
 
 
@@ -246,9 +231,7 @@ def assignment(target, value, types):
     The left hand side is either a super type or a numerically stronger type of the right hand side.
     """
     return [
-        Implies(types.subtype(target, types.num),
-                And(types.subtype(value, types.num), types.stronger_num(target, value))),
-        Implies(Not(types.subtype(target, types.num)), types.subtype(value, target))
+        types.subtype(value, target)
     ]
 
 
@@ -292,33 +275,19 @@ def multiple_assignment(target, value, position, types):
     return [Or(lst + t)]
 
 
-def index_assignment(indexed, ind, value, types):
-    """Constraints for index subscript assignment
+def subscript_assignment(target, types):
+    """Constraints for subscript assignment
     
     Cases:
-        - Dict
-        - List
+        - Index assignment
+        - Slice assignment
         
-    Ex:
-        - a["string"] = 2.0
-        - b[0] = foo()
+    strings, bytes and tuples are immutable objects. i.e., they don't support subscript assignments
     """
     return [
-        Or(
-            indexed == types.dict(ind, value),
-            And(types.subtype(ind, types.int), indexed == types.list(value))
-        )
-    ]
-
-
-def slice_assignment(lower, upper, step, sliced, value, types):
-    """Constraints for slice assignment
-    
-    Only lists support slice assignments.
-    """
-    return [
-        And(types.subtype(lower, types.int), types.subtype(upper, types.int), types.subtype(step, types.int),
-            sliced == types.list(types.list_type(sliced)), value == sliced)
+        target != types.string,
+        target != types.bytes,
+        Not(types.subtype(target, types.tuple))
     ]
 
 
@@ -421,12 +390,7 @@ def func_call(called, args, result, types):
         z3_arg = getattr(types.type_sort, "func_{}_arg_{}".format(len(args), i + 1))(called)
         z3_args.append(z3_arg)
         arg = args[i]
-        subtype_axioms.append(And(
-            Implies(And(types.subtype(arg, types.num), types.subtype(z3_arg, types.num)),
-                    types.stronger_num(z3_arg, arg)),
-            Implies(Not(And(types.subtype(arg, types.num), types.subtype(z3_arg, types.num))),
-                    types.subtype(arg, z3_arg)),
-        ))
+        subtype_axioms.append(types.subtype(arg, z3_arg))
 
     func_type = types.funcs[len(args)]
     z3_args.append(result)

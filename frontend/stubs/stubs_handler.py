@@ -11,6 +11,7 @@ class StubsHandler:
         for file in files:
             r = open(file)
             tree = ast.parse(r.read())
+            r.close()
             pre_analyzer.add_stub_ast(tree)
             self.asts.append(tree)
 

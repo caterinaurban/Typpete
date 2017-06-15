@@ -59,7 +59,6 @@ class Z3Types:
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
         self.extends = Function("extends", type_sort, type_sort, BoolSort())
         self.not_subtype = Function("not subtype", type_sort, type_sort, BoolSort())
-        self.stronger_num = Function("stronger num", type_sort, type_sort, BoolSort())
 
         x = Const("x", type_sort)
         y = Const("y", type_sort)
@@ -83,23 +82,12 @@ class Z3Types:
             ForAll([x, y, z], Implies(self.subtype(x, self.dict(y, z)), x == self.dict(y, z)))
         ]
 
-        # For numeric casting purposes:
-        # Number > Complex > Float > Int > Bool
-        self.num_strength_properties = [
-            ForAll(x, Implies(self.subtype(x, self.num), self.stronger_num(x, x))),  # Reflexivity
-            ForAll([x, y, z], Implies(And(self.stronger_num(x, y), self.stronger_num(y, z)),
-                                      self.stronger_num(x, z))),  # Transitivity
-            ForAll([x, y], Implies(And(self.stronger_num(x, y), x != y), Not(self.stronger_num(y, x)))),
-            ForAll([x, y], Implies(Not(And(self.subtype(x, self.num), self.subtype(y, self.num))),
-                                   Not(Or(self.stronger_num(x, y), self.stronger_num(y, x)))))
-        ]
-
         self.axioms = ([
                       self.extends(self.none, self.object),
                       self.extends(self.num, self.object),
                       self.extends(self.complex, self.num),
-                      self.extends(self.float, self.num),
-                      self.extends(self.int, self.num),
+                      self.extends(self.float, self.complex),
+                      self.extends(self.int, self.float),
                       self.extends(self.bool, self.int),
                       self.extends(self.seq, self.object),
                       self.extends(self.string, self.seq),
@@ -112,11 +100,6 @@ class Z3Types:
                       ForAll([x], self.extends(self.list(x), self.seq), patterns=[self.list(x)]),
                       ForAll([x], self.extends(self.set(x), self.object), patterns=[self.set(x)]),
                       ForAll([x, y], self.extends(self.dict(x, y), self.object), patterns=[self.dict(x, y)]),
-
-                      self.stronger_num(self.int, self.bool),
-                      self.stronger_num(self.float, self.int),
-                      self.stronger_num(self.complex, self.float),
-                      self.stronger_num(self.num, self.complex)
                   ]
                   + self.tuples_subtype_axioms()
                   + self.functions_subtype_axioms()
@@ -309,8 +292,7 @@ class TypesSolver(Solver):
         self.init_axioms()
 
     def init_axioms(self):
-        self.add(self.z3_types.subtype_properties + self.z3_types.axioms
-                 + self.z3_types.num_strength_properties + self.z3_types.generics_axioms,
+        self.add(self.z3_types.subtype_properties + self.z3_types.axioms + self.z3_types.generics_axioms,
                  fail_message="Subtyping error")
 
     def add(self, *args, fail_message):
