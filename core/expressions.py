@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from enum import Enum
-from typing import Set
+from typing import Set, Sequence
 
 """
 Expressions.
@@ -46,12 +46,17 @@ class Expression(metaclass=ABCMeta):
         :return: string representing the expression
         """
 
-    @abstractmethod
     def ids(self) -> Set['Expression']:
         """Identifiers that appear in the expression.
         
         :return: set of identifiers that appear in the expression
         """
+        from core.expressions_tools import walk
+        ids = set()
+        for e in walk(self):
+            if isinstance(e, VariableIdentifier):
+                ids.add(e)
+        return ids
 
 
 """
@@ -87,9 +92,6 @@ class Literal(Expression):
         else:
             return f'{self.val}'
 
-    def ids(self) -> Set['Expression']:
-        return set()
-
 
 class Input(Expression):
     def __init__(self, typ):
@@ -107,9 +109,6 @@ class Input(Expression):
 
     def __str__(self):
         return 'input()'
-
-    def ids(self) -> Set['Expression']:
-        return set()
 
 
 class Identifier(Expression):
@@ -136,9 +135,6 @@ class Identifier(Expression):
     def __str__(self):
         return "{0.name}".format(self)
 
-    def ids(self) -> Set['Expression']:
-        return {self}
-
 
 class VariableIdentifier(Identifier):
     def __init__(self, typ, name: str):
@@ -150,6 +146,35 @@ class VariableIdentifier(Identifier):
         super().__init__(typ, name)
 
 
+class ListDisplay(Expression):
+    """List display
+    
+    https://docs.python.org/3/reference/expressions.html#list-displays
+    """
+
+    def __init__(self, typ=type(list), items: Sequence = None):
+        """List display representation
+        
+        :param typ: type of the list display
+        :param items: listed items
+        """
+        super().__init__(typ)
+        self._items = items or []
+
+    @property
+    def items(self):
+        return self._items
+
+    def __eq__(self, other):
+        return (self.typ, self.items) == (other.typ, other.items)
+
+    def __hash__(self):
+        return hash((self.typ, str(self.items)))
+
+    def __str__(self):
+        return str(self.items)
+
+
 """
 Primary Expressions
 https://docs.python.org/3.4/reference/expressions.html#primaries
@@ -157,10 +182,14 @@ https://docs.python.org/3.4/reference/expressions.html#primaries
 
 
 class AttributeReference(Expression):
+    """Attribute reference expression representation.
+
+    https://docs.python.org/3.4/reference/expressions.html#attribute-references
+    """
+
     def __init__(self, typ, primary: Expression, attribute: Identifier):
         """Attribute reference expression representation.
-        https://docs.python.org/3.4/reference/expressions.html#attribute-references
-
+        
         :param typ: type of the attribute
         :param primary: object the attribute of which is being referenced
         :param attribute: attribute being referenced
@@ -186,8 +215,88 @@ class AttributeReference(Expression):
     def __str__(self):
         return "{0.primary}.{0.attribute}".format(self)
 
-    def ids(self):
-        return self.primary.ids() | self.attribute.ids()
+
+class Slice(Expression):
+    """Slice (list/dictionary access) representation.
+    """
+
+    def __init__(self, typ, target: Expression, lower: Expression, step: Expression, upper: Expression):
+        """Slice (list/dictionary access) representation.
+
+        :param typ: type of the slice
+        :param target
+        :param lower
+        :param upper
+        :param step
+        """
+        super().__init__(typ)
+        self._target = target
+        self._lower = lower
+        self._step = step
+        self._upper = upper
+
+    @property
+    def target(self):
+        return self._target
+
+    @property
+    def lower(self):
+        return self._lower
+
+    @property
+    def step(self):
+        return self._step
+
+    @property
+    def upper(self):
+        return self._upper
+
+    def __str__(self):
+        if self.step:
+            return "{}[{}:{}:{}]".format(self.target or "", self.lower, self.step, self.upper or "")
+        else:
+            return "{}[{}:{}]".format(self.target, self.lower or "", self.upper or "")
+
+    def __eq__(self, other):
+        return (self.typ, self.target, self.lower, self.step, self.upper) == (
+            other.typ, other.target, other.lower, self.step, self.upper)
+
+    def __hash__(self):
+        return hash((self.typ, self.target, self.lower, self.step, self.upper))
+
+
+class Index(Expression):
+    """Index (list/dictionary access) representation.
+    """
+
+    def __init__(self, typ, target: Expression, index: Expression):
+        """Index  (list/dictionary access) representation.
+
+        :param typ: type of the attribute
+        :param target
+        :param index
+        """
+        super().__init__(typ)
+        self._target = target
+        self._index = index
+
+    @property
+    def target(self):
+        return self._target
+
+    @property
+    def index(self):
+        return self._index
+
+    def __str__(self):
+        return "{}[{}]".format(self.target, self.index)
+
+    def __eq__(self, other):
+        return (self.typ, self.target, self.index) == (
+            other.typ, other.target, other.index)
+
+    def __hash__(self):
+        return hash((self.typ, self.target, self.index))
 
 
 """
@@ -234,11 +343,13 @@ class UnaryOperation(Expression):
     def __str__(self):
         return "{0.operator}({0.expression})".format(self)
 
-    def ids(self):
-        return self.expression.ids()
-
 
 class UnaryArithmeticOperation(UnaryOperation):
+    """Unary arithmetic operation expression representation.
+    
+    https://docs.python.org/3.4/reference/expressions.html#unary-arithmetic-and-bitwise-operations
+    """
+
     class Operator(UnaryOperation.Operator):
         """Unary arithmetic operator representation."""
         Add = 1
@@ -252,7 +363,6 @@ class UnaryArithmeticOperation(UnaryOperation):
 
     def __init__(self, typ, operator: Operator, expression: Expression):
         """Unary arithmetic operation expression representation.
-        https://docs.python.org/3.4/reference/expressions.html#unary-arithmetic-and-bitwise-operations
         
         :param typ: type of the operation
         :param operator: operator of the operation
@@ -262,6 +372,11 @@ class UnaryArithmeticOperation(UnaryOperation):
 
 
 class UnaryBooleanOperation(UnaryOperation):
+    """Unary boolean operation expression representation.
+    
+    https://docs.python.org/3.4/reference/expressions.html#boolean-operations
+    """
+
     class Operator(UnaryOperation.Operator):
         """Unary boolean operator representation."""
         Neg = 1
@@ -272,7 +387,6 @@ class UnaryBooleanOperation(UnaryOperation):
 
     def __init__(self, typ, operator: Operator, expression: Expression):
         """Unary boolean operation expression representation.
-        https://docs.python.org/3.4/reference/expressions.html#boolean-operations
         
         :param typ: type of the operation
         :param operator: operator of the operation
@@ -331,11 +445,13 @@ class BinaryOperation(Expression):
     def __str__(self):
         return "{0.left} {0.operator} {0.right}".format(self)
 
-    def ids(self) -> Set['Expression']:
-        return self.left.ids() | self.right.ids()
-
 
 class BinaryArithmeticOperation(BinaryOperation):
+    """Binary arithmetic operation expression representation.
+    
+    https://docs.python.org/3.4/reference/expressions.html#binary-arithmetic-operations
+    """
+
     class Operator(BinaryOperation.Operator):
         """Binary arithmetic operator representation."""
         Add = 1
@@ -355,7 +471,6 @@ class BinaryArithmeticOperation(BinaryOperation):
 
     def __init__(self, typ, left: Expression, operator: Operator, right: Expression):
         """Binary arithmetic operation expression representation.
-        https://docs.python.org/3.4/reference/expressions.html#binary-arithmetic-operations
         
         :param typ: type of the operation
         :param left: left expression of the operation
@@ -366,6 +481,11 @@ class BinaryArithmeticOperation(BinaryOperation):
 
 
 class BinaryBooleanOperation(BinaryOperation):
+    """Binary boolean operation expression representation.
+    
+    https://docs.python.org/3.6/reference/expressions.html#boolean-operations
+    """
+
     class Operator(BinaryOperation.Operator):
         """Binary arithmetic operator representation."""
         And = 1
@@ -377,7 +497,6 @@ class BinaryBooleanOperation(BinaryOperation):
 
     def __init__(self, typ, left: Expression, operator: Operator, right: Expression):
         """Binary boolean operation expression representation.
-        https://docs.python.org/3.6/reference/expressions.html#boolean-operations
 
         :param typ: type of the operation
         :param left: left expression of the operation
@@ -388,6 +507,11 @@ class BinaryBooleanOperation(BinaryOperation):
 
 
 class BinaryComparisonOperation(BinaryOperation):
+    """Binary comparison operation expression representation.
+    
+    https://docs.python.org/3.4/reference/expressions.html#comparisons
+    """
+
     class Operator(BinaryOperation.Operator):
         """Binary comparison operator representation"""
         Eq = 1
@@ -425,7 +549,6 @@ class BinaryComparisonOperation(BinaryOperation):
 
     def __init__(self, typ, left: Expression, operator: Operator, right: Expression):
         """Binary comparison operation expression representation.
-        https://docs.python.org/3.4/reference/expressions.html#comparisons
 
         :param typ: type of the operation
         :param left: left expression of the operation

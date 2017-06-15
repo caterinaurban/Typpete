@@ -25,7 +25,13 @@ class UsageTestCase(ResultCommentsFileTestCase):
         variable_names = sorted(
             {node.id for node in ast.walk(self.ast_root) if
              isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)})
-        variables = [VariableIdentifier(int, name) for name in variable_names]
+        variables = []
+        for name in variable_names:
+            # TODO remove this name hack when type inferences work
+            typ = list if name.startswith("list") else int
+            variables.append(VariableIdentifier(typ, name))
+
+        # print(list(map(str,variables)))
 
         # Run Usage Analysis
         backward_interpreter = BackwardInterpreter(self.cfg, UsageSemantics(), 3)
@@ -36,7 +42,7 @@ class UsageTestCase(ResultCommentsFileTestCase):
 
 def suite():
     s = unittest.TestSuite()
-    g = os.getcwd() + '/traces/**.py'
+    g = os.getcwd() + '/usage/**.py'
     for path in glob.iglob(g):
         if os.path.basename(path) != "__init__.py":
             s.addTest(UsageTestCase(path))

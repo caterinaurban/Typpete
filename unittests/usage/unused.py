@@ -1,6 +1,6 @@
-x = False
-y = True
-# RESULT: t -> N, x -> U, y -> U
+x = bool(input())
+y = bool(input())
+# RESULT: t -> N, x -> N, y -> U
 if x:
     t = True
 else:

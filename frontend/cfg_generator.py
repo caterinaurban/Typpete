@@ -184,7 +184,7 @@ class LooseControlFlowGraph:
         elif other.both_loose_edges:
             edge_added = True
             for e in other.both_loose_edges:
-                e._source = self.in_node
+                e._source = self.out_node
                 self.add_edge(e)  # updated/created edge is not yet in edge dict -> add
             # clear loose edge set
             other._both_loose_edges = set()
@@ -207,6 +207,15 @@ class LooseControlFlowGraph:
 
     def replace(self, other):
         self.__dict__.update(other.__dict__)
+
+
+def _dummy(id_gen):
+    return Basic(id_gen.next, list())
+
+
+def _dummy_cfg(id_gen):
+    dummy = _dummy(id_gen)
+    return LooseControlFlowGraph({dummy}, dummy, dummy, set())
 
 
 class NodeIdentifierGenerator:
@@ -253,6 +262,8 @@ class CfgFactory:
 
     def append_cfg(self, other):
         if self._cfg is not None:
+            if self._cfg.loose_out_edges and other.loose_in_edges:
+                self._cfg.append(_dummy_cfg(self._id_gen))
             self._cfg.append(other)
         else:
             self._cfg = other
@@ -274,6 +285,9 @@ class CfgFactory:
             block = Basic(self._id_gen.next, self._stmts)
             self.append_cfg(LooseControlFlowGraph({block}, block, block, set()))
             self._stmts = []
+
+    def incomplete_block(self):
+        return len(self._stmts) > 0
 
 
 # noinspection PyMethodMayBeStatic,PyPep8Naming
@@ -300,7 +314,9 @@ class CfgVisitor(ast.NodeVisitor):
 
     def visit_Name(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
-        v = self._ensure_stmt(pp, VariableIdentifier(int, node.id))
+        # TODO remove this name hack when type inferences work
+        typ = list if node.id.startswith("list") else int
+        v = self._ensure_stmt(pp, VariableIdentifier(typ, node.id))
         return v
 
     def visit_Assign(self, node):
@@ -310,10 +326,18 @@ class CfgVisitor(ast.NodeVisitor):
                  target in node.targets]
         return stmts
 
+    def visit_AugAssign(self, node):
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        value = self._ensure_stmt_visit(node.value)
+        target = self._ensure_stmt_visit(node.target)
+        operand_call = Call(pp, type(node.op).__name__.lower(), [target, value], int)
+        stmt = Assignment(pp, target, operand_call)
+        return [stmt]
+
     def visit_Module(self, node):
-        start_cfg = self._dummy_cfg()
+        start_cfg = _dummy_cfg(self._id_gen)
         body_cfg = self._translate_body(node.body, allow_loose_in_edges=True, allow_loose_out_edges=True)
-        end_cfg = self._dummy_cfg()
+        end_cfg = _dummy_cfg(self._id_gen)
 
         return start_cfg.append(body_cfg).append(end_cfg)
 
@@ -338,7 +362,7 @@ class CfgVisitor(ast.NodeVisitor):
 
         # extend special edges with IF_OUT edges and additional necessary dummy nodes
         for special_edge, edge_type in body_cfg.special_edges:
-            dummy = self._dummy()
+            dummy = _dummy(self._id_gen)
             body_cfg.add_node(dummy)
 
             # add a new IF_OUT edge where the special edge is at the moment, ending in new dummy node
@@ -351,7 +375,7 @@ class CfgVisitor(ast.NodeVisitor):
         return cfg
 
     def visit_While(self, node):
-        header_node = self._dummy()
+        header_node = _dummy(self._id_gen)
 
         cfg = self._translate_body(node.body)
         body_in_node = cfg.in_node
@@ -366,7 +390,7 @@ class CfgVisitor(ast.NodeVisitor):
 
         cfg.add_edge(Conditional(header_node, test, body_in_node, Edge.Kind.LOOP_IN))
         cfg.add_edge(Conditional(header_node, neg_test, None))
-        if body_out_node:   # if control flow can exit the body at all, add an unconditional LOOP_OUT edge
+        if body_out_node:  # if control flow can exit the body at all, add an unconditional LOOP_OUT edge
             cfg.add_edge(Unconditional(body_out_node, header_node, Edge.Kind.LOOP_OUT))
 
         if node.orelse:  # if there is else branch
@@ -385,7 +409,7 @@ class CfgVisitor(ast.NodeVisitor):
         return cfg
 
     def visit_Break(self, _):
-        dummy = self._dummy()
+        dummy = _dummy(self._id_gen)
         cfg = LooseControlFlowGraph({dummy}, dummy, None)
         # the type of the special edge is not yet known, may be also an IF_OUT first, before LOOP_OUT
         # so set type to DEFAULT for now but remember the special type of this edge separately
@@ -395,7 +419,7 @@ class CfgVisitor(ast.NodeVisitor):
         return cfg
 
     def visit_Continue(self, _):
-        dummy = self._dummy()
+        dummy = _dummy(self._id_gen)
         cfg = LooseControlFlowGraph({dummy}, dummy, None)
         # the type of the special edge is not yet known, may be also an IF_OUT first, before LOOP_OUT
         # so set type to DEFAULT for now but remember the special type of this edge separately
@@ -445,24 +469,41 @@ class CfgVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node):
         pp = ProgramPoint(node.lineno, node.col_offset)
-        return Call(pp, node.func.id, [self.visit(arg) for arg in node.args], typing.Any)
+
+        if node.func.id == 'int':
+            typ = int
+        elif node.func.id == 'bool':
+            typ = bool
+        else:
+            typ = typing.Any
+
+        return Call(pp, node.func.id, [self.visit(arg) for arg in node.args], typ)
+
+    def visit_List(self, node):
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        return ListDisplayStmt(pp, [self.visit(e) for e in node.elts])
+
+    def visit_Subscript(self, node):
+        pp = ProgramPoint(node.lineno, node.col_offset)
+        if isinstance(node.slice, ast.Index):
+            return IndexStmt(pp, self._ensure_stmt_visit(node.value, pp), self._ensure_stmt_visit(node.slice.value, pp))
+        elif isinstance(node.slice, ast.Slice):
+            return SliceStmt(pp, self._ensure_stmt_visit(node.value, pp),
+                             self._ensure_stmt_visit(node.slice.lower, pp),
+                             self._ensure_stmt_visit(node.slice.step, pp) if node.slice.step else None,
+                             self._ensure_stmt_visit(node.slice.upper, pp))
+        else:
+            raise NotImplementedError(f"The statement {str(type(node.slice))} is not yet translatable to CFG!")
 
     def generic_visit(self, node):
         print(type(node).__name__)
         super().generic_visit(node)
 
-    def _dummy(self):
-        return Basic(self._id_gen.next, list())
-
-    def _dummy_cfg(self):
-        dummy = self._dummy()
-        return LooseControlFlowGraph({dummy}, dummy, dummy, set())
-
     def _translate_body(self, body, allow_loose_in_edges=False, allow_loose_out_edges=False):
         cfg_factory = CfgFactory(self._id_gen)
 
         for child in body:
-            if isinstance(child, (ast.Assign, ast.Expr)):
+            if isinstance(child, (ast.Assign, ast.AugAssign, ast.Expr)):
                 cfg_factory.add_stmts(self.visit(child))
             elif isinstance(child, ast.If):
                 cfg_factory.complete_basic_block()
@@ -481,15 +522,18 @@ class CfgVisitor(ast.NodeVisitor):
                 cont_cfg = self.visit(child)
                 cfg_factory.append_cfg(cont_cfg)
             elif isinstance(child, ast.Pass):
-                pass
+                if cfg_factory.incomplete_block():
+                    pass
+                else:
+                    cfg_factory.append_cfg(_dummy_cfg(self._id_gen))
             else:
                 raise NotImplementedError(f"The statement {str(type(child))} is not yet translatable to CFG!")
         cfg_factory.complete_basic_block()
 
         if not allow_loose_in_edges and cfg_factory.cfg and cfg_factory.cfg.loose_in_edges:
-            cfg_factory.prepend_cfg(self._dummy_cfg())
+            cfg_factory.prepend_cfg(_dummy_cfg(self._id_gen))
         if not allow_loose_out_edges and cfg_factory.cfg and cfg_factory.cfg.loose_out_edges:
-            cfg_factory.append_cfg(self._dummy_cfg())
+            cfg_factory.append_cfg(_dummy_cfg(self._id_gen))
 
         return cfg_factory.cfg
 
@@ -504,9 +548,9 @@ class CfgVisitor(ast.NodeVisitor):
         else:
             raise NotImplementedError(f"The expression {str(type(expr))} is not yet translatable to CFG!")
 
-    def _ensure_stmt_visit(self, node):
+    def _ensure_stmt_visit(self, node, pp=None):
         result = self.visit(node)
-        pp = ProgramPoint(node.lineno, node.col_offset)
+        pp = pp if pp else ProgramPoint(node.lineno, node.col_offset)
         return CfgVisitor._ensure_stmt(pp, result)
 
 

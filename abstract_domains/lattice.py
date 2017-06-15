@@ -177,7 +177,7 @@ class BaseLattice(metaclass=ABCMeta):
         :return: current lattice element updated to be equal to other
         """
         self.__dict__.update(other.__dict__)
-        assert self == other
+        assert self == other, f"after replace call, {self} is not equals {other}"
         return self
 
 

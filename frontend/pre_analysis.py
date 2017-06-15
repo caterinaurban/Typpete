@@ -10,10 +10,10 @@ class PreAnalyzer:
         """
         :param prog_ast: The AST for the python program  
         """
-
         # List all the nodes existing in the AST
         self.base_folder = base_folder
         self.all_nodes = self.walk(prog_ast)
+        self.stub_nodes = []
 
     def walk(self, prog_ast):
         result = list(ast.walk(prog_ast))
@@ -30,15 +30,37 @@ class PreAnalyzer:
 
         return result
 
+    def add_stub_ast(self, tree):
+        """Add an AST of a stub file to the pre-analyzer"""
+        self.stub_nodes += list(ast.walk(tree))
+
     def maximum_function_args(self):
         """Get the maximum number of function arguments appearing in the AST"""
-        func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
-        return max([len(node.args.args) for node in func_defs] + [1])
+        user_func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
+        stub_func_defs = [node for node in self.stub_nodes if isinstance(node, ast.FunctionDef)]
+
+        # A minimum value of 1 because a default __init__ with one argument function
+        # is added to classes that doesn't contain one
+        user_func_max = max([len(node.args.args) for node in user_func_defs] + [1])
+        stub_func_max = max([len(node.args.args) for node in stub_func_defs] + [1])
+
+        return max(user_func_max, stub_func_max)
 
     def maximum_tuple_length(self):
         """Get the maximum length of tuples appearing in the AST"""
-        tuples = [node for node in self.all_nodes if isinstance(node, ast.Tuple)]
-        return 0 if not tuples else max([len(node.elts) for node in tuples])
+        user_tuples = [node for node in self.all_nodes if isinstance(node, ast.Tuple)]
+        stub_tuples = [node for node in self.stub_nodes if isinstance(node, ast.Tuple)]
+
+        user_max = max([len(node.elts) for node in user_tuples] + [0])
+        stub_tuples = max([len(node.elts) for node in stub_tuples] + [0])
+
+        return max(user_max, stub_tuples)
+
+    def get_all_used_names(self):
+        """Get all used variable names and used-defined classes names"""
+        names = [node.id for node in self.all_nodes if isinstance(node, ast.Name)]
+        names += [node.name for node in self.all_nodes if isinstance(node, ast.ClassDef)]
+        return names
 
     def analyze_classes(self):
         """Pre-analyze and configure classes before the type inference
@@ -103,6 +125,7 @@ class PreAnalyzer:
         config.max_function_args = self.maximum_function_args()
         config.classes_to_attrs, config.class_to_base = self.analyze_classes()
         config.base_folder = self.base_folder
+        config.used_names = self.get_all_used_names()
 
         return config
 
@@ -115,6 +138,7 @@ class Configuration:
         self.classes_to_attrs = OrderedDict()
         self.class_to_base = OrderedDict()
         self.base_folder = ""
+        self.used_names = []
 
 
 def propagate_attributes_to_subclasses(class_defs):

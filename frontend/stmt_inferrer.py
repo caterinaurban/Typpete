@@ -71,7 +71,7 @@ def _infer_assignment_target(target, context, value_type, lineno, solver):
             solver.add(axioms.index_assignment(indexed_type, index_type, value_type, solver.z3_types),
                        fail_message="Subscript assignment in line {}".format(lineno))
         else:  # Slice assignment
-            lower_type = upper_type = step_type = z3_types.Int
+            lower_type = upper_type = step_type = solver.z3_types.int
             if target.slice.lower:
                 lower_type = expr.infer(target.slice.lower, context, solver)
             if target.slice.upper:
@@ -120,7 +120,7 @@ def _infer_augmented_assign(node, context, solver):
             solver.add(axioms.index_assignment(indexed_type, index_type, result_type, solver.z3_types),
                        fail_message="Subscript augmented assignment in line {}".format(node.lineno))
         else:
-            lower_type = upper_type = step_type = z3_types.Int
+            lower_type = upper_type = step_type = solver.z3_types.int
             if node.target.slice.lower:
                 lower_type = expr.infer(node.target.slice.lower, context, solver)
             if node.target.slice.upper:
@@ -322,12 +322,19 @@ def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
     func_context, args_types = _init_func_context(node.args.args, context, solver)
 
-    body_type = _infer_body(node.body, func_context, node.lineno, solver)
     if node.returns:
         return_type = solver.resolve_annotation(unparse_annotation(node.returns))
-        solver.add(body_type == return_type,
-                   fail_message="Return type annotation in line {}".format(node.lineno))
-
+        if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
+           or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
+            # Stub function
+            body_type = return_type
+        else:
+            body_type = _infer_body(node.body, func_context, node.lineno, solver)
+            solver.add(body_type == return_type,
+                       fail_message="Return type annotation in line {}".format(node.lineno))
+    else:
+        body_type = _infer_body(node.body, func_context, node.lineno, solver)
+        
     func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
     result_type = solver.new_z3_const("func")
     solver.add(result_type == func_type,

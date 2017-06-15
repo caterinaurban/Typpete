@@ -1,7 +1,7 @@
-n = 10
-x = 18
+n = int(input())
+x = int(input())
 i = 0
-# RESULT: i -> U, n -> U, x -> O
+# RESULT: i -> N, n -> N, x -> O
 while i < n:
     x = i / 2  # BUG: should be x = x / 2
     i = i + 1
