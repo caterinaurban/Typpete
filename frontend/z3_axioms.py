@@ -19,6 +19,7 @@ def add(left, right, result, types):
         Or(
             And(types.subtype(left, types.seq), left == right, left == result),
             And(types.subtype(left, types.num), types.subtype(right, left), result == left),
+            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
 
             # result from list addition is a list with a supertype of operands' types
             And(left == types.list(types.list_type(left)),
