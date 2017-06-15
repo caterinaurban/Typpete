@@ -50,7 +50,10 @@ class TestInference(unittest.TestCase):
             infer(stmt, context, solver)
 
         solver.push()
+
         expected_result = cls.parse_results(open(path), solver)
+        r.close()
+
         return solver, context, expected_result
 
     def runTest(self):
