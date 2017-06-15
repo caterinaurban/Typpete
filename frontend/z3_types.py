@@ -81,6 +81,7 @@ class Z3Types:
         ]
 
         self.generics_axioms = [
+            ForAll([x, y], Implies(self.subtype(x, self.type(y)), x == self.type(y))),
             ForAll([x, y], Implies(self.subtype(x, self.list(y)), x == self.list(y))),
             ForAll([x, y], Implies(self.subtype(x, self.set(y)), x == self.set(y))),
             ForAll([x, y, z], Implies(self.subtype(x, self.dict(y, z)), x == self.dict(y, z)))
@@ -335,4 +336,4 @@ class TypesSolver(Solver):
         return Const("{}_{}".format(name, self.new_element_id()), sort)
 
     def resolve_annotation(self, annotation):
-        return self.annotation_resolver.resolve(annotation)
+        return self.annotation_resolver.resolve(annotation, self)
