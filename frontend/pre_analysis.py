@@ -61,7 +61,8 @@ class PreAnalyzer:
 
         propagate_attributes_to_subclasses(class_defs)
 
-        class_to_attributes = OrderedDict()
+        class_to_instance_attributes = OrderedDict()
+        class_to_class_attributes = OrderedDict()
         class_to_base = OrderedDict()
 
         for cls in class_defs:
@@ -74,14 +75,26 @@ class PreAnalyzer:
 
             add_init_if_not_existing(cls)
 
-            attributes = set()
-            class_to_attributes[cls.name] = attributes
+            # instance attributes contains all attributes that can be accessed through the instance
+            instance_attributes = set()
+
+            # class attributes contains all attributes that can be accessed through the class
+            # Ex:
+            # class A:
+            #     x = 1
+            # A.x
+
+            # class attributes are subset from instance attributes
+            class_attributes = set()
+            class_to_instance_attributes[cls.name] = instance_attributes
+            class_to_class_attributes[cls.name] = class_attributes
 
             # Inspect all class-level statements
             for cls_stmt in cls.body:
                 if isinstance(cls_stmt, ast.FunctionDef):
                     # Add function to class attributes and get attributes defined by self.some_attribute = value
-                    attributes.add(cls_stmt.name)
+                    instance_attributes.add(cls_stmt.name)
+                    class_attributes.add(cls_stmt.name)
                     if not cls_stmt.args.args:
                         continue
                     first_arg = cls_stmt.args.args[0].arg  # In most cases it will be 'self'
@@ -94,20 +107,21 @@ class PreAnalyzer:
                         for target in assignment.targets:
                             if (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and
                                     target.value.id == first_arg):
-                                attributes.add(target.attr)
+                                instance_attributes.add(target.attr)
                 elif isinstance(cls_stmt, ast.Assign):
                     # Get attributes defined as class-level assignment
                     for target in cls_stmt.targets:
                         if isinstance(target, ast.Name):
-                            attributes.add(target.id)
+                            class_attributes.add(target.id)
+                            instance_attributes.add(target.id)
 
-        return class_to_attributes, class_to_base
+        return class_to_instance_attributes, class_to_class_attributes, class_to_base
 
     def get_all_configurations(self):
         config = Configuration()
         config.max_tuple_length = self.maximum_tuple_length()
         config.max_function_args = self.maximum_function_args()
-        config.classes_to_attrs, config.class_to_base = self.analyze_classes()
+        config.classes_to_instance_attrs, config.classes_to_class_attrs, config.class_to_base = self.analyze_classes()
         config.used_names = self.get_all_used_names()
 
         return config

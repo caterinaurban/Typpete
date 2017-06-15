@@ -18,7 +18,7 @@ def add(left, right, result, types):
         Or(
             And(types.subtype(left, types.seq), left == right, left == result),
             And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-            And(types.subtype(left, types.num), types.subtype(left, right), result == right),
+            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
         ),
     ]
 
@@ -41,7 +41,7 @@ def mult(left, right, result, types):
             And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
             And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
             And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-            And(types.subtype(left, types.num), types.subtype(left, right), result == right),
+            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
         )
     ]
 
@@ -77,7 +77,7 @@ def arithmetic(left, right, result, is_mod, types):
     """
     axioms = [
         And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-        And(types.subtype(left, types.num), types.subtype(left, right), result == right),
+        And(types.subtype(right, types.num), types.subtype(left, right), result == right),
     ]
 
     if is_mod:
@@ -369,7 +369,7 @@ def instance_axioms(called, args, result, types):
         instance = getattr(types.type_sort, "instance")(types.all_types[t])
 
         # Get the __init__ function of the current class
-        init_func = types.attributes[t]["__init__"]
+        init_func = types.instance_attributes[t]["__init__"]
 
         # Assert that it's a call to this __init__ function
         axioms.append(
@@ -418,8 +418,15 @@ def attribute(instance, attr, result, types):
     """
     axioms = []
     for t in types.all_types:
-        if attr in types.attributes[t]:
+        if attr in types.instance_attributes[t]:
+            # instance access. Ex: A().x
             type_instance = getattr(types.type_sort, "instance")(types.all_types[t])
-            attr_type = types.attributes[t][attr]
+            attr_type = types.instance_attributes[t][attr]
             axioms.append(And(instance == type_instance, result == attr_type))
+        if attr in types.class_attributes[t]:
+            # class access. Ex: A.x
+            class_type = types.all_types[t]
+            attr_type = types.class_attributes[t][attr]
+            axioms.append(And(instance == class_type, result == attr_type))
+
     return Or(axioms)

@@ -12,14 +12,18 @@ from z3 import *
 class Z3Types:
     def __init__(self, config):
         self.all_types = OrderedDict()
-        self.attributes = OrderedDict()
+        self.instance_attributes = OrderedDict()
+        self.class_attributes = OrderedDict()
 
         max_tuple_length = config.max_tuple_length
         max_function_args = config.max_function_args
-        classes_to_attrs = config.classes_to_attrs
+        classes_to_instance_attrs = config.classes_to_instance_attrs
+        classes_to_class_attrs = config.classes_to_class_attrs
         class_to_base = config.class_to_base
 
-        type_sort = declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs, self.attributes)
+        type_sort = declare_type_sort(max_tuple_length, max_function_args,
+                                      classes_to_instance_attrs, classes_to_class_attrs,
+                                      self.instance_attributes, self.class_attributes)
         self.type_sort = type_sort
 
         # Extract types constructors
@@ -53,7 +57,7 @@ class Z3Types:
         self.func = type_sort.func
         self.funcs = get_funcs(type_sort, max_function_args)
 
-        self.classes = get_classes(type_sort, classes_to_attrs)
+        self.classes = get_classes(type_sort, classes_to_instance_attrs)
 
         # Encode subtyping relationships
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
@@ -171,7 +175,8 @@ class Z3Types:
         return axioms
 
 
-def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs, attributes_map):
+def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_attrs, classes_to_class_attrs,
+                      instance_attributes_map, class_attributes_map):
     """Declare the type Z3 data-type and all its constructors/accessors"""
     type_sort = Datatype("Type")
 
@@ -223,11 +228,12 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_attrs, att
         type_sort.declare("func_{}".format(cur_len), *accessors)
 
     type_sort.declare("type_type", ("instance", type_sort))
-    declare_classes(type_sort, classes_to_attrs)
+    declare_classes(type_sort, classes_to_instance_attrs)
 
     type_sort = type_sort.create()
 
-    create_classes_attributes(type_sort, classes_to_attrs, attributes_map)
+    create_classes_attributes(type_sort, classes_to_instance_attrs, instance_attributes_map)
+    create_classes_attributes(type_sort, classes_to_class_attrs, class_attributes_map)
 
     return type_sort
 
