@@ -18,7 +18,7 @@ def add(left, right, result, types):
         Or(
             And(types.subtype(left, types.seq), left == right, left == result),
             And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-            And(types.subtype(left, types.num), types.subtype(left, right), result == right),
+            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
         ),
     ]
 
@@ -41,7 +41,7 @@ def mult(left, right, result, types):
             And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
             And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
             And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-            And(types.subtype(left, types.num), types.subtype(left, right), result == right),
+            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
         )
     ]
 
@@ -77,7 +77,7 @@ def arithmetic(left, right, result, is_mod, types):
     """
     axioms = [
         And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-        And(types.subtype(left, types.num), types.subtype(left, right), result == right),
+        And(types.subtype(right, types.num), types.subtype(left, right), result == right),
     ]
 
     if is_mod:
