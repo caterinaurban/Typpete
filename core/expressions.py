@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Set, Sequence
 
 """
@@ -305,7 +305,7 @@ Unary Operation Expressions
 
 
 class UnaryOperation(Expression):
-    class Operator(Enum):
+    class Operator(IntEnum):
         """Unary operator representation."""
 
         @abstractmethod
@@ -353,12 +353,12 @@ class UnaryArithmeticOperation(UnaryOperation):
     class Operator(UnaryOperation.Operator):
         """Unary arithmetic operator representation."""
         Add = 1
-        Sub = 2
+        Sub = -1
 
         def __str__(self):
             if self.value == 1:
                 return "+"
-            elif self.value == 2:
+            elif self.value == -1:
                 return "-"
 
     def __init__(self, typ, operator: Operator, expression: Expression):
@@ -401,7 +401,7 @@ Binary Operation Expressions
 
 
 class BinaryOperation(Expression):
-    class Operator(Enum):
+    class Operator(IntEnum):
         """Binary operator representation."""
 
         @abstractmethod
@@ -443,7 +443,7 @@ class BinaryOperation(Expression):
         return hash((self.typ, self.left, self.operator, self.right))
 
     def __str__(self):
-        return "{0.left} {0.operator} {0.right}".format(self)
+        return "({0.left} {0.operator} {0.right})".format(self)
 
 
 class BinaryArithmeticOperation(BinaryOperation):

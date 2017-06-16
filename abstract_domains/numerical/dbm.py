@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-from copy import deepcopy
 from math import inf, nan, isinf, isnan
 from typing import Tuple
 

@@ -100,7 +100,7 @@ class DummyState(StoreLattice, State):
         return self
 
     def _assume(self, condition: Expression) -> 'DummyState':
-        pass
+        return self
 
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
         return {literal}

@@ -13,9 +13,11 @@ class IntervalLattice(BottomElementMixin, NumericalLattice):
     def __init__(self, lower=inf, upper=-inf):
         """Create an Interval Lattice for a single variable.
         """
+        self._lower = None
+        self._upper = None
+        super().__init__()
         self._lower = lower
         self._upper = upper
-        super().__init__()
 
     def add(self, other):
         return IntervalLattice(self.lower + other.lower, self.upper + other.upper)
@@ -23,7 +25,7 @@ class IntervalLattice(BottomElementMixin, NumericalLattice):
     def sub(self, other):
         return IntervalLattice(self.lower - other.upper, self.upper - other.lower)
 
-    def mul(self, other):
+    def mult(self, other):
         comb = [self.lower * other.lower, self.lower * other.upper, self.upper * other.lower, self.upper * other.upper]
         return IntervalLattice(min(comb), max(comb))
 
@@ -32,22 +34,33 @@ class IntervalLattice(BottomElementMixin, NumericalLattice):
 
     @property
     def lower(self):
+        if self.is_bottom():
+            raise ValueError("This interval is BOTTOM and has no lower element!")
         return self._lower
 
     @lower.setter
     def lower(self, b):
+        if self.is_bottom():
+            raise ValueError("This interval is BOTTOM and has no lower element!")
         self._lower = b
 
     @property
     def upper(self):
+        if self.is_bottom():
+            raise ValueError("This interval is BOTTOM and has no upper element!")
         return self._upper
 
     @upper.setter
     def upper(self, b):
+        if self.is_bottom():
+            raise ValueError("This interval is BOTTOM and has no upper element!")
         self._upper = b
 
     def __repr__(self):
-        return f"[{self.lower},{self.upper}]"
+        if self.is_bottom():
+            return "BOTTOM"
+        else:
+            return f"[{self.lower},{self.upper}]"
 
     def default(self):
         self.top()
@@ -59,7 +72,7 @@ class IntervalLattice(BottomElementMixin, NumericalLattice):
         return self
 
     def is_top(self) -> bool:
-        return self.lower == -inf and self.upper == inf
+        return self._lower == -inf and self._upper == inf
 
     def _less_equal(self, other: 'IntervalLattice') -> bool:
         return other.lower <= self.lower and self.upper <= other.upper
@@ -83,22 +96,19 @@ class IntervalLattice(BottomElementMixin, NumericalLattice):
             self.upper = inf
         return self
 
+    @classmethod
+    def evaluate_expression(cls, expr: Expression):
+        return cls._visitor.visit(expr)
 
-class IntervalStore(StoreLattice, NumericalDomain):
-    class IntervalVisitor(ExpressionVisitor):
-        def __init__(self, interval_store):
-            self._store = interval_store  # keep a reference to container interval store
-
-        @property
-        def store(self):
-            return self._store
+    class Visitor(ExpressionVisitor):
+        """A visitor to abstractly evaluate an expression (without variables) in the interval domain."""
 
         def generic_visit(self, expr):
-            raise NotImplementedError(
-                "IntervalStore does not support generic visit of expressions! Define handling for each expression explicitly!")
+            raise ValueError(
+                f"{type(self)} does not support generic visit of expressions! Define handling for expression {type(expr)} explicitly!")
 
         def visit_Input(self, expr: Input):
-            return IntervalLattice()
+            return IntervalLattice().top()
 
         def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation):
             l = self.visit(expr.left)
@@ -110,32 +120,31 @@ class IntervalStore(StoreLattice, NumericalDomain):
             elif expr.operator == BinaryArithmeticOperation.Operator.Mult:
                 return l.mult(r)
             else:
-                raise NotImplementedError()
+                raise ValueError(f"Binary Operator {expr.operator} is not supported!")
 
         def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation):
             r = self.visit(expr.expression)
             if expr.operator == UnaryArithmeticOperation.Operator.Add:
-                return r.negate()
-            elif expr.operator == UnaryArithmeticOperation.Operator.Sub:
                 return r
+            elif expr.operator == UnaryArithmeticOperation.Operator.Sub:
+                return r.negate()
             else:
-                raise NotImplementedError()
+                raise ValueError(f"Unary Operator {expr.operator} is not supported!")
 
         def visit_Literal(self, expr: Literal):
             if expr.typ == int:
                 c = int(expr.val)
                 return IntervalLattice(c, c)
             else:
-                raise ValueError()
+                raise ValueError(f"Literal type {expr.typ} is not supported!")
 
-        def visit_VariableIdentifier(self, expr: VariableIdentifier):
-            if expr.typ == int:
-                return self.store.variables[expr.name]
-            else:
-                raise ValueError()
+    _visitor = Visitor()  # static class member shared between all instances
 
+
+class IntervalStore(StoreLattice, NumericalDomain):
     def __init__(self, variables: List[VariableIdentifier]):
         super().__init__(variables, {int: IntervalLattice})
+        self._visitor = IntervalStore.Visitor(self)
 
     def forget(self, var: VariableIdentifier):
         self.variables[var].top()
@@ -144,74 +153,71 @@ class IntervalStore(StoreLattice, NumericalDomain):
         self.variables[var].lower = constant
         self.variables[var].upper = constant
 
-    def set_expression_constant(self, expr: Expression, constant):
-        raise NotImplementedError()
-
     def set_variable_lb(self, var: VariableIdentifier, constant):
         self.variables[var].lower = constant
 
     def set_variable_ub(self, var: VariableIdentifier, constant):
         self.variables[var].upper = constant
 
-    def set_expression_lb(self, expr: Expression, constant):
-        raise NotImplementedError()
-
-    def set_expression_ub(self, expr: Expression, constant):
-        raise NotImplementedError()
-
-    def set_variable_difference_ub(self, var1: VariableIdentifier, var2: VariableIdentifier, constant):
-        raise NotImplementedError()
-
-    def set_expression_difference_ub(self, expr1: Expression, expr2: Expression, constant):
-        raise NotImplementedError()
-
     def evaluate_expression(self, expr: Expression):
+        interval = self._visitor.visit(expr)
+        return interval
+
+    class Visitor(IntervalLattice.Visitor):
+        """A visitor to abstractly evaluate an expression (with variables) in the interval domain."""
+
+        def __init__(self, interval_store):
+            self._store = interval_store  # keep a reference to container interval store
+
+        @property
+        def store(self):
+            return self._store
+
+        def visit_VariableIdentifier(self, expr: VariableIdentifier):
+            if expr.typ == int:
+                return self.store.variables[expr]
+            else:
+                raise ValueError(f"Variable type {expr.typ} is not supported!")
 
 
 class IntervalDomain(IntervalStore, State):
     def __init__(self, variables: List[VariableIdentifier]):
-        """Create an Octagon Lattice for given variables.
+        """Create an Interval Domain (State) for given variables.
 
         :param variables: list of program variables
         """
         super().__init__(variables)
-        self._visitor = Octagon.OctagonVisitor(self)
 
-    def _substitute_variable(self, left: Expression, right: Expression) -> 'State':
-        raise NotImplementedError()
+    def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
+        return {variable}
 
-    def _assume(self, condition: Expression) -> 'State':
+    def _assign_variable(self, left: Expression, right: Expression) -> 'IntervalDomain':
+        if isinstance(left, VariableIdentifier):
+            self.variables[left] = self._visitor.visit(right)
+        else:
+            raise NotImplementedError("")
         return self
 
-    def exit_if(self) -> 'State':
-        return self
-
-    def exit_loop(self) -> 'State':
-        return self
-
-    def _output(self, output: Expression) -> 'State':
+    def _assume(self, condition: Expression) -> 'IntervalDomain':
         return self
 
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
-        return self
+        return {literal}
 
-    def enter_if(self) -> 'State':
-        return self
+    def enter_loop(self):
+        return self  # nothing to be done
 
-    def enter_loop(self) -> 'State':
-        return self
+    def exit_loop(self):
+        return self  # nothing to be done
 
-    def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
-        return self
+    def enter_if(self):
+        return self  # nothing to be done
 
-    def _assign_variable(self, left: Expression, right: Expression) -> 'State':
-        # Octagonal Assignments
-        if isinstance(left, VariableIdentifier):
-            if isinstance(right, Literal):
-                if right.typ == int:
-                    c = int(right.val)
-                    self.set_variable_constant(left, right)
-                else:
-                    raise ValueError()
+    def exit_if(self):
+        return self  # nothing to be done
 
-        return self
+    def _output(self, output: Expression) -> 'IntervalDomain':
+        return self  # nothing to be done
+
+    def _substitute_variable(self, left: Expression, right: Expression):
+        raise NotImplementedError("")

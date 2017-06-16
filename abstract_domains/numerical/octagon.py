@@ -1,8 +1,7 @@
-from enum import IntEnum
-
 from abstract_domains.lattice import BottomElementMixin
 from abstract_domains.numerical.dbm import IntegerCDBM
-from abstract_domains.numerical.numerical_domain import NumericalDomain
+from abstract_domains.numerical.interval import IntervalLattice, IntervalStore
+from abstract_domains.numerical.numerical import NumericalDomain
 from abstract_domains.state import State
 from core.expressions import *
 from typing import List, Set, Tuple, Union
@@ -10,16 +9,12 @@ from math import inf, isinf
 
 from core.expressions_tools import ExpressionVisitor
 
-
-class VariableSign(IntEnum):
-    """PLUS/MINUS sign of a variable. Used for indexing into (C)DBM"""
-    # do not change values blindly, they are used for easy implementation
-    PLUS = 0
-    MINUS = 1
+PLUS = UnaryArithmeticOperation.Operator.Add
+MINUS = UnaryArithmeticOperation.Operator.Sub
 
 
-PLUS = VariableSign.PLUS
-MINUS = VariableSign.MINUS
+def _index_shift(self, operator: UnaryArithmeticOperation.Operator):
+    return 1 if operator == UnaryArithmeticOperation.Operator.Sub else 0
 
 
 class OctagonLattice(BottomElementMixin, NumericalDomain):
@@ -44,18 +39,21 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
     def dbm(self):
         return self._dbm
 
-    def __getitem__(self, index_tuple: Tuple[VariableIdentifier, VariableSign, VariableIdentifier, VariableSign]):
+    def __getitem__(self, index_tuple: Tuple[
+        VariableIdentifier, UnaryArithmeticOperation.Operator, VariableIdentifier, UnaryArithmeticOperation.Operator]):
         if len(index_tuple) == 4:
             var1, sign1, var2, sign2 = index_tuple
-            return self.dbm[self._var_to_index[var1 + sign1], self._var_to_index[var2 + sign2]]
+            return self.dbm[
+                self._var_to_index[var1 + _index_shift(sign1)], self._var_to_index[var2 + _index_shift(sign2)]]
         else:
             raise ValueError("Index into octagon has invalid format.")
 
-    def __setitem__(self, index: Union[Tuple[VariableIdentifier, VariableSign], Tuple[
-        VariableIdentifier, VariableSign, VariableIdentifier, VariableSign]], value):
+    def __setitem__(self, index: Union[Tuple[VariableIdentifier, UnaryArithmeticOperation.Operator], Tuple[
+        VariableIdentifier, UnaryArithmeticOperation.Operator, VariableIdentifier, UnaryArithmeticOperation.Operator]],
+                    value):
         if len(index) == 4:
             var1, sign1, var2, sign2 = index
-            i, j = self._var_to_index[var1 + sign1], self._var_to_index[var2 + sign2]
+            i, j = self._var_to_index[var1 + _index_shift(sign1)], self._var_to_index[var2 + _index_shift(sign2)]
             if i != j:
                 self.dbm[i, j] = value
         if len(index) == 2:
@@ -144,31 +142,145 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         self.dbm[var, PLUS, var, MINUS] = -2 * constant  # encodes -2*var <= -2*constant <=> var >= constant
         self.dbm[var, MINUS, var, PLUS] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
 
-    def set_expression_constant(self, expr: Expression, constant):
-        raise NotImplementedError()
-
     def set_variable_lb(self, var: VariableIdentifier, constant):
         self.dbm[var, MINUS, var, PLUS] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
 
     def set_variable_ub(self, var: VariableIdentifier, constant):
         self.dbm[var, PLUS, var, MINUS] = -2 * constant  # encodes -2*var <= -2*constant <=> var >= constant
 
-    def set_expression_lb(self, expr: Expression, constant):
-        raise NotImplementedError()
-
-    def set_expression_ub(self, expr: Expression, constant):
-        raise NotImplementedError()
-
-    def set_variable_difference_ub(self, sign1: VariableSign, var1: VariableIdentifier, sign2: VariableSign,
-                                   var2: VariableIdentifier, constant):
+    def set_octagonal_constraint(self, sign1: UnaryArithmeticOperation.Operator, var1: VariableIdentifier,
+                                 sign2: UnaryArithmeticOperation.Operator,
+                                 var2: VariableIdentifier, constant):
         self.dbm[var1, MINUS, var2, MINUS] = constant  # encodes -2*var <= -2*constant <=> var >= constant
-        self.dbm[var, MINUS, var, PLUS] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
+        self.dbm[var1, MINUS, var2, PLUS] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
 
-    def set_expression_difference_ub(self, expr1: Expression, expr2: Expression, constant):
-        raise NotImplementedError()
+    def evaluate_expression(self, expr: Expression):
+        interval = self._visitor.visit(expr)
+        return interval
+
+    def assign_interval(self, left: VariableIdentifier, interval: IntervalLattice):
+        pass
+
+    def assign_var_plus_interval(self, left: VariableIdentifier, var: VariableIdentifier, interval: IntervalLattice):
+        pass
 
 
-class Octagon(OctagonLattice, State):
+class SingleVarLinearForm(ExpressionVisitor):
+    """Holds an expression in linear form with a single variable: `+/- var + interval`."""
+
+    def __init__(self, expr: Expression):
+        """Initializes this instance with the single variable form of an expression.
+        
+        If possible, this instance holds the parts of the single variable linear form separately. If not possible to 
+        construct this form, this raises a ValueError.
+        """
+        self._var_sign = PLUS
+        self._var = None
+        self._interval = None
+
+        self.visit(expr)
+
+    @property
+    def var_sign(self):
+        return self._var_sign
+
+    @var_sign.setter
+    def var_sign(self, value):
+        self._var_sign = value
+
+    @property
+    def var(self):
+        return self._var
+
+    @var.setter
+    def var(self, value):
+        if self._var:
+            raise ValueError("var set twice (is immutable)!")
+        self._var = value
+
+    @property
+    def interval(self):
+        return self._interval
+
+    @interval.setter
+    def interval(self, value):
+        if self._interval:
+            raise ValueError("interval set twice (is immutable)!")
+        self._interval = value
+
+    def __str__(self):
+        return f"{self._var_sign} {self._var} + {self._interval}"
+
+    # the visit methods should by design never call other visitor methods of this visitor
+    # only other visitors like the interval visitor via IntervalLattice.evaluate_expression(expr)
+
+    def visit_Literal(self, expr: Literal):
+        self.interval = IntervalLattice.evaluate_expression(expr)
+
+    def visit_VariableIdentifier(self, expr: VariableIdentifier):
+        self.var = expr
+
+    def visit_Input(self, expr: Input):
+        self.interval = IntervalLattice().top()
+
+    def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation):
+        # we have to check if binary operation can be reordered to correspond to valid format: +/- var + interval
+        # first check if only right argument of binary operation can be transformed to format
+        try:
+            self.interval = IntervalLattice.evaluate_expression(expr.left)
+        except ValueError as e:
+            # it is still ok if expr.left is a single variable identifier or +/- a variable identifier
+            if isinstance(expr.left, VariableIdentifier):
+                self.var = expr.expression
+                self.var_sign = expr.operator
+            elif isinstance(expr.left, UnaryArithmeticOperation) and isinstance(expr.left.expression,
+                                                                                VariableIdentifier):
+                self.var = expr.left.expression
+                self.var_sign = expr.left.operator
+            else:
+                raise e
+
+        # second check if right argument of binary operation can be transformed to format (respecting what left was)
+        def binary_to_unary_operator(binary_operator):
+            if binary_operator == BinaryArithmeticOperation.Operator.Add:
+                return UnaryArithmeticOperation.Operator.Add
+            elif binary_operator == BinaryArithmeticOperation.Operator.Sub:
+                return UnaryArithmeticOperation.Operator.Sub
+            else:
+                raise ValueError()
+
+        try:
+            self.interval = IntervalLattice.evaluate_expression(expr.right)
+        except ValueError as e:
+            # it is still ok if expr.right is a single variable identifier or +/- a variable identifier
+            if isinstance(expr.right, VariableIdentifier):
+                self.var = expr.right
+                self.var_sign = binary_to_unary_operator(expr.operator)
+            elif isinstance(expr.right, UnaryArithmeticOperation) and isinstance(expr.right.expression,
+                                                                                 VariableIdentifier):
+                self.var = expr.right.expression
+                self.var_sign = UnaryArithmeticOperation.Operator(
+                    binary_to_unary_operator(expr.operator) * expr.right.operator)
+            else:
+                raise e
+
+    def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation):
+        try:
+            self.interval = IntervalLattice.evaluate_expression(expr)  # let IntervalLattice handle unary operator
+        except ValueError as e:
+            # it is still ok if expr is a single variable identifier
+            if isinstance(expr.expression, VariableIdentifier):
+                self.var = expr.expression
+                self.var_sign = expr.operator
+            else:
+                raise e
+
+    def generic_visit(self, expr):
+        raise ValueError(
+            f"{type(self)} does not support generic visit of expressions! Define handling for expression {type(expr)} explicitly!")
+
+
+class OctagonDomain(OctagonLattice, State):
     class OctagonVisitor(ExpressionVisitor):
         def __init__(self, octagon):
             self._octagon = octagon  # keep a reference to container octagon
@@ -189,36 +301,36 @@ class Octagon(OctagonLattice, State):
         :param variables: list of program variables
         """
         super().__init__(variables)
-        self._visitor = Octagon.OctagonVisitor(self)
+        self._visitor = OctagonDomain.OctagonVisitor(self)
 
-    def _substitute_variable(self, left: Expression, right: Expression) -> 'State':
+    def _substitute_variable(self, left: Expression, right: Expression) -> 'OctagonDomain':
         raise NotImplementedError()
 
-    def _assume(self, condition: Expression) -> 'State':
+    def _assume(self, condition: Expression) -> 'OctagonDomain':
         return self
 
-    def exit_if(self) -> 'State':
+    def exit_if(self) -> 'OctagonDomain':
         return self
 
-    def exit_loop(self) -> 'State':
+    def exit_loop(self) -> 'OctagonDomain':
         return self
 
-    def _output(self, output: Expression) -> 'State':
+    def _output(self, output: Expression) -> 'OctagonDomain':
         return self
 
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
         return self
 
-    def enter_if(self) -> 'State':
+    def enter_if(self) -> 'OctagonDomain':
         return self
 
-    def enter_loop(self) -> 'State':
+    def enter_loop(self) -> 'OctagonDomain':
         return self
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return self
 
-    def _assign_variable(self, left: Expression, right: Expression) -> 'State':
+    def _assign_variable(self, left: Expression, right: Expression) -> 'OctagonDomain':
         # Octagonal Assignments
         if isinstance(left, VariableIdentifier):
             if isinstance(right, Literal):
@@ -227,6 +339,5 @@ class Octagon(OctagonLattice, State):
                     self.set_variable_constant(left, right)
                 else:
                     raise ValueError()
-
 
         return self
