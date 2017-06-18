@@ -1,3 +1,4 @@
+import unittest
 from unittest import TestCase
 from abstract_domains.numerical.dbm import IntegerCDBM
 
@@ -119,3 +120,14 @@ class TestCDBM(TestCase):
         consistent = dbm.close()
         # print(dbm)
         self.assertTrue(not consistent or dbm.tightly_closed)
+
+
+def suite():
+    s = unittest.TestSuite()
+    s.addTest(TestCDBM())
+    runner = unittest.TextTestRunner()
+    runner.run(s)
+
+
+if __name__ == '__main__':
+    suite()

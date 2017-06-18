@@ -209,7 +209,7 @@ class SingleVarLinearForm(ExpressionVisitor):
         self._interval = value
 
     def __str__(self):
-        return f"{self._var_sign} {self._var} + {self._interval}"
+        return f"{str(self._var_sign)} {self._var} + {self._interval}"
 
     # the visit methods should by design never call other visitor methods of this visitor
     # only other visitors like the interval visitor via IntervalLattice.evaluate_expression(expr)
@@ -231,8 +231,7 @@ class SingleVarLinearForm(ExpressionVisitor):
         except ValueError as e:
             # it is still ok if expr.left is a single variable identifier or +/- a variable identifier
             if isinstance(expr.left, VariableIdentifier):
-                self.var = expr.expression
-                self.var_sign = expr.operator
+                self.var = expr.left
             elif isinstance(expr.left, UnaryArithmeticOperation) and isinstance(expr.left.expression,
                                                                                 VariableIdentifier):
                 self.var = expr.left.expression
@@ -251,6 +250,8 @@ class SingleVarLinearForm(ExpressionVisitor):
 
         try:
             self.interval = IntervalLattice.evaluate_expression(expr.right)
+            if binary_to_unary_operator(expr.operator) == UnaryArithmeticOperation.Operator.Sub:
+                self.interval.negate()
         except ValueError as e:
             # it is still ok if expr.right is a single variable identifier or +/- a variable identifier
             if isinstance(expr.right, VariableIdentifier):

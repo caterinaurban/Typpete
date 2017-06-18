@@ -1,35 +1,36 @@
-from unittest import TestCase
+import unittest
 
-from abstract_domains.dummies import ExpressionStore
 from abstract_domains.numerical.interval import IntervalStore
-from core.expressions import VariableIdentifier
-from engine.forward import ForwardInterpreter
-from frontend.cfg_generator import source_to_cfg
-from semantics.forward import DefaultForwardSemantics
-from visualization.graph_renderer import AnalysisResultRenderer
+from unittests.generic_tests import ExpressionTreeTestCase
 
 
-class TestIntervalStore(TestCase):
-    def test_simple(self):
-        name = 'simple'
-        source = """a = 3 * (2+5)"""
+class TestIntervalStore(ExpressionTreeTestCase):
+    def __init__(self, name, source, expected_result):
+        super().__init__(source, f"IntervalStore- {name}")
+        self._expected_result = expected_result
 
-        var_a = VariableIdentifier(int, 'a')
-        variables = [var_a]
-        cfg = source_to_cfg(source)
-        forward_interpreter = ForwardInterpreter(cfg, DefaultForwardSemantics(), 3)
-        result = forward_interpreter.analyze(ExpressionStore(variables))
+    def runTest(self):
+        result = super().runTest()
 
-        AnalysisResultRenderer().render((cfg, result), label=f"CFG with Results for {name}",
-                                        filename=f"CFGR {name}",
-                                        directory="graphs", view=False)
+        result_store = result.get_node_result(self.cfg.nodes[2])[1]
+        right_expr = result_store.variables[self.variables['a']]
+        # print(right_expr)
 
-        result_store = result.get_node_result(cfg.nodes[2])[1]
-        right_expr = result_store.variables[var_a]
-        print(right_expr)
-
-        store = IntervalStore(variables)
+        store = IntervalStore(list(self.variables.values()))
         interval = store.evaluate_expression(right_expr)
-        print(interval)
+        # print(interval)
 
-        self.assertTupleEqual((interval.lower, interval.upper), (21, 21))
+        self.assertEqual(str(interval), self._expected_result)
+
+
+def suite():
+    s = unittest.TestSuite()
+    s.addTest(TestIntervalStore("simple", """a = 3 * (2+5)""", "[21,21]"))
+    s.addTest(TestIntervalStore("simple", """a = (3+3) * (2+5)""", "[42,42]"))
+    s.addTest(TestIntervalStore("simple", """a = 3 - (2+5)""", "[-4,-4]"))
+    runner = unittest.TextTestRunner()
+    runner.run(s)
+
+
+if __name__ == '__main__':
+    suite()

@@ -19,18 +19,32 @@ class IntervalLattice(BottomElementMixin, NumericalLattice):
         self._lower = lower
         self._upper = upper
 
+    @property
+    def interval(self):
+        return (self.lower, self.upper)
+
+    @interval.setter
+    def interval(self, tupl):
+        (lower, upper) = tupl
+        self.lower = lower
+        self.upper = upper
+
     def add(self, other):
-        return IntervalLattice(self.lower + other.lower, self.upper + other.upper)
+        self.interval = (self.lower + other.lower, self.upper + other.upper)
+        return self
 
     def sub(self, other):
-        return IntervalLattice(self.lower - other.upper, self.upper - other.lower)
+        self.interval = (self.lower - other.upper, self.upper - other.lower)
+        return self
 
     def mult(self, other):
         comb = [self.lower * other.lower, self.lower * other.upper, self.upper * other.lower, self.upper * other.upper]
-        return IntervalLattice(min(comb), max(comb))
+        self.interval = (min(comb), max(comb))
+        return self
 
     def negate(self):
-        return IntervalLattice(min(-self.lower, -self.upper), max(-self.lower, -self.upper))
+        self.interval = (min(-self.lower, -self.upper), max(-self.lower, -self.upper))
+        return self
 
     @property
     def lower(self):

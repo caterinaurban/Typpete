@@ -443,7 +443,7 @@ class BinaryOperation(Expression):
         return hash((self.typ, self.left, self.operator, self.right))
 
     def __str__(self):
-        return "({0.left} {0.operator} {0.right})".format(self)
+        return f"({self.left} {str(self.operator)} {self.right})"
 
 
 class BinaryArithmeticOperation(BinaryOperation):

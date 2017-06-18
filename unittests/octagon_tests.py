@@ -22,10 +22,7 @@ class OctagonTestCase(ResultCommentsFileTestCase):
         logging.info(self)
         self.render_cfg()
 
-        # find all variables
-        variable_names = sorted(
-            {node.id for node in ast.walk(self.ast_root) if
-             isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)})
+        variable_names = self.find_variable_names()
         variables = []
         for name in variable_names:
             variables.append(VariableIdentifier(int, name))
