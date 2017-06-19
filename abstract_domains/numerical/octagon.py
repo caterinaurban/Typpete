@@ -40,39 +40,44 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
     def dbm(self):
         return self._dbm
 
-    def __getitem__(self, index_tuple: Tuple[
-        VariableIdentifier, Sign, VariableIdentifier, Sign]):
+    def __getitem__(self, index_tuple: Tuple[Sign, VariableIdentifier, Sign, VariableIdentifier]):
         if len(index_tuple) == 4:
-            var1, sign1, var2, sign2 = index_tuple
+            sign1, var1, sign2, var2 = index_tuple
             return self.dbm[
                 self._var_to_index[var1 + _index_shift(sign1)], self._var_to_index[var2 + _index_shift(sign2)]]
         else:
             raise ValueError("Index into octagon has invalid format.")
 
-    def __setitem__(self, index: Union[Tuple[VariableIdentifier, Sign], Tuple[
-        VariableIdentifier, Sign, VariableIdentifier, Sign]],
-                    value):
-        if len(index) == 4:
-            var1, sign1, var2, sign2 = index
+    def __setitem__(self, index_tuple: Tuple[Sign, VariableIdentifier, Sign, VariableIdentifier], value):
+        if len(index_tuple) == 4:
+            sign1, var1, sign2, var2 = index_tuple
             i, j = self._var_to_index[var1 + _index_shift(sign1)], self._var_to_index[var2 + _index_shift(sign2)]
             if i != j:
                 self.dbm[i, j] = value
-        if len(index) == 2:
-            var, sign = index
-            k = self._var_to_index[var + sign]
-            for i in range(self.dbm.size):
-                if i != k:
-                    self.dbm[i, k] = value
-                    self.dbm[k, i] = value
         else:
             raise ValueError("Index into octagon has invalid format.")
+
+    def binary_constraints_indices(self, sign1: Sign = None, var1: VariableIdentifier = None,
+                                   sign2: Sign = None, var2: VariableIdentifier = None):
+        signs1 = [sign1] if sign1 else [PLUS, MINUS]
+        signs2 = [sign2] if sign2 else [PLUS, MINUS]
+        vars1 = [var1] if var1 else self._variables_list
+        vars2 = [var2] if var2 else self._variables_list
+        for var1 in vars1:
+            for var2 in vars2:
+                if var1 == var2:
+                    # do not yield diagonal and upper right triangular matrix
+                    break
+                for sign1 in signs1:
+                    for sign2 in signs2:
+                        yield (sign1, var1, sign2, var2)
 
     def __repr__(self):
         res = []
         # represent unary constraints first
         for var in self._variables_list:
-            lower = self[var, PLUS, var, MINUS] / 2
-            upper = self[var, MINUS, var, PLUS] / 2
+            lower = self[PLUS, var, MINUS, var] / 2
+            upper = self[MINUS, var, PLUS, var] / 2
             if lower < inf and upper < inf:
                 res.append(f"{lower}<={var.name}<={upper}")
             elif lower < inf:
@@ -83,16 +88,16 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         for var1 in self._variables_list:
             for var2 in self._variables_list:
                 if var1 != var2:
-                    c = self[var1, MINUS, var2, PLUS]
+                    c = self[MINUS, var1, PLUS, var2]
                     if c < inf:
                         res.append(f"{var1.name}+{var2.name}<={c}")
-                    c = self[var1, MINUS, var2, MINUS]
+                    c = self[MINUS, var1, MINUS, var2]
                     if c < inf:
                         res.append(f"{var1.name}-{var2.name}<={c}")
-                    c = self[var1, PLUS, var2, PLUS]
+                    c = self[PLUS, var1, PLUS, var2]
                     if c < inf:
                         res.append(f"-{var1.name}+{var2.name}<={c}")
-                    c = self[var1, PLUS, var2, MINUS]
+                    c = self[PLUS, var1, MINUS, var2]
                     if c < inf:
                         res.append(f"-{var1.name}-{var2.name}<={c}")
         return ", ".join(res)
@@ -136,8 +141,8 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
 
     def forget(self, var: VariableIdentifier):
         self.dbm.close()
-        self[var, PLUS] = inf
-        self[var, MINUS] = inf
+        for index in self.binary_constraints_indices(sign1=None, var1=var):
+            self[index] = inf
 
     def set_interval(self, var: VariableIdentifier, interval: Union[int, IntervalLattice]):
         if isinstance(interval, IntervalLattice):
@@ -151,21 +156,26 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         return IntervalLattice(self.get_lb(var), self.get_ub())
 
     def set_lb(self, var: VariableIdentifier, constant):
-        self[var, MINUS, var, PLUS] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
+        self[MINUS, var, PLUS, var] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
 
     def get_lb(self, var: VariableIdentifier):
-        return self[var, PLUS, var, MINUS] / 2
+        return self[PLUS, var, MINUS, var] / 2
 
     def set_ub(self, var: VariableIdentifier, constant):
-        self[var, PLUS, var, MINUS] = -2 * constant  # encodes -2*var <= -2*constant <=> var >= constant
+        self[PLUS, var, MINUS, var] = -2 * constant  # encodes -2*var <= -2*constant <=> var >= constant
 
     def get_ub(self, var: VariableIdentifier):
-        return self[var, MINUS, var, PLUS] / 2
+        return self[MINUS, var, PLUS, var] / 2
 
     def set_octagonal_constraint(self, sign1: Sign, var1: VariableIdentifier,
                                  sign2: Sign,
                                  var2: VariableIdentifier, constant):
-        self[var1, Sign(sign1 * MINUS), var2, sign2] = constant
+        self[Sign(sign1 * MINUS), var1, sign2, var2] = constant
+
+    def switch_constraints(self, index1, index2):
+        temp = self[index1]
+        self[index1] = self[index2]
+        self[index2] = temp
 
     def evaluate(self, expr: Expression):
         interval = self._visitor.visit(expr)
@@ -351,10 +361,23 @@ class OctagonDomain(OctagonLattice, State):
                     self.forget(left)
                     self.set_interval(left, form.interval)
                 elif form.var and form.interval:
+                    # x = +/- y + [a, b]
                     if form.var == left:
                         if form.var_sign == PLUS:
                             # x = x + [a,b]
-                            self.set_interval(left,
+
+                            # update binary constraints
+                            for index in self.binary_constraints_indices(sign1=PLUS, var1=form.var):
+                                self[index] -= form.interval.lower
+                            for index in self.binary_constraints_indices(sign1=MINUS, var1=form.var):
+                                self[index] += form.interval.lower
+                            for index in self.binary_constraints_indices(sign2=PLUS, var2=form.var):
+                                self[index] += form.interval.lower
+                            for index in self.binary_constraints_indices(sign2=MINUS, var2=form.var):
+                                self[index] -= form.interval.lower
+
+                            # update unary constraints
+                            self.set_interval(form.var,
                                               IntervalLattice(self.get_lb(left) + form.interval.lower,
                                                               self.get_ub(left) + form.interval.upper))
                         elif form.var_sign == MINUS:
@@ -362,8 +385,28 @@ class OctagonDomain(OctagonLattice, State):
                         else:
                             raise ValueError()
                     else:
-                        pass
+                        if form.var_sign == PLUS:
+                            # x = y + [a,b]
+                            self.forget(left)
+                            self.set_octagonal_constraint(PLUS, left, MINUS, form.var, form.interval.lower)
+                            self.set_octagonal_constraint(MINUS, left, PLUS, form.var, -form.interval.upper)
+                elif form.var:
+                    # x = +/- y
+                    if form.var == left:
+                        # update binary constraints
+                        # loop through row of form.var
+                        for _, _, sign2, var2 in self.binary_constraints_indices(sign1=PLUS, var1=form.var):
+                            self.switch_constraints((PLUS, form.var, sign2, var2), (MINUS, form.var, sign2, var2))
+                        # loop through column of form.var
+                        for sign1, var1, _, _ in self.binary_constraints_indices(sign2=PLUS, var2=form.var):
+                            self.switch_constraints((sign1, var1, PLUS, form.var), (sign1, var1, MINUS, form.var))
 
+                        # update unary constraints
+                        # switch bounds via temp variable
+                        self.switch_constraints((form.var, PLUS, form.var, MINUS),
+                                                (form.var, MINUS, form.var, PLUS))
+                    else:
+                        pass
             except ValueError:
                 # right is not in single variable linear form
                 print("right is not in single variable linear form")
