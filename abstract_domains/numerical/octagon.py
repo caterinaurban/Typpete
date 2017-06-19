@@ -14,7 +14,7 @@ PLUS = Sign.Add
 MINUS = Sign.Sub
 
 
-def _index_shift(self, sign: Sign):
+def _index_shift(sign: Sign):
     return 1 if sign == MINUS else 0
 
 
@@ -44,14 +44,15 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         if len(index_tuple) == 4:
             sign1, var1, sign2, var2 = index_tuple
             return self.dbm[
-                self._var_to_index[var1 + _index_shift(sign1)], self._var_to_index[var2 + _index_shift(sign2)]]
+                self._var_to_index[var1] + _index_shift(sign1), self._var_to_index[var2] + _index_shift(sign2)
+            ]
         else:
             raise ValueError("Index into octagon has invalid format.")
 
     def __setitem__(self, index_tuple: Tuple[Sign, VariableIdentifier, Sign, VariableIdentifier], value):
         if len(index_tuple) == 4:
             sign1, var1, sign2, var2 = index_tuple
-            i, j = self._var_to_index[var1 + _index_shift(sign1)], self._var_to_index[var2 + _index_shift(sign2)]
+            i, j = self._var_to_index[var1] + _index_shift(sign1), self._var_to_index[var2] + _index_shift(sign2)
             if i != j:
                 self.dbm[i, j] = value
         else:
@@ -76,8 +77,8 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         res = []
         # represent unary constraints first
         for var in self._variables_list:
-            lower = self[PLUS, var, MINUS, var] / 2
-            upper = self[MINUS, var, PLUS, var] / 2
+            lower = self[PLUS, var, MINUS, var] // 2
+            upper = self[MINUS, var, PLUS, var] // 2
             if lower < inf and upper < inf:
                 res.append(f"{lower}<={var.name}<={upper}")
             elif lower < inf:
@@ -112,7 +113,7 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         return self
 
     def is_top(self) -> bool:
-        return all([isinf(b) for k, b in self.dbm.items() if b[0] != b[1]])  # check all inf, ignore diagonal for check
+        return all([isinf(b) for k, b in self.dbm.items() if k[0] != k[1]])  # check all inf, ignore diagonal for check
 
     def _less_equal(self, other: 'OctagonLattice') -> bool:
         if self.dbm.size != other.dbm.size:
@@ -146,11 +147,11 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
 
     def set_interval(self, var: VariableIdentifier, interval: Union[int, IntervalLattice]):
         if isinstance(interval, IntervalLattice):
-            self.set_lb(interval.lower)
-            self.set_ub(interval.upper)
+            self.set_lb(var, interval.lower)
+            self.set_ub(var, interval.upper)
         else:
-            self.set_lb(interval)
-            self.set_ub(interval)
+            self.set_lb(var, interval)
+            self.set_ub(var, interval)
 
     def get_interval(self, var: VariableIdentifier):
         return IntervalLattice(self.get_lb(var), self.get_ub())
@@ -337,7 +338,7 @@ class OctagonDomain(OctagonLattice, State):
         return self
 
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
-        return self
+        return {literal}
 
     def enter_if(self) -> 'OctagonDomain':
         return self
@@ -346,7 +347,7 @@ class OctagonDomain(OctagonLattice, State):
         return self
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
-        return self
+        return {variable}
 
     def _assign_constant(self, x: VariableIdentifier, interval: IntervalLattice):
         """x = [a,b]"""
@@ -395,8 +396,8 @@ class OctagonDomain(OctagonLattice, State):
 
         # update unary constraints
         # switch bounds via temp variable
-        self.switch_constraints((x, PLUS, x, MINUS),
-                                (x, MINUS, x, PLUS))
+        self.switch_constraints((PLUS, x, MINUS, x),
+                                (MINUS, x, PLUS, x))
 
     def _assign_negated_other_var(self, x: VariableIdentifier, y: VariableIdentifier):
         """x = - y"""
