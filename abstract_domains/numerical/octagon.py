@@ -348,6 +348,73 @@ class OctagonDomain(OctagonLattice, State):
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return self
 
+    def _assign_constant(self, x: VariableIdentifier, interval: IntervalLattice):
+        """x = [a,b]"""
+        self.forget(x)
+        self.set_interval(x, interval)
+
+    def _assign_same_var_plus_constant(self, x: VariableIdentifier, interval: IntervalLattice):
+        """x = x + [a,b]"""
+
+        # update binary constraints
+        for index in self.binary_constraints_indices(sign1=PLUS, var1=x):
+            self[index] -= interval.lower
+        for index in self.binary_constraints_indices(sign1=MINUS, var1=x):
+            self[index] += interval.lower
+        for index in self.binary_constraints_indices(sign2=PLUS, var2=x):
+            self[index] += interval.lower
+        for index in self.binary_constraints_indices(sign2=MINUS, var2=x):
+            self[index] -= interval.lower
+
+        # update unary constraints
+        self.set_interval(x,
+                          IntervalLattice(self.get_lb(x) + interval.lower,
+                                          self.get_ub(x) + interval.upper))
+
+    def _assign_other_var(self, x: VariableIdentifier, y: VariableIdentifier):
+        """x = y"""
+        self.forget(x)
+        self.set_octagonal_constraint(PLUS, x, MINUS, y, 0)
+        self.set_octagonal_constraint(MINUS, x, PLUS, y, 0)
+
+    def _assign_other_var_plus_constant(self, x: VariableIdentifier, y: VariableIdentifier, interval: IntervalLattice):
+        """x = y + [a,b]"""
+        self.forget(x)
+        self.set_octagonal_constraint(PLUS, x, MINUS, y, interval.lower)
+        self.set_octagonal_constraint(MINUS, x, PLUS, y, -interval.upper)
+
+    def _assign_negated_same_var(self, x: VariableIdentifier):
+        """x = - x"""
+        # update binary constraints
+        # loop through row of x
+        for _, _, sign2, var2 in self.binary_constraints_indices(sign1=PLUS, var1=x):
+            self.switch_constraints((PLUS, x, sign2, var2), (MINUS, x, sign2, var2))
+        # loop through column of x
+        for sign1, var1, _, _ in self.binary_constraints_indices(sign2=PLUS, var2=x):
+            self.switch_constraints((sign1, var1, PLUS, x), (sign1, var1, MINUS, x))
+
+        # update unary constraints
+        # switch bounds via temp variable
+        self.switch_constraints((x, PLUS, x, MINUS),
+                                (x, MINUS, x, PLUS))
+
+    def _assign_negated_other_var(self, x: VariableIdentifier, y: VariableIdentifier):
+        """x = - y"""
+        self._assign_other_var(x, y)
+        self._assign_negated_same_var(x)
+
+    def _assign_negated_same_var_plus_constant(self, x: VariableIdentifier,
+                                               interval: IntervalLattice):
+        """x = - x + [a,b]"""
+        self._assign_negated_same_var(x)
+        self._assign_same_var_plus_constant(x, interval)
+
+    def _assign_negated_other_var_plus_constant(self, x: VariableIdentifier, y: VariableIdentifier,
+                                                interval: IntervalLattice):
+        """x = - y + [a,b]"""
+        self._assign_negated_other_var(x, y)
+        self._assign_same_var_plus_constant(x, interval)
+
     def _assign_variable(self, left: Expression, right: Expression) -> 'OctagonDomain':
         # Octagonal Assignments
         if isinstance(left, VariableIdentifier):
@@ -358,55 +425,37 @@ class OctagonDomain(OctagonLattice, State):
                 form = SingleVarLinearForm(right)
                 if not form.var and form.interval:
                     # x = [a,b]
-                    self.forget(left)
-                    self.set_interval(left, form.interval)
+                    self._assign_constant(left, form.interval)
                 elif form.var and form.interval:
                     # x = +/- y + [a, b]
                     if form.var == left:
                         if form.var_sign == PLUS:
                             # x = x + [a,b]
-
-                            # update binary constraints
-                            for index in self.binary_constraints_indices(sign1=PLUS, var1=form.var):
-                                self[index] -= form.interval.lower
-                            for index in self.binary_constraints_indices(sign1=MINUS, var1=form.var):
-                                self[index] += form.interval.lower
-                            for index in self.binary_constraints_indices(sign2=PLUS, var2=form.var):
-                                self[index] += form.interval.lower
-                            for index in self.binary_constraints_indices(sign2=MINUS, var2=form.var):
-                                self[index] -= form.interval.lower
-
-                            # update unary constraints
-                            self.set_interval(form.var,
-                                              IntervalLattice(self.get_lb(left) + form.interval.lower,
-                                                              self.get_ub(left) + form.interval.upper))
+                            self._assign_same_var_plus_constant(form.var, form.interval)
                         elif form.var_sign == MINUS:
-                            pass
+                            # x = - x + [a,b]
+                            self._assign_negated_same_var_plus_constant(form.var, form.interval)
                         else:
                             raise ValueError()
                     else:
                         if form.var_sign == PLUS:
                             # x = y + [a,b]
-                            self.forget(left)
-                            self.set_octagonal_constraint(PLUS, left, MINUS, form.var, form.interval.lower)
-                            self.set_octagonal_constraint(MINUS, left, PLUS, form.var, -form.interval.upper)
+                            self._assign_other_var_plus_constant(left, form.var, form.interval)
                 elif form.var:
-                    # x = +/- y
+                    # x = +/- x/y
                     if form.var == left:
-                        # update binary constraints
-                        # loop through row of form.var
-                        for _, _, sign2, var2 in self.binary_constraints_indices(sign1=PLUS, var1=form.var):
-                            self.switch_constraints((PLUS, form.var, sign2, var2), (MINUS, form.var, sign2, var2))
-                        # loop through column of form.var
-                        for sign1, var1, _, _ in self.binary_constraints_indices(sign2=PLUS, var2=form.var):
-                            self.switch_constraints((sign1, var1, PLUS, form.var), (sign1, var1, MINUS, form.var))
-
-                        # update unary constraints
-                        # switch bounds via temp variable
-                        self.switch_constraints((form.var, PLUS, form.var, MINUS),
-                                                (form.var, MINUS, form.var, PLUS))
+                        if form.var_sign == PLUS:
+                            pass  # nothing to change
+                        elif form.var_sign == MINUS:
+                            # x = - x
+                            self._assign_negated_same_var(form.var)
+                        else:
+                            raise ValueError()
                     else:
-                        pass
+                        # x = - y
+                        self._assign_negated_other_var(left, form.var)
+                else:
+                    raise ValueError()
             except ValueError:
                 # right is not in single variable linear form
                 print("right is not in single variable linear form")
