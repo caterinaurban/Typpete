@@ -17,7 +17,7 @@ class TestIntervalStore(ExpressionTreeTestCase):
         # print(right_expr)
 
         store = IntervalStore(list(self.variables.values()))
-        interval = store.evaluate_expression(right_expr)
+        interval = store.evaluate(right_expr)
         # print(interval)
 
         self.assertEqual(str(interval), self._expected_result)

@@ -21,11 +21,11 @@ class IntervalLattice(BottomElementMixin, NumericalLattice):
 
     @property
     def interval(self):
-        return (self.lower, self.upper)
+        return self.lower, self.upper
 
     @interval.setter
-    def interval(self, tupl):
-        (lower, upper) = tupl
+    def interval(self, bounds):
+        (lower, upper) = bounds
         self.lower = lower
         self.upper = upper
 
@@ -163,17 +163,17 @@ class IntervalStore(StoreLattice, NumericalDomain):
     def forget(self, var: VariableIdentifier):
         self.variables[var].top()
 
-    def set_variable_constant(self, var: VariableIdentifier, constant):
+    def set_interval(self, var: VariableIdentifier, constant):
         self.variables[var].lower = constant
         self.variables[var].upper = constant
 
-    def set_variable_lb(self, var: VariableIdentifier, constant):
+    def set_lb(self, var: VariableIdentifier, constant):
         self.variables[var].lower = constant
 
-    def set_variable_ub(self, var: VariableIdentifier, constant):
+    def set_ub(self, var: VariableIdentifier, constant):
         self.variables[var].upper = constant
 
-    def evaluate_expression(self, expr: Expression):
+    def evaluate(self, expr: Expression):
         interval = self._visitor.visit(expr)
         return interval
 

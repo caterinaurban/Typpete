@@ -30,15 +30,15 @@ class NumericalDomain(metaclass=ABCMeta):
     def forget(self, var: VariableIdentifier):
         """Forget all constraints about a variable."""
 
-    def set_variable_constant(self, var: VariableIdentifier, constant):
-        """Sets the variable to a constant value: `x = c`."""
+    def set_interval(self, var: VariableIdentifier, constant):
+        """Sets the variable to a constant or interval: `x = c` resp. `x = [2,4]."""
         raise NotImplementedError()
 
-    def set_variable_lb(self, var: VariableIdentifier, constant):
+    def set_lb(self, var: VariableIdentifier, constant):
         """Sets the lower bound of a variable: `c <= x`."""
         raise NotImplementedError()
 
-    def set_variable_ub(self, var: VariableIdentifier, constant):
+    def set_ub(self, var: VariableIdentifier, constant):
         """Sets the lower bound of a variable: `x <= c`."""
         raise NotImplementedError()
 
@@ -49,5 +49,5 @@ class NumericalDomain(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def evaluate_expression(self, expr: Expression):
+    def evaluate(self, expr: Expression):
         """Evaluates the expression within this abstract domain."""

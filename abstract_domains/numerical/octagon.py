@@ -9,12 +9,13 @@ from math import inf, isinf
 
 from core.expressions_tools import ExpressionVisitor
 
-PLUS = UnaryArithmeticOperation.Operator.Add
-MINUS = UnaryArithmeticOperation.Operator.Sub
+Sign = UnaryArithmeticOperation.Operator
+PLUS = Sign.Add
+MINUS = Sign.Sub
 
 
-def _index_shift(self, operator: UnaryArithmeticOperation.Operator):
-    return 1 if operator == UnaryArithmeticOperation.Operator.Sub else 0
+def _index_shift(self, sign: Sign):
+    return 1 if sign == MINUS else 0
 
 
 class OctagonLattice(BottomElementMixin, NumericalDomain):
@@ -40,7 +41,7 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         return self._dbm
 
     def __getitem__(self, index_tuple: Tuple[
-        VariableIdentifier, UnaryArithmeticOperation.Operator, VariableIdentifier, UnaryArithmeticOperation.Operator]):
+        VariableIdentifier, Sign, VariableIdentifier, Sign]):
         if len(index_tuple) == 4:
             var1, sign1, var2, sign2 = index_tuple
             return self.dbm[
@@ -48,8 +49,8 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         else:
             raise ValueError("Index into octagon has invalid format.")
 
-    def __setitem__(self, index: Union[Tuple[VariableIdentifier, UnaryArithmeticOperation.Operator], Tuple[
-        VariableIdentifier, UnaryArithmeticOperation.Operator, VariableIdentifier, UnaryArithmeticOperation.Operator]],
+    def __setitem__(self, index: Union[Tuple[VariableIdentifier, Sign], Tuple[
+        VariableIdentifier, Sign, VariableIdentifier, Sign]],
                     value):
         if len(index) == 4:
             var1, sign1, var2, sign2 = index
@@ -138,31 +139,37 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         self[var, PLUS] = inf
         self[var, MINUS] = inf
 
-    def set_variable_constant(self, var: VariableIdentifier, constant):
-        self.dbm[var, PLUS, var, MINUS] = -2 * constant  # encodes -2*var <= -2*constant <=> var >= constant
-        self.dbm[var, MINUS, var, PLUS] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
+    def set_interval(self, var: VariableIdentifier, interval: Union[int, IntervalLattice]):
+        if isinstance(interval, IntervalLattice):
+            self.set_lb(interval.lower)
+            self.set_ub(interval.upper)
+        else:
+            self.set_lb(interval)
+            self.set_ub(interval)
 
-    def set_variable_lb(self, var: VariableIdentifier, constant):
-        self.dbm[var, MINUS, var, PLUS] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
+    def get_interval(self, var: VariableIdentifier):
+        return IntervalLattice(self.get_lb(var), self.get_ub())
 
-    def set_variable_ub(self, var: VariableIdentifier, constant):
-        self.dbm[var, PLUS, var, MINUS] = -2 * constant  # encodes -2*var <= -2*constant <=> var >= constant
+    def set_lb(self, var: VariableIdentifier, constant):
+        self[var, MINUS, var, PLUS] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
 
-    def set_octagonal_constraint(self, sign1: UnaryArithmeticOperation.Operator, var1: VariableIdentifier,
-                                 sign2: UnaryArithmeticOperation.Operator,
+    def get_lb(self, var: VariableIdentifier):
+        return self[var, PLUS, var, MINUS] / 2
+
+    def set_ub(self, var: VariableIdentifier, constant):
+        self[var, PLUS, var, MINUS] = -2 * constant  # encodes -2*var <= -2*constant <=> var >= constant
+
+    def get_ub(self, var: VariableIdentifier):
+        return self[var, MINUS, var, PLUS] / 2
+
+    def set_octagonal_constraint(self, sign1: Sign, var1: VariableIdentifier,
+                                 sign2: Sign,
                                  var2: VariableIdentifier, constant):
-        self.dbm[var1, MINUS, var2, MINUS] = constant  # encodes -2*var <= -2*constant <=> var >= constant
-        self.dbm[var1, MINUS, var2, PLUS] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
+        self[var1, Sign(sign1 * MINUS), var2, sign2] = constant
 
-    def evaluate_expression(self, expr: Expression):
+    def evaluate(self, expr: Expression):
         interval = self._visitor.visit(expr)
         return interval
-
-    def assign_interval(self, left: VariableIdentifier, interval: IntervalLattice):
-        pass
-
-    def assign_var_plus_interval(self, left: VariableIdentifier, var: VariableIdentifier, interval: IntervalLattice):
-        pass
 
 
 class SingleVarLinearForm(ExpressionVisitor):
@@ -242,15 +249,15 @@ class SingleVarLinearForm(ExpressionVisitor):
         # second check if right argument of binary operation can be transformed to format (respecting what left was)
         def binary_to_unary_operator(binary_operator):
             if binary_operator == BinaryArithmeticOperation.Operator.Add:
-                return UnaryArithmeticOperation.Operator.Add
+                return PLUS
             elif binary_operator == BinaryArithmeticOperation.Operator.Sub:
-                return UnaryArithmeticOperation.Operator.Sub
+                return MINUS
             else:
                 raise ValueError()
 
         try:
             self.interval = IntervalLattice.evaluate_expression(expr.right)
-            if binary_to_unary_operator(expr.operator) == UnaryArithmeticOperation.Operator.Sub:
+            if binary_to_unary_operator(expr.operator) == MINUS:
                 self.interval.negate()
         except ValueError as e:
             # it is still ok if expr.right is a single variable identifier or +/- a variable identifier
@@ -260,7 +267,7 @@ class SingleVarLinearForm(ExpressionVisitor):
             elif isinstance(expr.right, UnaryArithmeticOperation) and isinstance(expr.right.expression,
                                                                                  VariableIdentifier):
                 self.var = expr.right.expression
-                self.var_sign = UnaryArithmeticOperation.Operator(
+                self.var_sign = Sign(
                     binary_to_unary_operator(expr.operator) * expr.right.operator)
             else:
                 raise e
@@ -334,11 +341,32 @@ class OctagonDomain(OctagonLattice, State):
     def _assign_variable(self, left: Expression, right: Expression) -> 'OctagonDomain':
         # Octagonal Assignments
         if isinstance(left, VariableIdentifier):
-            if isinstance(right, Literal):
-                if right.typ == int:
-                    c = int(right.val)
-                    self.set_variable_constant(left, right)
-                else:
-                    raise ValueError()
+            if left.typ != int:
+                raise ValueError()
+
+            try:
+                form = SingleVarLinearForm(right)
+                if not form.var and form.interval:
+                    # x = [a,b]
+                    self.forget(left)
+                    self.set_interval(left, form.interval)
+                elif form.var and form.interval:
+                    if form.var == left:
+                        if form.var_sign == PLUS:
+                            # x = x + [a,b]
+                            self.set_interval(left,
+                                              IntervalLattice(self.get_lb(left) + form.interval.lower,
+                                                              self.get_ub(left) + form.interval.upper))
+                        elif form.var_sign == MINUS:
+                            pass
+                        else:
+                            raise ValueError()
+                    else:
+                        pass
+
+            except ValueError:
+                # right is not in single variable linear form
+                print("right is not in single variable linear form")
+                pass
 
         return self
