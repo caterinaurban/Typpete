@@ -1,4 +1,4 @@
-from abstract_domains.lattice import BottomElementMixin
+from abstract_domains.lattice import BottomElementMixin, Kind
 from abstract_domains.numerical.dbm import IntegerCDBM
 from abstract_domains.numerical.interval import IntervalLattice, IntervalStore
 from abstract_domains.numerical.numerical import NumericalDomain
@@ -74,34 +74,39 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
                         yield (sign1, var1, sign2, var2)
 
     def __repr__(self):
-        res = []
-        # represent unary constraints first
-        for var in self._variables_list:
-            lower = self[PLUS, var, MINUS, var] // 2
-            upper = self[MINUS, var, PLUS, var] // 2
-            if lower < inf and upper < inf:
-                res.append(f"{lower}<={var.name}<={upper}")
-            elif lower < inf:
-                res.append(f"{lower}<={var.name}")
-            elif upper < inf:
-                res.append(f"{var.name}<={upper}")
-        # represent binary constraints second
-        for var1 in self._variables_list:
-            for var2 in self._variables_list:
-                if var1 != var2:
-                    c = self[MINUS, var1, PLUS, var2]
-                    if c < inf:
-                        res.append(f"{var1.name}+{var2.name}<={c}")
-                    c = self[MINUS, var1, MINUS, var2]
-                    if c < inf:
-                        res.append(f"{var1.name}-{var2.name}<={c}")
-                    c = self[PLUS, var1, PLUS, var2]
-                    if c < inf:
-                        res.append(f"-{var1.name}+{var2.name}<={c}")
-                    c = self[PLUS, var1, MINUS, var2]
-                    if c < inf:
-                        res.append(f"-{var1.name}-{var2.name}<={c}")
-        return ", ".join(res)
+        if self.is_bottom():
+            return "BOTTOM"
+        elif self.is_top():
+            return "TOP"
+        else:
+            res = []
+            # represent unary constraints first
+            for var in self._variables_list:
+                lower = self[PLUS, var, MINUS, var] // 2
+                upper = self[MINUS, var, PLUS, var] // 2
+                if lower < inf and upper < inf:
+                    res.append(f"{lower}≤{var.name}≤{upper}")
+                elif lower < inf:
+                    res.append(f"{lower}≤{var.name}")
+                elif upper < inf:
+                    res.append(f"{var.name}≤{upper}")
+            # represent binary constraints second
+            for var1 in self._variables_list:
+                for var2 in self._variables_list:
+                    if var1 != var2:
+                        c = self[MINUS, var1, PLUS, var2]
+                        if c < inf:
+                            res.append(f"{var1.name}+{var2.name}≤{c}")
+                        c = self[MINUS, var1, MINUS, var2]
+                        if c < inf:
+                            res.append(f"{var1.name}-{var2.name}≤{c}")
+                        c = self[PLUS, var1, PLUS, var2]
+                        if c < inf:
+                            res.append(f"-{var1.name}+{var2.name}≤{c}")
+                        c = self[PLUS, var1, MINUS, var2]
+                        if c < inf:
+                            res.append(f"-{var1.name}-{var2.name}≤{c}")
+            return ", ".join(res)
 
     def default(self):
         self.top()
