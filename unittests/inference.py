@@ -45,7 +45,7 @@ class TestInference(unittest.TestCase):
 
         context = Context()
 
-        stub_handler.infer_all_files(context, solver, config.used_names)
+        stub_handler.infer_all_files(context, solver, config.used_names, infer)
         for stmt in t.body:
             infer(stmt, context, solver)
 

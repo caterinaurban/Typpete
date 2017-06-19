@@ -1,12 +1,11 @@
-from frontend.stmt_inferrer import infer
 import ast
 import frontend.stubs.stubs_paths as paths
 
 
 class StubsHandler:
-    def __init__(self, pre_analyzer):
-        self.asts = []
+    asts = []
 
+    def __init__(self, pre_analyzer):
         files = paths.all_files
         for file in files:
             r = open(file)
@@ -16,7 +15,7 @@ class StubsHandler:
             self.asts.append(tree)
 
     @staticmethod
-    def infer_file(tree, context, solver, used_names):
+    def infer_file(tree, context, solver, used_names, infer_func):
         # Infer only structs that are used in the program to be inferred
 
         # Function definitions
@@ -30,8 +29,9 @@ class StubsHandler:
                                node.name in used_names)]
 
         for stmt in relevant_nodes:
-            infer(stmt, context, solver)
+            infer_func(stmt, context, solver)
 
-    def infer_all_files(self, context, solver, used_names):
-        for tree in self.asts:
-            self.infer_file(tree, context, solver, used_names)
+    @classmethod
+    def infer_all_files(cls, context, solver, used_names, infer_func):
+        for tree in cls.asts:
+            cls.infer_file(tree, context, solver, used_names, infer_func)

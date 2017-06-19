@@ -1,5 +1,6 @@
 import ast
 from frontend.context import Context
+from frontend.stubs.stubs_handler import StubsHandler
 
 
 class ImportHandler:
@@ -23,6 +24,7 @@ class ImportHandler:
 
         t = ImportHandler.get_ast(module_name, base_folder)
         context = Context()
+        StubsHandler.infer_all_files(context, solver, solver.config.used_names, infer_func)
         for stmt in t.body:
             infer_func(stmt, context, solver)
 

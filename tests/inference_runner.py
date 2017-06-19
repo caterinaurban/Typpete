@@ -13,13 +13,12 @@ r.close()
 analyzer = PreAnalyzer(t, "tests/inference")
 stubs_handler = StubsHandler(analyzer)
 
-
 config = analyzer.get_all_configurations()
 solver = z3_types.TypesSolver(config)
 
 context = Context()
 
-stubs_handler.infer_all_files(context, solver, config.used_names)
+stubs_handler.infer_all_files(context, solver, config.used_names, infer)
 
 for stmt in t.body:
     infer(stmt, context, solver)
