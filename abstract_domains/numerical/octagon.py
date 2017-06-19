@@ -82,7 +82,7 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
             res = []
             # represent unary constraints first
             for var in self._variables_list:
-                lower = self[PLUS, var, MINUS, var] // 2
+                lower = - self[PLUS, var, MINUS, var] // 2
                 upper = self[MINUS, var, PLUS, var] // 2
                 if lower < inf and upper < inf:
                     res.append(f"{lower}≤{var.name}≤{upper}")
@@ -464,7 +464,6 @@ class OctagonDomain(OctagonLattice, State):
                     raise ValueError()
             except ValueError:
                 # right is not in single variable linear form
-                print("right is not in single variable linear form")
-                pass
+                raise NotImplementedError("right is not in single variable linear form and this is not yet supported")
 
         return self

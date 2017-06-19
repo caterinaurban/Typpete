@@ -10,9 +10,10 @@ from core.expressions_tools import ExpressionVisitor
 
 
 class IntervalLattice(BottomElementMixin, NumericalLattice):
-    def __init__(self, lower=inf, upper=-inf):
+    def __init__(self, lower=-inf, upper=inf):
         """Create an Interval Lattice for a single variable.
         """
+        assert lower <= upper
         self._lower = None
         self._upper = None
         super().__init__()
