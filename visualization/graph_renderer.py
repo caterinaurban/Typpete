@@ -176,7 +176,10 @@ class AnalysisResultRenderer(GraphRenderer):
             if isinstance(node, (Basic, Loop)):
                 states = result.get_node_result(node)
                 # special format states here and pass formatted strings along
-                states = map(lambda x: '<FONT COLOR="#191919" POINT-SIZE="11">{}</FONT>'.format(html.escape(str(x))), states)
+                # NOTE: the space behind the text is
+                # necessary because we must ensure that content inside <FONT>...</FONT> is never empty for graphviz
+                states = map(lambda x: '<FONT COLOR="#191919" POINT-SIZE="11">{} </FONT>'.format(html.escape(str(x))),
+                             states)
                 stmts = map(lambda x: '<B>{}</B>'.format(html.escape(str(x))), node.stmts)
                 node_result = [item for items in zip_longest(states, stmts) for item in items if item is not None]
                 self._graph.node(str(node), label=self._list2lines(node_result, escape=False),
