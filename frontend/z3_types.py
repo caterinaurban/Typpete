@@ -288,7 +288,6 @@ def invert_dict(d):
 set_param("auto-config", False)
 set_param("smt.mbqi", False)
 
-
 class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""
     def __init__(self, config, solver=None, ctx=None):
@@ -300,6 +299,7 @@ class TypesSolver(Solver):
         self.assertions_errors = {}
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         self.optimize = Optimize(ctx)
+        self.optimize.set("timeout", 15000)
         self.init_axioms()
 
     def init_axioms(self):
