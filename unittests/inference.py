@@ -44,12 +44,16 @@ class TestInference(unittest.TestCase):
         solver = z3_types.TypesSolver(config)
 
         context = Context()
+
         stub_handler.infer_all_files(context, solver, config.used_names)
         for stmt in t.body:
             infer(stmt, context, solver)
 
         solver.push()
+
         expected_result = cls.parse_results(open(path), solver)
+        r.close()
+
         return solver, context, expected_result
 
     def runTest(self):

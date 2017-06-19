@@ -7,6 +7,7 @@ import sys
 
 r = open("tests/inference/test.py")
 t = ast.parse(r.read())
+r.close()
 
 
 analyzer = PreAnalyzer(t, "tests/inference")
