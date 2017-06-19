@@ -1,9 +1,10 @@
 from abstract_domains.state import State
 from core.expressions import BinaryArithmeticOperation, BinaryOperation, BinaryComparisonOperation, UnaryOperation, \
-    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation
-from core.statements import Statement, VariableAccess, LiteralEvaluation, Call
+    UnaryArithmeticOperation, UnaryBooleanOperation, BinaryBooleanOperation, Input, ListDisplay, Slice, Index, Literal
+from core.statements import Statement, VariableAccess, LiteralEvaluation, Call, ListDisplayStmt, SliceStmt, IndexStmt
 from functools import reduce
 import re
+import itertools
 
 _first1 = re.compile(r'(.)([A-Z][a-z]+)')
 _all2 = re.compile('([a-z0-9])([A-Z])')
@@ -65,6 +66,75 @@ class VariableAccessSemantics(Semantics):
         return state.access_variable(stmt.var)
 
 
+class ListSemantics(Semantics):
+    """Semantics of list accesses."""
+
+    # noinspection PyMethodMayBeStatic
+    def list_display_stmt_semantics(self, stmt: ListDisplayStmt, state: State) -> State:
+        """Semantics of a list display statement.
+
+        :param stmt :list display statement to be executed
+        :param state: state before executing the variable access
+        :return: state modified by the variable access
+        """
+        item_sets = [list(self.semantics(item, state).result) for item in stmt.items]
+        products = itertools.product(*item_sets)
+        # TODO infer type??
+        result = {ListDisplay(None, list(p)) for p in products}
+
+        state.result = result
+        return state
+
+    # noinspection PyMethodMayBeStatic
+    def slice_stmt_semantics(self, stmt: SliceStmt, state: State) -> State:
+        """Semantics of a slice statement.
+
+        :param stmt: slice statement to be executed
+        :param state: state before executing the variable access
+        :return: state modified by the variable access
+        """
+        targets = self.semantics(stmt.target, state).result
+        if stmt.lower:
+            lowers = self.semantics(stmt.lower, state).result
+        else:
+            lowers = {None}
+        if stmt.step:
+            steps = self.semantics(stmt.step, state).result
+        else:
+            steps = {None}
+        if stmt.upper:
+            uppers = self.semantics(stmt.upper, state).result
+        else:
+            uppers = {None}
+
+        products = itertools.product(targets, lowers, steps, uppers)
+
+        # TODO infer type of Slice??
+        result = {Slice(None, target, lower, step, upper) for target, lower, step, upper in products}
+
+        state.result = result
+        return state
+
+    # noinspection PyMethodMayBeStatic
+    def index_stmt_semantics(self, stmt: IndexStmt, state: State) -> State:
+        """Semantics of a index statement.
+
+        :param stmt: index statement to be executed
+        :param state: state before executing the variable access
+        :return: state modified by the variable access
+        """
+        targets = self.semantics(stmt.target, state).result
+        indices = self.semantics(stmt.index, state).result
+
+        products = itertools.product(targets, indices)
+
+        # TODO infer type of Slice??
+        result = {Index(None, target, index) for target, index in products}
+
+        state.result = result
+        return state
+
+
 class CallSemantics(Semantics):
     """Semantics of function/method calls."""
 
@@ -85,14 +155,56 @@ class CallSemantics(Semantics):
 class BuiltInCallSemantics(CallSemantics):
     """Semantics of built-in function/method calls."""
 
-    def unary_operation(self, stmt: Call, operator: UnaryOperation.Operator, state: State) -> State:
-        """
+    # noinspection PyMethodMayBeStatic
+    def input_call_semantics(self, stmt: Call, state: State) -> State:
+        state.result = {Input(stmt.typ)}
+        return state
+
+    def print_call_semantics(self, stmt: Call, state: State) -> State:
+        """Semantics of a call to 'print'.
         
-        :param stmt: 
-        :param operator: 
-        :param state: 
-        :return: 
+        :param stmt: call to 'print' to be executed
+        :param state: state before executing the call statement
+        :return: state modified by the call statement
         """
+        argument = self.semantics(stmt.arguments[0], state).result  # argument evaluation
+        return state.output(argument)
+
+    def int_call_semantics(self, stmt: Call, state: State) -> State:
+        if len(stmt.arguments) != 1:
+            raise NotImplementedError(f"No semantics implemented for the multiple arguments to int()")
+
+        state = self.semantics(stmt.arguments[0], state)
+
+        result = set()
+        for expr in state.result:
+            if isinstance(expr, Input):
+                result.add(Input(stmt.typ))
+            elif isinstance(expr, Literal):
+                result.add(Literal(stmt.typ, expr.val))
+            else:
+                raise NotImplementedError(f"int(arg) call is not supported for arg of type {type(expr)}")
+
+        return state
+
+    def bool_call_semantics(self, stmt: Call, state: State) -> State:
+        if len(stmt.arguments) != 1:
+            raise NotImplementedError(f"No semantics implemented for the multiple arguments to bool()")
+
+        state = self.semantics(stmt.arguments[0], state)
+
+        result = set()
+        for expr in state.result:
+            if isinstance(expr, Input):
+                result.add(Input(stmt.typ))
+            elif isinstance(expr, Literal):
+                result.add(Literal(stmt.typ, expr.val))
+            else:
+                raise NotImplementedError(f"bool(arg) call is not supported for arg of type {type(expr)}")
+
+        return state
+
+    def unary_operation(self, stmt: Call, operator: UnaryOperation.Operator, state: State) -> State:
         assert len(stmt.arguments) == 1  # unary operations have exactly one argument
         argument = self.semantics(stmt.arguments[0], state).result  # argument evaluation
         result = set()
@@ -285,7 +397,7 @@ class BuiltInCallSemantics(CallSemantics):
         return self.binary_operation(stmt, BinaryComparisonOperation.Operator.NotIn, state)
 
     def and_call_semantics(self, stmt: Call, state: State) -> State:
-        """Semantics of a call to 'add'.
+        """Semantics of a call to 'and'.
 
         :param stmt: call to 'add' to be executed
         :param state: state before executing the call statement
@@ -312,6 +424,6 @@ class BuiltInCallSemantics(CallSemantics):
         return self.binary_operation(stmt, BinaryBooleanOperation.Operator.Xor, state)
 
 
-class DefaultSemantics(LiteralEvaluationSemantics, VariableAccessSemantics, BuiltInCallSemantics):
+class DefaultSemantics(LiteralEvaluationSemantics, VariableAccessSemantics, ListSemantics, BuiltInCallSemantics):
     """Default semantics of statements. Independently of the direction (forward/backward) of the semantics."""
     pass

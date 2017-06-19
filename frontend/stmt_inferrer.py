@@ -29,8 +29,44 @@ import sys
 from frontend.context import Context
 
 
+def _infer_one_target(target, context, solver):
+    """
+    Get the type of the left hand side of an assignment
+    
+    :param target: The target on the left hand side 
+    :param context: The current context level
+    :param solver: The SMT solver
+    :return: the type of the target
+    """
+    if isinstance(target, ast.Name):
+        if target.id in context.types_map:
+            return context.get_type(target.id)
+        else:
+            target_type = solver.new_z3_const("assign")
+            context.set_type(target.id, target_type)
+            return target_type
+    elif isinstance(target, ast.Tuple):
+        args_types = []
+        for elt in target.elts:
+            args_types.append(_infer_one_target(elt, context, solver))
+        return solver.z3_types.tuples[len(args_types)](*args_types)
+    elif isinstance(target, ast.List):
+        list_type = solver.new_z3_const("assign")
+        for elt in target.elts:
+            solver.add(list_type == _infer_one_target(elt, context, solver),
+                       fail_message="List assignment in line {}".format(target.lineno))
+        return solver.z3_types.list(list_type)
+    target_type = expr.infer(target, context, solver)
+
+    if isinstance(target, ast.Subscript):
+        solver.add(axioms.subscript_assignment(expr.infer(target.value, context, solver), solver.z3_types),
+                   fail_message="Subscript assignment in line {}".format(target.lineno))
+
+    return target_type
+
+
 # noinspection PyUnresolvedReferences
-def _infer_assignment_target(target, context, value_type, lineno, solver):
+def _infer_assignment_target(target, context, value_type, solver):
     """Infer the type of a target in an assignment
 
     Attributes:
@@ -47,52 +83,16 @@ def _infer_assignment_target(target, context, value_type, lineno, solver):
         
     TODO: Attributes assignment
     """
-    if isinstance(target, ast.Name):
-        if target.id in context.types_map:
-            solver.add(axioms.assignment(context.get_type(target.id), value_type, solver.z3_types),
-                       fail_message="Assignment in line {}".format(lineno))
-        else:
-            assignment_target_type = solver.new_z3_const("assign")
-            solver.add(axioms.assignment(assignment_target_type, value_type, solver.z3_types),
-                       fail_message="Assignment in line {}".format(lineno))
-            context.set_type(target.id, assignment_target_type)
-    elif isinstance(target, (ast.Tuple, ast.List)):
-        for i in range(len(target.elts)):
-            target_type = solver.new_z3_const("elt_type")
-            solver.add(axioms.multiple_assignment(target_type, value_type, i, solver.z3_types),
-                       fail_message="Multiple assignment in line {}".format(lineno))
-            _infer_assignment_target(target.elts[i], context, target_type, lineno, solver)
-
-    elif isinstance(target, ast.Subscript):
-        indexed_type = expr.infer(target.value, context, solver)
-        if isinstance(target.slice, ast.Index):
-            index_type = expr.infer(target.slice.value, context, solver)
-            solver.add(axioms.index_assignment(indexed_type, index_type, value_type, solver.z3_types),
-                       fail_message="Subscript assignment in line {}".format(lineno))
-        else:  # Slice assignment
-            lower_type = upper_type = step_type = z3_types.Int
-            if target.slice.lower:
-                lower_type = expr.infer(target.slice.lower, context, solver)
-            if target.slice.upper:
-                upper_type = expr.infer(target.slice.upper, context, solver)
-            if target.slice.step:
-                step_type = expr.infer(target.slice.step, context, solver)
-            solver.add(axioms.slice_assignment(lower_type, upper_type, step_type,
-                                               indexed_type, value_type, solver.z3_types),
-                       fail_message="Slice assignment in line {}".format(lineno))
-    elif isinstance(target, ast.Attribute):
-        attr_type = expr.infer(target, context, solver)[0]
-        solver.add(axioms.assignment(attr_type, value_type, solver.z3_types),
-                   fail_message="Attribute assignment in line {}".format(lineno))
-    else:
-        raise TypeError("The inference for {} assignment is not supported.".format(type(target).__name__))
+    target_type = _infer_one_target(target, context, solver)
+    solver.add(axioms.assignment(target_type, value_type, solver.z3_types),
+               fail_message="Assignment in line {}".format(target.lineno))
 
 
 def _infer_assign(node, context, solver):
     """Infer the types of target variables in an assignment node."""
 
     for target in node.targets:
-        _infer_assignment_target(target, context, expr.infer(node.value, context, solver), node.lineno, solver)
+        _infer_assignment_target(target, context, expr.infer(node.value, context, solver), solver)
 
     return solver.z3_types.none
 
@@ -109,30 +109,8 @@ def _infer_augmented_assign(node, context, solver):
     value_type = expr.infer(node.value, context, solver)
     result_type = expr.binary_operation_type(target_type, node.op, value_type, node.lineno, solver)
 
-    if isinstance(node.target, ast.Name):
-        solver.add(axioms.assignment(target_type, result_type, solver.z3_types),
-                   fail_message="Augmented assignment in line {}".format(node.lineno))
-    elif isinstance(node.target, ast.Subscript):
-        indexed_type = expr.infer(node.target.value, context, solver)
-        if isinstance(node.target.slice, ast.Index):
-            index_type = expr.infer(node.target.slice.value, context, solver)
-            solver.add(axioms.index_assignment(indexed_type, index_type, result_type, solver.z3_types),
-                       fail_message="Subscript augmented assignment in line {}".format(node.lineno))
-        else:
-            lower_type = upper_type = step_type = z3_types.Int
-            if node.target.slice.lower:
-                lower_type = expr.infer(node.target.slice.lower, context, solver)
-            if node.target.slice.upper:
-                upper_type = expr.infer(node.target.slice.upper, context, solver)
-            if node.target.slice.step:
-                step_type = expr.infer(node.target.slice.step, context, solver)
-            solver.add(axioms.slice_assignment(lower_type, upper_type, step_type,
-                                               indexed_type, result_type, solver.z3_types),
-                       fail_message="Slice augmented assignment in line {}".format(node.lineno))
+    _infer_assignment_target(node.target, context, result_type, solver)
 
-    elif isinstance(node.target, ast.Attribute):
-        solver.add(axioms.assignment(target_type, value_type, solver.z3_types),
-                   fail_message="Augmented attribute assignment in line {}".format(node.lineno))
     return solver.z3_types.none
 
 
@@ -145,7 +123,6 @@ def _delete_element(target, context, lineno, solver):
         - del subscript:
                     * Tuple/String --> Immutable. Raise exception.
                     * List/Dict --> Do nothing to the context.
-    TODO: Attribute deletion
     """
     if isinstance(target, (ast.Tuple, ast.List)):  # Multiple deletions
         for elem in target.elts:
@@ -157,6 +134,8 @@ def _delete_element(target, context, lineno, solver):
         indexed_type = expr.infer(target.value, context, solver)
         solver.add(axioms.delete_subscript(indexed_type, solver.z3_types),
                    fail_message="Deletion in line {}".format(lineno))
+    elif isinstance(target, ast.Attribute):
+        raise NotImplementedError("Attribute deletion is not supported.")
 
 
 def _infer_delete(node, context, solver):
@@ -238,7 +217,7 @@ def _infer_for(node, context, solver):
     solver.add(axioms.for_loop(iter_type, target_type, solver.z3_types),
                fail_message="For loop in line {}".format(node.lineno))
 
-    _infer_assignment_target(node.target, context, target_type, node.lineno, solver)
+    _infer_assignment_target(node.target, context, target_type, solver)
 
     return _infer_control_flow(node, context, solver)
 
@@ -248,7 +227,7 @@ def _infer_with(node, context, solver):
     for item in node.items:
         if item.optional_vars:
             item_type = expr.infer(item.context_expr, context, solver)
-            _infer_assignment_target(item.optional_vars, context, item_type, node.lineno, solver)
+            _infer_assignment_target(item.optional_vars, context, item_type, solver)
 
     return _infer_body(node.body, context, node.lineno, solver)
 
@@ -274,6 +253,31 @@ def _infer_try(node, context, solver):
     return result_type
 
 
+def unparse_annotation(annotation_node):
+    """Unparse to the AST node for the type annotation into its original text
+    
+    Cases:
+        - Name, ex: x: int
+        - Subscript, ex: x: List[int]
+        - Tuple: ex: x: Dict[str, int]
+    """
+    if isinstance(annotation_node, ast.Name):
+        return annotation_node.id
+    elif isinstance(annotation_node, ast.List):
+        return "[{}]".format(", ".join([unparse_annotation(elt) for elt in annotation_node.elts]))
+    elif isinstance(annotation_node, ast.Subscript):
+        return "{}[{}]".format(unparse_annotation(annotation_node.value), unparse_annotation(annotation_node.slice))
+    elif isinstance(annotation_node, ast.Index):
+        return unparse_annotation(annotation_node.value)
+    elif isinstance(annotation_node, ast.Slice):
+        return "{}:{}:{}".format(unparse_annotation(annotation_node.lower),
+                                 unparse_annotation(annotation_node.upper),
+                                 unparse_annotation(annotation_node.step))
+    elif isinstance(annotation_node, ast.Tuple):
+        return ", ".join([unparse_annotation(elt) for elt in annotation_node.elts])
+    raise ValueError("Invalid type annotation")
+
+
 def _init_func_context(args, context, solver):
     """Initialize the local function scope, and the arguments types"""
     local_context = Context(parent_context=context)
@@ -282,7 +286,10 @@ def _init_func_context(args, context, solver):
 
     args_types = ()
     for arg in args:
-        arg_type = solver.new_z3_const("func_arg")
+        if arg.annotation:
+            arg_type = solver.resolve_annotation(unparse_annotation(arg.annotation))
+        else:
+            arg_type = solver.new_z3_const("func_arg")
         local_context.set_type(arg.arg, arg_type)
         args_types = args_types + (arg_type,)
 
@@ -318,9 +325,21 @@ def _infer_func_def(node, context, solver):
     else:
         defaults_len = 0
 
-    return_type = _infer_body(node.body, func_context, node.lineno, solver)
+    if node.returns:
+        return_type = solver.resolve_annotation(unparse_annotation(node.returns))
+        if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
+           or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
+            # Stub function
+            body_type = return_type
+        else:
+            body_type = _infer_body(node.body, func_context, node.lineno, solver)
+            solver.add(body_type == return_type,
+                       fail_message="Return type annotation in line {}".format(node.lineno))
+    else:
+        body_type = _infer_body(node.body, func_context, node.lineno, solver)
+        
+    func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (body_type,))
 
-    func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
     result_type = solver.new_z3_const("func")
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
@@ -336,7 +355,7 @@ def _infer_class_def(node, context, solver):
     for stmt in node.body:
         infer(stmt, class_context, solver)
 
-    class_attrs = solver.z3_types.attributes[node.name]
+    class_attrs = solver.z3_types.instance_attributes[node.name]
     instance_type = solver.z3_types.classes[node.name]
 
     for attr in class_context.types_map:

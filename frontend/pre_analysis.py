@@ -12,16 +12,39 @@ class PreAnalyzer:
 
         # List all the nodes existing in the AST
         self.all_nodes = list(ast.walk(prog_ast))
+        self.stub_nodes = []
+
+    def add_stub_ast(self, tree):
+        """Add an AST of a stub file to the pre-analyzer"""
+        self.stub_nodes += list(ast.walk(tree))
 
     def maximum_function_args(self):
         """Get the maximum number of function arguments appearing in the AST"""
-        func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
-        return 1 if not func_defs else max([len(node.args.args) for node in func_defs])
+        user_func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
+        stub_func_defs = [node for node in self.stub_nodes if isinstance(node, ast.FunctionDef)]
+
+        # A minimum value of 1 because a default __init__ with one argument function
+        # is added to classes that doesn't contain one
+        user_func_max = max([len(node.args.args) for node in user_func_defs] + [1])
+        stub_func_max = max([len(node.args.args) for node in stub_func_defs] + [1])
+
+        return max(user_func_max, stub_func_max)
 
     def maximum_tuple_length(self):
         """Get the maximum length of tuples appearing in the AST"""
-        tuples = [node for node in self.all_nodes if isinstance(node, ast.Tuple)]
-        return 0 if not tuples else max([len(node.elts) for node in tuples])
+        user_tuples = [node for node in self.all_nodes if isinstance(node, ast.Tuple)]
+        stub_tuples = [node for node in self.stub_nodes if isinstance(node, ast.Tuple)]
+
+        user_max = max([len(node.elts) for node in user_tuples] + [0])
+        stub_tuples = max([len(node.elts) for node in stub_tuples] + [0])
+
+        return max(user_max, stub_tuples)
+
+    def get_all_used_names(self):
+        """Get all used variable names and used-defined classes names"""
+        names = [node.id for node in self.all_nodes if isinstance(node, ast.Name)]
+        names += [node.name for node in self.all_nodes if isinstance(node, ast.ClassDef)]
+        return names
 
     def analyze_classes(self):
         """Pre-analyze and configure classes before the type inference
@@ -38,7 +61,8 @@ class PreAnalyzer:
 
         propagate_attributes_to_subclasses(class_defs)
 
-        class_to_attributes = OrderedDict()
+        class_to_instance_attributes = OrderedDict()
+        class_to_class_attributes = OrderedDict()
         class_to_base = OrderedDict()
 
         for cls in class_defs:
@@ -51,14 +75,26 @@ class PreAnalyzer:
 
             add_init_if_not_existing(cls)
 
-            attributes = set()
-            class_to_attributes[cls.name] = attributes
+            # instance attributes contains all attributes that can be accessed through the instance
+            instance_attributes = set()
+
+            # class attributes contains all attributes that can be accessed through the class
+            # Ex:
+            # class A:
+            #     x = 1
+            # A.x
+
+            # class attributes are subset from instance attributes
+            class_attributes = set()
+            class_to_instance_attributes[cls.name] = instance_attributes
+            class_to_class_attributes[cls.name] = class_attributes
 
             # Inspect all class-level statements
             for cls_stmt in cls.body:
                 if isinstance(cls_stmt, ast.FunctionDef):
                     # Add function to class attributes and get attributes defined by self.some_attribute = value
-                    attributes.add(cls_stmt.name)
+                    instance_attributes.add(cls_stmt.name)
+                    class_attributes.add(cls_stmt.name)
                     if not cls_stmt.args.args:
                         continue
                     first_arg = cls_stmt.args.args[0].arg  # In most cases it will be 'self'
@@ -71,20 +107,22 @@ class PreAnalyzer:
                         for target in assignment.targets:
                             if (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and
                                     target.value.id == first_arg):
-                                attributes.add(target.attr)
+                                instance_attributes.add(target.attr)
                 elif isinstance(cls_stmt, ast.Assign):
                     # Get attributes defined as class-level assignment
                     for target in cls_stmt.targets:
                         if isinstance(target, ast.Name):
-                            attributes.add(target.id)
+                            class_attributes.add(target.id)
+                            instance_attributes.add(target.id)
 
-        return class_to_attributes, class_to_base
+        return class_to_instance_attributes, class_to_class_attributes, class_to_base
 
     def get_all_configurations(self):
         config = Configuration()
         config.max_tuple_length = self.maximum_tuple_length()
         config.max_function_args = self.maximum_function_args()
-        config.classes_to_attrs, config.class_to_base = self.analyze_classes()
+        config.classes_to_instance_attrs, config.classes_to_class_attrs, config.class_to_base = self.analyze_classes()
+        config.used_names = self.get_all_used_names()
 
         return config
 
@@ -96,6 +134,7 @@ class Configuration:
         self.max_function_args = 1
         self.classes_to_attrs = OrderedDict()
         self.class_to_base = OrderedDict()
+        self.used_names = []
 
 
 def propagate_attributes_to_subclasses(class_defs):
@@ -169,7 +208,7 @@ def add_init_if_not_existing(class_node):
             return
     class_node.body.append(ast.FunctionDef(
         name="__init__",
-        args=ast.arguments(args=[ast.arg(arg="self")]),
+        args=ast.arguments(args=[ast.arg(arg="self", annotation=None)]),
         body=[ast.Pass()],
         decorator_list=[],
         returns=None,

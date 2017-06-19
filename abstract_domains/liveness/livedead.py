@@ -41,7 +41,7 @@ class LiveDead(StoreLattice, State):
         
         :param variables: list of program variables
         """
-        super().__init__(variables, LiveDeadLattice)
+        super().__init__(variables, {int: LiveDeadLattice})
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return {variable}
@@ -68,6 +68,9 @@ class LiveDead(StoreLattice, State):
         return self  # nothing to be done
 
     def exit_if(self):
+        return self  # nothing to be done
+
+    def _output(self, output: Expression) -> 'LiveDead':
         return self  # nothing to be done
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'LiveDead':

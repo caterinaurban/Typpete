@@ -14,22 +14,7 @@ class UsedStack(StackLattice, State):
         :param variables: list of program variables
         """
         super().__init__(UsedStore, {'variables': variables})
-        self._inside_print = False
-
-    @property
-    def inside_print(self):
-        return self._inside_print
-
-    @inside_print.setter
-    def inside_print(self, flag: bool):
-        self._inside_print = flag
-        for store in self.stack:
-            store.inside_print = flag
-
-    # def __repr__(self):
-    #     result = super(State).__repr__()
-    #     stack = super(StackLattice).__repr__()
-    #     return "[{}]\n{}".format(result, stack)
+        self._postponed_pushpop = []  # postponed stack pushs/pops that are later executed in ``_assume()``
 
     def push(self):
         if self.is_bottom():
@@ -52,12 +37,28 @@ class UsedStack(StackLattice, State):
         raise NotImplementedError("Variable assignment is not implemented!")
 
     def _assume(self, condition: Expression) -> 'UsedStack':
-        self.stack[-1].assume({condition})
+        # only update used variable in conditional edge via assume call to store
+        # if we are on a loop/if exit edge!!
+        if self._postponed_pushpop:
+            self.stack[-1].assume({condition})
+
+        # make good for postponed push/pop, since that was postponed until assume has been applied to top frame
+        # (the engine implements a different order of calls to exit_if/exit_loop and assume than we want)
+        for pushpop in self._postponed_pushpop:
+            pushpop()
+        self._postponed_pushpop.clear()
+
         return self
 
     def _evaluate_literal(self, literal: Expression) -> Set[Expression]:
         self.stack[-1].evaluate_literal(literal)
         return {literal}
+
+    def _postponed_exit_if(self):
+        if self.is_bottom():
+            return self
+        self.pop()
+        return self
 
     def enter_loop(self):
         return self.enter_if()
@@ -72,9 +73,13 @@ class UsedStack(StackLattice, State):
         return self
 
     def exit_if(self):
+        self._postponed_pushpop.append(self._postponed_exit_if)
+        return self
+
+    def _output(self, output: Expression) -> 'UsedStack':
         if self.is_bottom():
             return self
-        self.pop()
+        self.stack[-1].output({output})
         return self
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStack':

@@ -85,7 +85,7 @@ class DummyLattice(Lattice):
 
 class DummyState(StoreLattice, State):
     def __init__(self, variables: List[VariableIdentifier]):
-        super().__init__(variables, DummyLattice)
+        super().__init__(variables, {int: DummyLattice})
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return {variable}
@@ -118,6 +118,9 @@ class DummyState(StoreLattice, State):
         return self  # nothing to be done
 
     def exit_if(self):
+        return self  # nothing to be done
+
+    def _output(self, output: Expression) -> 'DummyState':
         return self  # nothing to be done
 
     def _substitute_variable(self, left: Expression, right: Expression):

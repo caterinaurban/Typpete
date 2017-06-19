@@ -20,14 +20,14 @@ N = Used.N
 class UsedLattice(BaseLattice):
     """Used variable analysis core abstract domain representation."""
 
-    _DESCEND = {
+    DESCEND = {
         U: S,
         S: S,
         O: N,
         N: N
     }
 
-    _COMBINE = {
+    COMBINE = {
         (N, N): N,
         (N, S): S,
         (N, O): O,
@@ -107,9 +107,9 @@ class UsedLattice(BaseLattice):
         return self._join(other)
 
     def descend(self) -> 'UsedLattice':
-        self._used = UsedLattice._DESCEND[self.used]
+        self._used = UsedLattice.DESCEND[self.used]
         return self
 
     def combine(self, other: 'UsedLattice') -> 'UsedLattice':
-        self._used = UsedLattice._COMBINE[(self.used, other.used)]
+        self._used = UsedLattice.COMBINE[(self.used, other.used)]
         return self
