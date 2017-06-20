@@ -182,10 +182,41 @@ def _infer_control_flow(node, context, solver):
             ......
             return 2.0
 
-        type: Union{String, Float}
+        type: super{String, Float}
     """
-    body_type = _infer_body(node.body, context, node.lineno, solver)
-    else_type = _infer_body(node.orelse, context, node.lineno, solver)
+    body_context = Context(parent_context=context)
+    else_context = Context(parent_context=context)
+
+    body_type = _infer_body(node.body, body_context, node.lineno, solver)
+    else_type = _infer_body(node.orelse, else_context, node.lineno, solver)
+
+    # Re-assigning variables in the body branch
+    for v in body_context.types_map:
+        if context.has_variable(v):
+            t1 = body_context.types_map[v]
+            t2 = context.get_type(v)
+            solver.add(t1 == t2,
+                       fail_message="re-assigning in flow branching in line {}".format(node.lineno))
+
+    # Re-assigning variables in the else branch
+    for v in else_context.types_map:
+        if context.has_variable(v):
+            t1 = else_context.types_map[v]
+            t2 = context.get_type(v)
+            solver.add(t1 == t2,
+                       fail_message="re-assigning in flow branching in line {}".format(node.lineno))
+
+    # Take intersection of variables in both contexts
+    for v in body_context.types_map:
+        if v in else_context.types_map and not context.has_variable(v):
+            var_type = solver.new_z3_const("branching_var")
+            t1 = body_context.types_map[v]
+            t2 = else_context.types_map[v]
+            solver.add(solver.z3_types.subtype(t1, var_type),
+                       fail_message="subtyping in flow branching in line {}".format(node.lineno))
+            solver.add(solver.z3_types.subtype(t2, var_type),
+                       fail_message="subtyping in flow branching in line {}".format(node.lineno))
+            context.set_type(v, var_type)
 
     if hasattr(node, "test"):
         expr.infer(node.test, context, solver)
