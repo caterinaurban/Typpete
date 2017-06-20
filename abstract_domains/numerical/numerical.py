@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from core.expressions import VariableIdentifier, Expression, UnaryArithmeticOperation
 
-
+# rename (without lattice) e.g. IntegerOperations
 class NumericalLattice(metaclass=ABCMeta):
     @abstractmethod
     def add(self, other):
@@ -30,23 +30,17 @@ class NumericalDomain(metaclass=ABCMeta):
     def forget(self, var: VariableIdentifier):
         """Forget all constraints about a variable."""
 
-    def set_interval(self, var: VariableIdentifier, constant):
-        """Sets the variable to a constant or interval: `x = c` resp. `x = [2,4]."""
-        raise NotImplementedError()
+    # TODO assume
 
-    def set_lb(self, var: VariableIdentifier, constant):
-        """Sets the lower bound of a variable: `c <= x`."""
-        raise NotImplementedError()
+    # TODO assign
 
-    def set_ub(self, var: VariableIdentifier, constant):
-        """Sets the lower bound of a variable: `x <= c`."""
-        raise NotImplementedError()
+    # TODO substitute
 
-    def set_octagonal_constraint(self, sign1: UnaryArithmeticOperation.Operator, var1: VariableIdentifier,
-                                 sign2: UnaryArithmeticOperation.Operator,
-                                 var2: VariableIdentifier, constant):
-        """Sets the octagonal constraint for two variables: `+/- x +/- y <= c`."""
-        raise NotImplementedError()
+    # TODO create_variable (also in state interface)
+
+    # TODO remove_variable (also in state interface)
+
+    # TODO query bounds (interval)
 
     @abstractmethod
     def evaluate(self, expr: Expression):
