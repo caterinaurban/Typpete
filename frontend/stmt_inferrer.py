@@ -303,7 +303,7 @@ def _infer_func_def(node, context, solver):
     if node.returns:
         return_type = solver.resolve_annotation(unparse_annotation(node.returns))
         if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
-           or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
+            or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
             # Stub function
             body_type = return_type
         else:
@@ -312,7 +312,7 @@ def _infer_func_def(node, context, solver):
                        fail_message="Return type annotation in line {}".format(node.lineno))
     else:
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
-        
+
     func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
     result_type = solver.new_z3_const("func")
     solver.add(result_type == func_type,
@@ -322,6 +322,7 @@ def _infer_func_def(node, context, solver):
 
 
 def _infer_class_def(node, context, solver):
+    """Infer the types in a class definition"""
     class_context = Context(parent_context=context)
     result_type = solver.new_z3_const("class_type")
     solver.z3_types.all_types[node.name] = result_type
@@ -331,10 +332,46 @@ def _infer_class_def(node, context, solver):
 
     class_attrs = solver.z3_types.instance_attributes[node.name]
     instance_type = solver.z3_types.classes[node.name]
+    class_to_funcs = solver.z3_types.class_to_funcs[node.name]
+    base_class_to_funcs = {}
+    base_attrs = {}
+    if node.bases and isinstance(node.bases[0], ast.Name):
+        base_class_to_funcs = solver.z3_types.class_to_funcs[node.bases[0].id]
+        base_attrs = solver.z3_types.instance_attributes[node.bases[0].id]
 
     for attr in class_context.types_map:
         solver.add(class_attrs[attr] == class_context.types_map[attr],
                    fail_message="Class attribute in {}".format(node.lineno))
+        if attr in base_class_to_funcs:
+            # class_to_funcs[attr] is a tuple of two elements.
+            # The first is the args length, the second is the decorators list
+            base_args_len = base_class_to_funcs[attr][0]
+            sub_args_len = class_to_funcs[attr][0]
+            decorators = base_class_to_funcs[attr][1] + class_to_funcs[attr][1]
+
+            if not base_args_len:
+                raise TypeError("Class methods should have at least one argument (the receiver)."
+                                "If you wish to create a static method, please add the appropriate decorator.")
+            if base_args_len != sub_args_len:
+                raise TypeError("Method {} in subclass {} should have same arguments length as in superclass."
+                                .format(attr, node.name))
+
+            if "staticmethod" not in decorators:
+                # handle arguments and return contravariance/covariance
+                for i in range(base_args_len):
+                    arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}".format(base_args_len, i + 1))
+                    if i == 0:
+                        solver.add(arg_accessor(class_attrs[attr]) == instance_type,
+                                   fail_message="Class method receiver in line {}".format(node.lineno))
+                    else:
+                        solver.add(solver.z3_types.subtype(arg_accessor(base_attrs[attr]),
+                                                           arg_accessor(class_attrs[attr])),
+                                   fail_message="Arguments contravariance in line {}".format(node.lineno))
+                return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(base_args_len))
+                solver.add(solver.z3_types.subtype(return_accessor(class_attrs[attr]),
+                                                   return_accessor(base_attrs[attr])),
+                           fail_message="Return covariance in line {}".format(node.lineno))
+
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
     context.set_type(node.name, result_type)

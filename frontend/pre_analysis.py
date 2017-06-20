@@ -63,6 +63,7 @@ class PreAnalyzer:
 
         class_to_instance_attributes = OrderedDict()
         class_to_class_attributes = OrderedDict()
+        class_to_funcs = OrderedDict()
         class_to_base = OrderedDict()
 
         for cls in class_defs:
@@ -89,9 +90,13 @@ class PreAnalyzer:
             class_to_instance_attributes[cls.name] = instance_attributes
             class_to_class_attributes[cls.name] = class_attributes
 
+            class_funcs = {}
+            class_to_funcs[cls.name] = class_funcs
+
             # Inspect all class-level statements
             for cls_stmt in cls.body:
                 if isinstance(cls_stmt, ast.FunctionDef):
+                    class_funcs[cls_stmt.name] = (len(cls_stmt.args.args), [d.id for d in cls_stmt.decorator_list])
                     # Add function to class attributes and get attributes defined by self.some_attribute = value
                     instance_attributes.add(cls_stmt.name)
                     class_attributes.add(cls_stmt.name)
@@ -115,13 +120,14 @@ class PreAnalyzer:
                             class_attributes.add(target.id)
                             instance_attributes.add(target.id)
 
-        return class_to_instance_attributes, class_to_class_attributes, class_to_base
+        return class_to_instance_attributes, class_to_class_attributes, class_to_base, class_to_funcs
 
     def get_all_configurations(self):
         config = Configuration()
         config.max_tuple_length = self.maximum_tuple_length()
         config.max_function_args = self.maximum_function_args()
-        config.classes_to_instance_attrs, config.classes_to_class_attrs, config.class_to_base = self.analyze_classes()
+        (config.classes_to_instance_attrs, config.classes_to_class_attrs,
+         config.class_to_base, config.class_to_funcs) = self.analyze_classes()
         config.used_names = self.get_all_used_names()
 
         return config
@@ -134,6 +140,7 @@ class Configuration:
         self.max_function_args = 1
         self.classes_to_attrs = OrderedDict()
         self.class_to_base = OrderedDict()
+        self.class_to_funcs = OrderedDict()
         self.used_names = []
 
 
@@ -197,6 +204,8 @@ def get_inheritance_forest(class_defs):
     for cls in class_defs:
         bases = cls.bases
         for base in bases:
+            if base.id not in tree:
+                raise TypeError("Undefined name {}".format(base.id))
             tree[base.id].append(cls.name)
     return tree
 

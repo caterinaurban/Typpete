@@ -14,6 +14,7 @@ class Z3Types:
         self.all_types = OrderedDict()
         self.instance_attributes = OrderedDict()
         self.class_attributes = OrderedDict()
+        self.class_to_funcs = config.class_to_funcs
 
         max_tuple_length = config.max_tuple_length
         max_function_args = config.max_function_args
@@ -24,6 +25,7 @@ class Z3Types:
         type_sort = declare_type_sort(max_tuple_length, max_function_args,
                                       classes_to_instance_attrs, classes_to_class_attrs,
                                       self.instance_attributes, self.class_attributes)
+
         self.type_sort = type_sort
 
         # Extract types constructors
