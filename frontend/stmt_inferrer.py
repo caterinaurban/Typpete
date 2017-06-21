@@ -296,7 +296,10 @@ def _infer_func_def(node, context, solver):
         args_annotations = []
         for arg in node.args.args:
             args_annotations.append(arg.annotation)
-        context.annotated_functions[node.name] = (args_annotations, return_annotation)
+        if hasattr(node, "is_method") and node.is_method:  # check if the node contains the manually added method flag
+            context.builtin_methods[node.name] = (args_annotations, return_annotation)
+        else:
+            context.annotated_functions[node.name] = (args_annotations, return_annotation)
         return
 
     func_context, args_types = _init_func_context(node.args.args, context, solver)

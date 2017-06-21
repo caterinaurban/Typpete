@@ -8,6 +8,7 @@ class Context:
     def __init__(self, parent_context=None):
         self.types_map = {}
         self.annotated_functions = {}
+        self.builtin_methods = {}
         self.parent_context = parent_context
 
     def get_type(self, var_name):
@@ -49,3 +50,17 @@ class Context:
         if self.parent_context is None:
             raise NameError("Name {} is not defined".format(func_name))
         return self.parent_context.get_annotated_func(func_name)
+
+    def has_builtin_method(self, method_name):
+        if method_name in self.builtin_methods:
+            return True
+        if self.parent_context is None:
+            return False
+        return self.parent_context.has_builtin_method(method_name)
+
+    def get_builtin_method(self, method_name):
+        if method_name in self.builtin_methods:
+            return self.builtin_methods[method_name]
+        if self.parent_context is None:
+            raise NameError("Name {} is not defined".format(method_name))
+        return self.parent_context.get_builtin_method(method_name)

@@ -14,7 +14,6 @@ class AnnotationResolver:
             "complex": z3_types.complex,
             "str": z3_types.string,
             "bytes": z3_types.bytes,
-            "None": z3_types.none,
             "number": z3_types.num,
             "sequence": z3_types.seq
         }
@@ -35,6 +34,8 @@ class AnnotationResolver:
             | Tuple[t*]
             | Callable[[t*], t]
         """
+        if isinstance(annotation, ast.NameConstant) and annotation.value is None:
+            return solver.z3_types.none
         if isinstance(annotation, ast.Name):
             if annotation.id in self.primitives:
                 return self.primitives[annotation.id]

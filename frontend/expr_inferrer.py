@@ -373,8 +373,14 @@ def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
     instance = None
     if isinstance(node.func, ast.Attribute):
-        called, instance = infer(node.func, context, solver, True)
-        args_types = _get_args_types(node.args, context, instance, solver)
+        if context.has_builtin_method(node.func.attr):  # check if it's a built in method
+            instance = infer(node.func.value, context, solver)
+            args_types = _get_args_types(node.args, context, instance, solver)
+            return _infer_annotated_function_call(args_types, solver, context.get_builtin_method(node.func.attr))
+        else:
+            # user defined method
+            called, instance = infer(node.func, context, solver, True)
+            args_types = _get_args_types(node.args, context, instance, solver)
     else:
         args_types = _get_args_types(node.args, context, instance, solver)
         if isinstance(node.func, ast.Name) and context.has_annotated_func(node.func.id):
@@ -392,6 +398,7 @@ def infer_func_call(node, context, solver):
 def infer_attribute(node, context, from_call, solver):
     instance = infer(node.value, context, solver)
     result_type = solver.new_z3_const("attribute")
+
     solver.add(axioms.attribute(instance, node.attr, result_type, solver.z3_types),
                fail_message="Attribute access in line {}".format(node.lineno))
     if from_call:
