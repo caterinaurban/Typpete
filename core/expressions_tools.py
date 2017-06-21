@@ -60,17 +60,17 @@ class ExpressionVisitor:
     Adopted from `ast.py`.
     """
 
-    def visit(self, expr):
+    def visit(self, expr, *args, **kwargs):
         """Visit an expression."""
         method = 'visit_' + expr.__class__.__name__
         visitor = getattr(self, method, self.generic_visit)
-        return visitor(expr)
+        return visitor(expr, *args, **kwargs)
 
-    def generic_visit(self, expr):
+    def generic_visit(self, expr, *args, **kwargs):
         """Called if no explicit visitor function exists for an expression."""
         for name, field in iter_fields(expr):
             if isinstance(field, Expression):
-                self.visit(field)
+                self.visit(field, *args, **kwargs)
             elif isinstance(field, list):
                 for item in field:
                     if isinstance(item, Expression):
@@ -114,13 +114,13 @@ class ExpressionTransformer(ExpressionVisitor):
     Adopted from `ast.py`.
     """
 
-    def generic_visit(self, expr):
+    def generic_visit(self, expr, *args, **kwargs):
         for field, old_value in iter_fields(expr):
             if isinstance(old_value, list):
                 new_values = []
                 for value in old_value:
                     if isinstance(value, Expression):
-                        value = self.visit(value)
+                        value = self.visit(value, *args, **kwargs)
                         if value is None:
                             continue
                         elif not isinstance(value, Expression):
@@ -129,7 +129,7 @@ class ExpressionTransformer(ExpressionVisitor):
                     new_values.append(value)
                 old_value[:] = new_values
             elif isinstance(old_value, Expression):
-                new_node = self.visit(old_value)
+                new_node = self.visit(old_value, *args, **kwargs)
                 if new_node is None:
                     delattr(expr, field)
                 else:

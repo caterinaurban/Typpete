@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from abstract_domains.lattice import BottomElementMixin, Kind
 from abstract_domains.numerical.dbm import IntegerCDBM
 from abstract_domains.numerical.interval import IntervalLattice, IntervalStore
@@ -7,7 +9,7 @@ from core.expressions import *
 from typing import List, Set, Tuple, Union
 from math import inf, isinf
 
-from core.expressions_tools import ExpressionVisitor
+from core.expressions_tools import ExpressionVisitor, ExpressionTransformer
 
 Sign = UnaryArithmeticOperation.Operator
 PLUS = Sign.Add
@@ -299,29 +301,94 @@ class SingleVarLinearForm(ExpressionVisitor):
             else:
                 raise e
 
-    def generic_visit(self, expr):
+    def generic_visit(self, expr, *args, **kwargs):
         raise ValueError(
             f"{type(self)} does not support generic visit of expressions! Define handling for expression {type(expr)} explicitly!")
 
 
 class OctagonDomain(OctagonLattice, State):
-    class OctagonVisitor(ExpressionVisitor):
-        def __init__(self, octagon):
-            self._octagon = octagon  # keep a reference to container octagon
+    class NotFreeConditionTransformer(ExpressionTransformer):
+        """Transforms an expression by pushing ``not``-operators down the expression tree and reversing binary operations
+        
+        Uses De-Morgans law to push down ``not``-operators. Finally gets rid of all ``not``-operators, by reversing 
+        binary comparision operators that are negated. 
+        """
 
-        @property
-        def octagon(self):
-            return self._octagon
+        def visit_UnaryBooleanOperation(self, expr: UnaryBooleanOperation, invert=False):
+            if expr.operator == UnaryBooleanOperation.Operator.Neg:
+                return self.generic_visit(expr.expression, invert=not invert)  # double inversion cancels itself
+            else:
+                raise NotImplementedError()
 
-        def visit_Input(self, expr: Input):
-            return OctagonLattice(self.octagon._variables_list).top()
+        def visit_BinaryBooleanOperation(self, expr: BinaryBooleanOperation, invert=False):
+            if invert:
+                if expr.operator == BinaryBooleanOperation.Operator.And:
+                    return BinaryBooleanOperation(expr.typ, self.generic_visit(expr.left, invert=True),
+                                                  BinaryBooleanOperation.Operator.Or,
+                                                  self.generic_visit(expr.right, invert=True))
+                elif expr.operator == BinaryBooleanOperation.Operator.Or:
+                    return BinaryBooleanOperation(expr.typ, self.generic_visit(expr.left, invert=True),
+                                                  BinaryBooleanOperation.Operator.And,
+                                                  self.generic_visit(expr.right, invert=True))
+                elif expr.operator == BinaryBooleanOperation.Operator.Xor:
+                    # use not(a xor b) == (a and b) or (not(a) and not(b))
+                    cond_both = BinaryBooleanOperation(expr.typ, self.generic_visit(deepcopy(expr.left), invert=False),
+                                                       BinaryBooleanOperation.Operator.And,
+                                                       self.generic_visit(deepcopy(expr.right), invert=False))
+                    cond_none = BinaryBooleanOperation(expr.typ, self.generic_visit(deepcopy(expr.left), invert=True),
+                                                       BinaryBooleanOperation.Operator.And,
+                                                       self.generic_visit(deepcopy(expr.right), invert=True))
+                    return BinaryBooleanOperation(expr.typ, cond_both,
+                                                  BinaryBooleanOperation.Operator.Or,
+                                                  cond_none)
+            else:
+                # get rid of xor also if not inverted!
+                if expr.operator == BinaryBooleanOperation.Operator.Xor:
+                    # use a xor b == (a or b) and not(a and b) == (a or b) and (not(a) or not(b))
+                    cond_one = BinaryBooleanOperation(expr.typ, self.generic_visit(deepcopy(expr.left), invert=False),
+                                                      BinaryBooleanOperation.Operator.Or,
+                                                      self.generic_visit(deepcopy(expr.right), invert=False))
+                    cond_not_both = BinaryBooleanOperation(expr.typ,
+                                                           self.generic_visit(deepcopy(expr.left), invert=True),
+                                                           BinaryBooleanOperation.Operator.Or,
+                                                           self.generic_visit(deepcopy(expr.right), invert=True))
+                    return BinaryBooleanOperation(expr.typ, cond_one, BinaryBooleanOperation.Operator.And,
+                                                  cond_not_both)
+                else:
+                    return BinaryBooleanOperation(expr.typ, self.generic_visit(expr.left),
+                                                  expr.operator,
+                                                  self.generic_visit(expr.right))
 
-        def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation):
-            pass
+        def visit_BinaryComparisionOperation(self, expr: BinaryComparisonOperation, invert=False):
+            return BinaryComparisonOperation(expr.typ, self.generic_visit(expr.left),
+                                             expr.operator.reverse_operator() if invert else expr.operator,
+                                             self.generic_visit(expr.right))
+
+    class NotFreeConditionAssumeVisitor(ExpressionVisitor):
+        """Visits an expression and recursively 'assumes' the condition tree."""
+
+        def visit(self, expr, state):
+            super().visit(expr, state)
+
+        def visit_UnaryBooleanOperation(self, expr: UnaryBooleanOperation, state):
+            raise ValueError("The expression should not contain any unary boolean operations like negation (Neg)!")
+
+        def visit_BinaryBooleanOperation(self, expr: BinaryBooleanOperation, state):
+            if expr.operator == BinaryBooleanOperation.Operator.And:
+                self.visit(expr.left, deepcopy(state)).meet(self.visit(expr.right, deepcopy(state)))
+            elif expr.operator == BinaryBooleanOperation.Operator.Or:
+                self.visit(expr.left, deepcopy(state)).join(self.visit(expr.right, deepcopy(state)))
+            else:
+                raise ValueError()
+
+        def visit_BinaryComparisionOperation(self, expr: BinaryComparisonOperation, invert=False):
+            return BinaryComparisonOperation(expr.typ, self.generic_visit(expr.left),
+                                             expr.operator.reverse_operator() if invert else expr.operator,
+                                             self.generic_visit(expr.right))
 
     def __init__(self, variables: List[VariableIdentifier]):
         """Create an Octagon Lattice for given variables.
-
+    
         :param variables: list of program variables
         """
         super().__init__(variables)
@@ -331,6 +398,8 @@ class OctagonDomain(OctagonLattice, State):
         raise NotImplementedError()
 
     def _assume(self, condition: Expression) -> 'OctagonDomain':
+        not_free_condition = OctagonDomain.NotFreeConditionTransformer().visit(condition)
+
         return self
 
     def exit_if(self) -> 'OctagonDomain':

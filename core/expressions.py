@@ -525,6 +525,26 @@ class BinaryComparisonOperation(BinaryOperation):
         In = 9
         NotIn = 10
 
+        REVERSE_OPERATOR = {
+            Eq: NotEq,
+            NotEq: Eq,
+            Lt: GtE,
+            LtE: Gt,
+            Gt: LtE,
+            GtE: Lt,
+            Is: IsNot,
+            IsNot: Is,
+            In: NotIn,
+            NotIn: In
+        }
+
+        def reverse_operator(self):
+            """Returns the reverse operator of this operator."""
+            try:
+                return BinaryComparisonOperation.Operator.REVERSE_OPERATOR[self]
+            except KeyError:
+                return None
+
         def __str__(self):
             if self.value == 1:
                 return "=="
