@@ -3,5 +3,6 @@ classes_and_functions = [
 ]
 
 methods = [
-    "frontend/stubs/list_methods.py"
+    "frontend/stubs/list_methods.py",
+    "frontend/stubs/str_methods.py"
 ]

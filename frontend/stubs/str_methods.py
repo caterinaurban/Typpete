@@ -2,11 +2,7 @@
 
 TODO make some arguments optional
 """
-from typing import TypeVar, List
-
-Any = TypeVar("Any")
-Str = TypeVar("Str", str, bytes)
-Seq = TypeVar("Seq", Str, List[Any])
+from typing import List
 
 
 def capitalize(s: str) -> str:
@@ -19,17 +15,12 @@ def center(s: str, width: int, fillchar: str) -> str:
     pass
 
 
-def count(s: str, str: str, begin: int, end: int) -> int:
-    """Counts how many times str occurs in string"""
-    pass
-
-
 def isalnum(s: str) -> bool:
     """Returns true if string has at least 1 character and all characters are alphanumeric and false otherwise."""
     pass
 
 
-def isaplha(s: str) -> bool:
+def isalpha(s: str) -> bool:
     """Returns true if string has at least 1 character and all characters are alphabetic and false otherwise."""
     pass
 
@@ -69,7 +60,7 @@ def isupper(s: str) -> bool:
     pass
 
 
-def join(s: str, seq: Seq) -> str:
+def join(s: str, seq: List[str]) -> str:
     """Concatenates the string representations of elements in sequence seq into a string, with separator string."""
     pass
 
