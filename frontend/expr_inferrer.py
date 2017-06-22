@@ -36,6 +36,7 @@ import frontend.z3_axioms as axioms
 import sys
 
 from frontend.context import Context
+from z3 import Or
 
 
 def infer_numeric(node, solver):
@@ -362,34 +363,46 @@ def _get_args_types(args, context, instance, solver):
     return args_types
 
 
-def _infer_annotated_function_call(args_types, solver, annotations):
-    result_type = solver.new_z3_const("call")
-    solver.annotation_resolver.add_annotated_function_axioms(args_types, solver, annotations, result_type)
+def _infer_annotated_function_call(args_types, solver, annotations, result_type):
+    return solver.annotation_resolver.get_annotated_function_axioms(args_types, solver, annotations, result_type)
 
-    return result_type
+
+def _infer_builtin_method(args_types, solver, context, result_type, method_name):
+    """Get the axioms of built-in methods inference"""
+    possible_methods = context.get_matching_methods(method_name)
+    method_axioms = []
+    for method in possible_methods:
+        cur_method_axioms = _infer_annotated_function_call(args_types, solver, method, result_type)
+        if cur_method_axioms is not None:
+            method_axioms.append(cur_method_axioms)
+    return method_axioms
 
 
 def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
     instance = None
+    result_type = solver.new_z3_const("call")
+    call_axioms = []
     if isinstance(node.func, ast.Attribute):
-        if context.has_builtin_method(node.func.attr):  # check if it's a built in method
-            instance = infer(node.func.value, context, solver)
-            args_types = _get_args_types(node.args, context, instance, solver)
-            return _infer_annotated_function_call(args_types, solver, context.get_builtin_method(node.func.attr))
-        else:
-            # user defined method
-            called, instance = infer(node.func, context, solver, True)
-            args_types = _get_args_types(node.args, context, instance, solver)
+        # Add axioms for built-in methods
+        instance = infer(node.func.value, context, solver)
+        args_types = _get_args_types(node.args, context, instance, solver)
+        call_axioms += _infer_builtin_method(args_types, solver, context, result_type, node.func.attr)
     else:
         args_types = _get_args_types(node.args, context, instance, solver)
         if isinstance(node.func, ast.Name) and context.has_annotated_func(node.func.id):
-            return _infer_annotated_function_call(args_types, solver, context.get_annotated_func(node.func.id))
+            # Add axioms for built-in functions
+            annotated_func = context.get_annotated_func(node.func.id)
+            func_axioms = _infer_annotated_function_call(args_types, solver, annotated_func, result_type)
+            if func_axioms is not None:
+                call_axioms.append(func_axioms)
+
+    if not call_axioms:
+        # not a built-in method/function add normal inference axioms
         called = infer(node.func, context, solver)
+        call_axioms += axioms.call(called, args_types, result_type, solver.z3_types)
 
-    result_type = solver.new_z3_const("call")
-
-    solver.add(axioms.call(called, args_types, result_type, solver.z3_types),
+    solver.add(Or(call_axioms),
                fail_message="Call in line {}".format(node.lineno))
 
     return result_type

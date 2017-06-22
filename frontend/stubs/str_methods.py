@@ -15,6 +15,11 @@ def center(s: str, width: int, fillchar: str) -> str:
     pass
 
 
+def count(s: str, str: str) -> int:
+    """Counts how many times str occurs in string"""
+    pass
+
+
 def isalnum(s: str) -> bool:
     """Returns true if string has at least 1 character and all characters are alphanumeric and false otherwise."""
     pass

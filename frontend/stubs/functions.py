@@ -171,6 +171,11 @@ def pow(x, y):
     return x ** y
 
 
+def range(x: int) -> List[int]:
+    """Return a list of int from 0 (inclusive) to `x` (exclusive)"""
+    pass
+
+
 def repr(_: object) -> str:
     """
     Return the canonical string representation of the object.
