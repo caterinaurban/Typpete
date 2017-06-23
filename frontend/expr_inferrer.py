@@ -36,7 +36,7 @@ import frontend.z3_axioms as axioms
 import sys
 
 from frontend.context import Context
-from z3 import Or
+from z3 import Or, And
 
 
 def infer_numeric(node, solver):
@@ -397,10 +397,15 @@ def infer_func_call(node, context, solver):
             if func_axioms is not None:
                 call_axioms.append(func_axioms)
 
-    if not call_axioms:
-        # not a built-in method/function add normal inference axioms
+
+    try:
+        # not a built-in method/function. Add normal inference axioms
         called = infer(node.func, context, solver)
         call_axioms += axioms.call(called, args_types, result_type, solver.z3_types)
+    except NameError as e:
+        if not call_axioms:
+            # no match for the function name in the context or in the built-ins
+            raise e
 
     solver.add(Or(call_axioms),
                fail_message="Call in line {}".format(node.lineno))
@@ -408,12 +413,37 @@ def infer_func_call(node, context, solver):
     return result_type
 
 
+def _get_builtin_attr_access(instance_type, attr, result_type, context, solver):
+    """Return axioms for built-in attribute access"""
+
+    # get the built-in methods matching the attribute
+    possible_methods = context.get_matching_methods(attr)
+
+    axioms = []
+    for method in possible_methods:
+        first_arg = method[0][0]
+        resolved_type = solver.annotation_resolver.resolve(first_arg, solver, {})
+
+        # Making result type to be none to prevent it from satisfying user-defined call axioms
+        # in function call inference. Because built-ins are not handled with Z3.
+        axioms.append(And(resolved_type == instance_type, result_type == solver.z3_types.none))
+
+    return axioms
+
+
 def infer_attribute(node, context, from_call, solver):
     instance = infer(node.value, context, solver)
     result_type = solver.new_z3_const("attribute")
 
-    solver.add(axioms.attribute(instance, node.attr, result_type, solver.z3_types),
+    # get axioms for built-in attribute access. Ex: x.append(sth)
+    builtin_axioms = _get_builtin_attr_access(instance, node.attr, result_type, context, solver)
+
+    # get axioms for user-defined attribute acces. Ex: A().sth
+    user_defined_attribute_axioms = axioms.attribute(instance, node.attr, result_type, solver.z3_types)
+
+    solver.add(Or([user_defined_attribute_axioms] + builtin_axioms),
                fail_message="Attribute access in line {}".format(node.lineno))
+
     if from_call:
         return result_type, instance
     return result_type
