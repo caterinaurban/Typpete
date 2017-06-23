@@ -88,4 +88,5 @@ if __name__ == '__main__':
            "tests/inference/statements_test.py",
            "tests/inference/builtins_test.py",
            "tests/inference/list_methods.py",
-           "tests/inference/str_methods.py"])
+           "tests/inference/str_methods.py",
+           "tests/inference/dict_methods.py"])
