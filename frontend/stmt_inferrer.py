@@ -80,12 +80,11 @@ def _infer_assignment_target(target, context, value_type, solver):
         - List. Ex: [a, b] = [1, "string"]
         - Subscript. Ex: x[0] = 1, x[1 : 2] = [2,3], x["key"] = value
         - Compound: Ex: a, b[0], [c, d], e["key"] = 1, 2.0, [True, False], "value"
-        
-    TODO: Attributes assignment
     """
     target_type = _infer_one_target(target, context, solver)
     solver.add(axioms.assignment(target_type, value_type, solver.z3_types),
                fail_message="Assignment in line {}".format(target.lineno))
+    solver.optimize.add_soft(target_type == value_type)
 
 
 def _infer_assign(node, context, solver):
@@ -159,7 +158,7 @@ def _infer_body(body, context, lineno, solver):
         stmts_types.append(stmt_type)
         solver.add(axioms.body(body_type, stmt_type, solver.z3_types),
                    fail_message="Body type in line {}".format(lineno))
-
+        solver.optimize.add_soft(body_type == stmt_type)
     # The body type should be none if all statements have none type.
     solver.add(z3_types.Implies(z3_types.And([x == solver.z3_types.none for x in stmts_types]),
                                 body_type == solver.z3_types.none),
@@ -193,7 +192,8 @@ def _infer_control_flow(node, context, solver):
     result_type = solver.new_z3_const("control_flow")
     solver.add(axioms.control_flow(body_type, else_type, result_type, solver.z3_types),
                fail_message="Control flow in line {}".format(node.lineno))
-
+    solver.optimize.add_soft(result_type == body_type)
+    solver.optimize.add_soft(result_type == else_type)
     return result_type
 
 
@@ -242,6 +242,9 @@ def _infer_try(node, context, solver):
 
     solver.add(axioms.try_except(body_type, else_type, final_type, result_type, solver.z3_types),
                fail_message="Try/Except block in line {}".format(node.lineno))
+    solver.optimize.add_soft(result_type == body_type)
+    solver.optimize.add_soft(result_type == else_type)
+    solver.optimize.add_soft(result_type == final_type)
 
     # TODO: Infer exception handlers as classes
 

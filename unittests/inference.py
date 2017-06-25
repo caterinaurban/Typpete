@@ -46,13 +46,12 @@ class TestInference(unittest.TestCase):
         context = Context()
 
         stub_handler.infer_all_files(context, solver, config.used_names)
+
         for stmt in t.body:
             infer(stmt, context, solver)
 
         solver.push()
-
         expected_result = cls.parse_results(open(path), solver)
-        r.close()
 
         return solver, context, expected_result
 
@@ -60,9 +59,10 @@ class TestInference(unittest.TestCase):
         """Test for expressions inference"""
         solver, context, expected_result = self.infer_file(self.file_path)
 
-        self.assertNotEqual(solver.check(solver.assertions_vars), z3_types.unsat)
+        check = solver.optimize.check()
+        self.assertNotEqual(check, z3_types.unsat)
 
-        model = solver.model()
+        model = solver.optimize.model()
         for v in expected_result:
             self.assertIn(v, context.types_map,
                           "Expected to have variable '{}' in the global context".format(v))

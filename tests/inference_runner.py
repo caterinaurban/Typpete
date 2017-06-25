@@ -4,6 +4,7 @@ from frontend.stubs.stubs_handler import StubsHandler
 import frontend.z3_types as z3_types
 import ast
 import sys
+import time
 
 r = open("tests/inference/test.py")
 t = ast.parse(r.read())
@@ -24,6 +25,24 @@ for stmt in t.body:
 
 solver.push()
 
+start_time = time.time()
+
+check = solver.optimize.check()
+
+if check == z3_types.unsat:
+    print("Check: unsat")
+    solver.check(solver.assertions_vars)
+    print([solver.assertions_errors[x] for x in solver.unsat_core()])
+else:
+    model = solver.optimize.model()
+    for v in sorted(context.types_map):
+        z3_t = context.types_map[v]
+        print("{}: {}".format(v, model[z3_t]))
+
+end_time = time.time()
+
+print("Ran in {} seconds".format(end_time - start_time))
+
 
 def print_complete_solver(solver):
     pp = z3_types.z3printer._PP
@@ -37,14 +56,7 @@ def print_complete_solver(solver):
     pp(out, formatter(solver))
 
 
-check = solver.check(solver.assertions_vars)
-# print_complete_solver(solver)
-try:
-    model = solver.model()
-    for v in sorted(context.types_map):
-        z3_t = context.types_map[v]
-        print("{}: {}".format(v, model[z3_t]))
-except z3_types.z3types.Z3Exception as e:
-    print("Check: {}".format(check))
-    if check == z3_types.unsat:
-        print([solver.assertions_errors[x] for x in solver.unsat_core()])
+
+
+
+
