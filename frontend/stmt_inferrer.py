@@ -299,6 +299,8 @@ def _init_func_context(args, context, solver):
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
     func_context, args_types = _init_func_context(node.args.args, context, solver)
+    result_type = solver.new_z3_const("func")
+    context.set_type(node.name, result_type)
 
     if node.returns:
         return_type = solver.resolve_annotation(unparse_annotation(node.returns))
@@ -314,11 +316,9 @@ def _infer_func_def(node, context, solver):
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
         
     func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
-    result_type = solver.new_z3_const("func")
+
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
-
-    context.set_type(node.name, result_type)
 
 
 def _infer_class_def(node, context, solver):
