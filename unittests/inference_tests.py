@@ -1,3 +1,5 @@
+import glob
+import os
 import unittest
 from frontend.pre_analysis import PreAnalyzer
 from frontend.stmt_inferrer import *
@@ -74,16 +76,14 @@ class TestInference(unittest.TestCase):
                                                                                                model[z3_type]))
 
 
-def suite(files):
+def suite():
     s = unittest.TestSuite()
-    for file in files:
-        s.addTest(TestInference(file))
+    g = os.getcwd() + '/unittests/inference/**.py'
+    for path in glob.iglob(g):
+        if os.path.basename(path) != "__init__.py":
+            s.addTest(TestInference(path))
     runner = unittest.TextTestRunner()
     runner.run(s)
 
 if __name__ == '__main__':
-    suite(["tests/inference/expressions_test.py",
-           "tests/inference/classes_test.py",
-           "tests/inference/functions_test.py",
-           "tests/inference/statements_test.py",
-           "tests/inference/builtins_test.py"])
+    suite()

@@ -9,7 +9,7 @@ h = ~a
 i = a if a else h
 k = b[1:2]
 l = [(x, x * 2) for x in b]
-m = {x:y for x in b for y in e}
+m = {x : y for x in b for y in e}
 n, o, p = 1, "st", True
 
 

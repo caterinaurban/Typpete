@@ -44,7 +44,7 @@ end_time = time.time()
 print("Ran in {} seconds".format(end_time - start_time))
 
 
-def print_complete_solver(solver):
+def print_complete_solver(z3solver):
     pp = z3_types.z3printer._PP
     pp.max_lines = 4000
     pp.max_width = 120
@@ -53,7 +53,7 @@ def print_complete_solver(solver):
     formatter.max_depth = 50
     formatter.max_args = 512
     out = sys.stdout
-    pp(out, formatter(solver))
+    pp(out, formatter(z3solver))
 
 
 
