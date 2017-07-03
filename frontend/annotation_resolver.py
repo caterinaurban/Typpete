@@ -2,6 +2,7 @@ from z3 import Or, And
 import ast
 
 
+
 class AnnotationResolver:
     """Resolver for type annotations in functions"""
     def __init__(self, z3_types):
