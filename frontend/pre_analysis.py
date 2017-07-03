@@ -4,7 +4,13 @@ import ast
 
 
 class PreAnalyzer:
-    """Analyzer for the AST to give some configurations before the type inference"""
+    """Analyzer for the AST, It provides the following configurations before the type inference:
+        - The maximum args length of functions in the whole program
+        - The maximum tuple length in the whole program
+        - All the used names (variables, functions, classes, etc.) in the program,
+            to be used in inferring relevant stub functions.
+        - Class and instance attributes
+    """
 
     def __init__(self, prog_ast, base_folder):
         """
@@ -19,13 +25,12 @@ class PreAnalyzer:
         result = list(ast.walk(prog_ast))
         import_nodes = [node for node in result if isinstance(node, ast.Import)]
         import_from_nodes = [node for node in result if isinstance(node, ast.ImportFrom)]
-        import_handler = ImportHandler()
         for node in import_nodes:
             for name in node.names:
-                new_ast = import_handler.get_ast(name.name, self.base_folder)
+                new_ast = ImportHandler.get_ast(name.name, self.base_folder)
                 result += self.walk(new_ast)
         for node in import_from_nodes:
-            new_ast = import_handler.get_ast(node.module, self.base_folder)
+            new_ast = ImportHandler.get_ast(node.module, self.base_folder)
             result += self.walk(new_ast)
 
         return result

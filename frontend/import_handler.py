@@ -12,7 +12,11 @@ class ImportHandler:
         :param module_name: the name of the python module
         :param base_folder: the directory path where this module exists
         """
-        r = open("{}/{}.py".format(base_folder, module_name))
+        try:
+            r = open("{}/{}.py".format(base_folder, module_name))
+        except FileNotFoundError:
+            raise ImportError("No module named {}.".format(module_name))
+
         return ast.parse(r.read())
 
     @staticmethod
@@ -24,7 +28,7 @@ class ImportHandler:
 
         t = ImportHandler.get_ast(module_name, base_folder)
         context = Context()
-        StubsHandler.infer_all_files(context, solver, solver.config.used_names, infer_func)
+        solver.infer_stubs(context, infer_func)
         for stmt in t.body:
             infer_func(stmt, context, solver)
 
@@ -34,4 +38,4 @@ class ImportHandler:
     def is_builtin(module_name):
         """Check if the imported python module is builtin"""
         # TODO
-        pass
+        return False

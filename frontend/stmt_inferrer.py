@@ -342,10 +342,33 @@ def _infer_class_def(node, context, solver):
 
 
 def _infer_import(node, context, solver):
-    """Infer the imported module in normal import statement"""
-    import_handler = ImportHandler()
+    """Infer the imported module in normal import statement
+    
+    The imported modules can be used with direct module access only.
+    Which means, re-assigning the module to a variable or passing it as a function arg is not supported.
+    
+    For example, the following is not possible:
+        - import X
+          x = X
+          
+        - import X
+          f(X)
+          
+    The importing supports deep module access. For example, the following is supported.
+    
+    >> A.py
+    x = 1
+    
+    >> B.py
+    import A
+    
+    >> C.py
+    import B
+    
+    print(B.A.x)
+    """
     for name in node.names:
-        import_context = import_handler.infer_import(name.name, solver.config.base_folder, infer, solver)
+        import_context = ImportHandler.infer_import(name.name, solver.config.base_folder, infer, solver)
 
         if name.asname:
             # import X as Y
@@ -361,8 +384,7 @@ def _infer_import(node, context, solver):
 
 def _infer_import_from(node, context, solver):
     """Infer the imported module in an `import from` statement"""
-    import_handler = ImportHandler()
-    import_context = import_handler.infer_import(node.module, solver.config.base_folder, infer, solver)
+    import_context = ImportHandler.infer_import(node.module, solver.config.base_folder, infer, solver)
 
     if len(node.names) == 1 and node.names[0].name == "*":
         # import all module elements

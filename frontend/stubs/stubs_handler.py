@@ -3,10 +3,10 @@ import frontend.stubs.stubs_paths as paths
 
 
 class StubsHandler:
-    asts = []
 
     def __init__(self, pre_analyzer):
         files = paths.all_files
+        self.asts = []
         for file in files:
             r = open(file)
             tree = ast.parse(r.read())
@@ -31,7 +31,6 @@ class StubsHandler:
         for stmt in relevant_nodes:
             infer_func(stmt, context, solver)
 
-    @classmethod
-    def infer_all_files(cls, context, solver, used_names, infer_func):
-        for tree in cls.asts:
-            cls.infer_file(tree, context, solver, used_names, infer_func)
+    def infer_all_files(self, context, solver, used_names, infer_func):
+        for tree in self.asts:
+            self.infer_file(tree, context, solver, used_names, infer_func)
