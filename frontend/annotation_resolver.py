@@ -18,7 +18,8 @@ class AnnotationResolver:
             "number": z3_types.num,
             "sequence": z3_types.seq
         }
-        self.type_vars = {}
+        self.type_var_poss = {}
+        self.type_var_super = {}
 
     def resolve(self, annotation, solver, generics_map=None):
         """Resolve the type annotation with the following grammar:
@@ -46,16 +47,21 @@ class AnnotationResolver:
                 raise ValueError("Invalid type annotation {} in line {}".format(annotation.id, annotation.lineno))
             if annotation.id in generics_map:
                 return generics_map[annotation.id]
-            if annotation.id not in self.type_vars:
+            if annotation.id not in self.type_var_poss:
                 raise ValueError("Invalid type annotation {} in line {}".format(annotation.id, annotation.lineno))
 
             result_type = solver.new_z3_const("generic")
             generics_map[annotation.id] = result_type
 
-            possible_types = [self.resolve(x, solver, generics_map) for x in self.type_vars[annotation.id]]
+            possible_types = [self.resolve(x, solver, generics_map) for x in self.type_var_poss[annotation.id]]
             if possible_types:
                 solver.add(Or([result_type == x for x in possible_types]),
                            fail_message="Generic type in line {}".format(annotation.lineno))
+
+            if annotation.id in self.type_var_super:
+                type_var_super = self.resolve(self.type_var_super[annotation.id], solver, generics_map)
+                solver.add(solver.z3_types.subtype(result_type, type_var_super),
+                           fail_message="Generic bound in line {}".format(annotation.lineno))
             return result_type
 
         if isinstance(annotation, ast.Subscript):
@@ -164,9 +170,13 @@ class AnnotationResolver:
         if not isinstance(args[0], ast.Str):
             raise TypeError("Name of type variable in line {} should be a string".format(type_var_node.lineno))
         type_var_name = target.id
-        type_var_supers = args[1:]
+        type_var_possibilities = args[1:]
 
-        if len(type_var_supers) == 1:
+        if type_var_node.keywords and type_var_node.keywords[0].arg == "bound":
+            type_var_super = type_var_node.keywords[0].value
+            self.type_var_super[type_var_name] = type_var_super
+
+        if len(type_var_possibilities) == 1:
             raise TypeError("A single constraint is not allowed in TypeVar in line {}".format(type_var_node.lineno))
 
-        self.type_vars[type_var_name] = type_var_supers
+        self.type_var_poss[type_var_name] = type_var_possibilities
