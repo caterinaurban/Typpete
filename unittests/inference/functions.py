@@ -30,6 +30,12 @@ def f6(x):
     return x["string"]
 
 
+def f7(x):
+    if x < 2:
+        return 1
+    return f7(x - 1) + f7(x - 2)
+
+
 a = f1([1, 2, 3])
 b = f2(a[0])
 c = f3(b)

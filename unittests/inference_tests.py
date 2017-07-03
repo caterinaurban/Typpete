@@ -1,3 +1,5 @@
+import glob
+import os
 import unittest
 from frontend.pre_analysis import PreAnalyzer
 from frontend.stmt_inferrer import *
@@ -46,6 +48,7 @@ class TestInference(unittest.TestCase):
         context = Context()
 
         stub_handler.infer_all_files(context, solver, config.used_names)
+
         for stmt in t.body:
             infer(stmt, context, solver)
 
@@ -61,9 +64,10 @@ class TestInference(unittest.TestCase):
         """Test for expressions inference"""
         solver, context, expected_result = self.infer_file(self.file_path)
 
-        self.assertNotEqual(solver.check(solver.assertions_vars), z3_types.unsat)
+        check = solver.optimize.check()
+        self.assertNotEqual(check, z3_types.unsat)
 
-        model = solver.model()
+        model = solver.optimize.model()
         for v in expected_result:
             self.assertIn(v, context.types_map,
                           "Expected to have variable '{}' in the global context".format(v))
@@ -75,17 +79,14 @@ class TestInference(unittest.TestCase):
                                                                                                model[z3_type]))
 
 
-def suite(files):
+def suite():
     s = unittest.TestSuite()
-    for file in files:
-        s.addTest(TestInference(file))
+    g = os.getcwd() + '/unittests/inference/**.py'
+    for path in glob.iglob(g):
+        if os.path.basename(path) != "__init__.py":
+            s.addTest(TestInference(path))
     runner = unittest.TextTestRunner()
     runner.run(s)
 
 if __name__ == '__main__':
-    suite(["tests/inference/expressions_test.py",
-           "tests/inference/classes_test.py",
-           "tests/inference/functions_test.py",
-           "tests/inference/statements_test.py",
-           "tests/inference/builtins_test.py"
-    ])
+    suite()

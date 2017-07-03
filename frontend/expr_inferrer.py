@@ -34,6 +34,7 @@ TODO:
 import ast
 import frontend.z3_axioms as axioms
 import sys
+import z3
 
 from frontend.context import Context
 
@@ -53,10 +54,16 @@ def _get_elements_type(elts, context, lineno, solver):
     elts_type = solver.new_z3_const("elts")
     if len(elts) == 0:
         return elts_type
+
+    all_types = []
     for i in range(0, len(elts)):
         cur_type = infer(elts[i], context, solver)
-        solver.add(cur_type == elts_type, fail_message="List literal in line {}".format(lineno))
+        all_types.append(cur_type)
 
+        solver.add(solver.z3_types.subtype(cur_type, elts_type),
+                   fail_message="List literal in line {}".format(lineno))
+
+    solver.optimize.add_soft(z3.Or([elts_type == elt for elt in all_types]))
     return elts_type
 
 
@@ -124,6 +131,8 @@ def _infer_add(left_type, right_type, lineno, solver):
     result_type = solver.new_z3_const("addition_result")
     solver.add(axioms.add(left_type, right_type, result_type, solver.z3_types),
                fail_message="Addition in line {}".format(lineno))
+
+    solver.optimize.add_soft(z3.Or(result_type == left_type, result_type == right_type))
     return result_type
 
 
@@ -203,6 +212,9 @@ def infer_boolean_operation(node, context, solver):
     result_type = solver.new_z3_const("boolOp")
     solver.add(axioms.bool_op(values_types, result_type, solver.z3_types),
                fail_message="Boolean operation in line {}".format(node.lineno))
+
+    for value in values_types:
+        solver.optimize.add_soft(value == result_type)
     return result_type
 
 
@@ -238,6 +250,7 @@ def infer_if_expression(node, context, solver):
     result_type = solver.new_z3_const("if_expr")
     solver.add(axioms.if_expr(a_type, b_type, result_type, solver.z3_types),
                fail_message="If expression in line {}".format(node.lineno))
+    solver.optimize.add_soft(z3.Or(result_type == a_type, result_type == b_type))
     return result_type
 
 
@@ -349,7 +362,7 @@ def infer_dict_comprehension(node, context, solver):
     infer_generators(node.generators, local_context, node.lineno, solver)
     key_type = infer(node.key, local_context, solver)
     val_type = infer(node.value, local_context, solver)
-    return solver.z3_types.dict(key_type, val_type, solver)
+    return solver.z3_types.dict(key_type, val_type)
 
 
 def _get_args_types(args, context, instance, solver):
