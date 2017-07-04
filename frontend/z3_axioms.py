@@ -13,12 +13,22 @@ def add(left, right, result, types):
         - [1, 2, 3] + [4]
         - "string" + "string2"
     
+    TODO: Tuples addition
     """
     return [
         Or(
             And(types.subtype(left, types.seq), left == right, left == result),
             And(types.subtype(left, types.num), types.subtype(right, left), result == left),
             And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+
+            # result from list addition is a list with a supertype of operands' types
+            And(left == types.list(types.list_type(left)),
+                right == types.list(types.list_type(right)),
+                result == types.list(types.list_type(result)),
+                types.subtype(types.list_type(left), types.list_type(result)),
+                types.subtype(types.list_type(right), types.list_type(result)),
+                ),
+            And(left == types.string, right == types.string, result == types.string)
         ),
     ]
 
