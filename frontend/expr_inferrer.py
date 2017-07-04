@@ -373,9 +373,11 @@ def infer_func_call(node, context, solver):
 
     result_type = solver.new_z3_const("call")
 
+    tv = solver.new_z3_const("tv")
+
     # TODO covariant and invariant subtyping
 
-    solver.add(axioms.call(called, args_types, result_type, solver.z3_types),
+    solver.add(axioms.call(called, args_types, result_type, solver.z3_types, tv),
                fail_message="Call in line {}".format(node.lineno))
 
     return result_type

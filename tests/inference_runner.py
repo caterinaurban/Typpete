@@ -5,7 +5,7 @@ import frontend.z3_types as z3_types
 import ast
 import sys
 
-r = open("tests/inference/test.py")
+r = open("tests/inference/generic_test.py")
 t = ast.parse(r.read())
 r.close()
 
@@ -36,9 +36,13 @@ def print_complete_solver(solver):
     out = sys.stdout
     pp(out, formatter(solver))
 
+print_complete_solver(solver)
+
+print(solver.to_smt2())
+print('(assert (and ' + ' '.join([str(e) for e in solver.assertions_vars]) + '))')
 
 check = solver.check(solver.assertions_vars)
-# print_complete_solver(solver)
+
 try:
     model = solver.model()
     for v in sorted(context.types_map):

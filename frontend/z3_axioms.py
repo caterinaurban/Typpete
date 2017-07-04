@@ -1,4 +1,4 @@
-from frontend.z3_types import And, Or, Implies, Not
+from frontend.z3_types import And, Or, Implies, Not, Exists, Const
 
 
 def add(left, right, result, types):
@@ -19,6 +19,7 @@ def add(left, right, result, types):
             And(types.subtype(left, types.seq), left == right, left == result),
             And(types.subtype(left, types.num), types.subtype(right, left), result == left),
             And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+            And(types.subtype(right, types.num), types.subtype(left, types.num), result == types.num)
         ),
     ]
 
@@ -396,8 +397,32 @@ def func_call(called, args, result, types):
     z3_args.append(result)
     return And(subtype_axioms + [called == func_type(*z3_args)])
 
+def generic_call(called, args, result, types, tv):
+    is_generic = called == types.generic(types.type_var(called), types.generic_func(called))
+    under_upper = types.subtype(tv, types.upper(types.type_var(called)))
+    x = tv
+    def mysubst(a):
+        return types.subst(a, types.type_var(called), x)
+    called_func = types.generic_func(called)
 
-def call(called, args, result, types):
+    if len(args) == 0:
+        res = mysubst(called_func) == types.funcs[0](result)
+    else:
+        subtype_axioms = []
+        z3_args = []
+        for i in range(len(args)):
+            z3_arg = mysubst(getattr(types.type_sort, "func_{}_arg_{}".format(len(args), i + 1))(called_func))
+            z3_args.append(z3_arg)
+            arg = args[i]
+            subtype_axioms.append(types.subtype(arg, z3_arg))
+
+        func_type = types.funcs[len(args)]
+        z3_args.append(result)
+        res = And(subtype_axioms + [mysubst(called_func) == func_type(*z3_args)])
+    return And(is_generic, under_upper, res)
+
+
+def call(called, args, result, types, tv):
     """Constraints for calls
     
     Cases:
@@ -406,7 +431,7 @@ def call(called, args, result, types):
     """
     return [
         Or(
-            [func_call(called, args, result, types)] + instance_axioms(called, args, result, types)
+            [func_call(called, args, result, types)] + [generic_call(called, args, result, types, tv) ] + instance_axioms(called, args, result, types)
         )
     ]
 

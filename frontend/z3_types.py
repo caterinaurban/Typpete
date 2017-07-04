@@ -59,6 +59,13 @@ class Z3Types:
 
         self.classes = get_classes(type_sort, classes_to_instance_attrs)
 
+        self.typevar = type_sort.typevar
+        self.generic = type_sort.generic
+        self.type_var = type_sort.type_var
+        self.generic_func = type_sort.generic_func
+        self.subst = Function('subst', type_sort, type_sort, type_sort, type_sort)
+        self.upper = Function('upper', type_sort, type_sort)
+
         # Encode subtyping relationships
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
         self.extends = Function("extends", type_sort, type_sort, BoolSort())
@@ -83,7 +90,23 @@ class Z3Types:
             ForAll([x, y], Implies(self.subtype(x, self.type(y)), x == self.type(y))),
             ForAll([x, y], Implies(self.subtype(x, self.list(y)), x == self.list(y))),
             ForAll([x, y], Implies(self.subtype(x, self.set(y)), x == self.set(y))),
-            ForAll([x, y, z], Implies(self.subtype(x, self.dict(y, z)), x == self.dict(y, z)))
+            ForAll([x, y, z],
+                   Implies(self.subtype(x, self.dict(y, z)), x == self.dict(y, z))),
+            ForAll([x, y, z],
+                   self.subtype(x, self.generic(y, z)) == (x == self.generic(y, z))),
+            ForAll([x, y, z],
+                   self.subtype(self.generic(y, z), x) == (x == self.generic(y, z))),
+
+            ForAll([x, y, z], self.subst(x, y, z) == If(x == y,
+                                                        z,
+                                                        If(x == self.list(self.list_type(x)),
+                                                           self.list(self.subst(self.list_type(x), y, z)),
+                                                           If (x == self.funcs[1](self.type_sort.func_1_arg_1(x), self.type_sort.func_1_return(x)),
+                                                               self.funcs[1](self.subst(self.type_sort.func_1_arg_1(x), y, z), self.subst(self.type_sort.func_1_return(x), y, z)),
+                                                               x)
+                                                           )),
+                   patterns=[self.subst(x, y, z)]),
+            ForAll(x, And(self.upper(x) != x, self.subtype(self.upper(x), self.object)))
         ]
 
         self.axioms = ([
@@ -97,6 +120,8 @@ class Z3Types:
                       self.extends(self.string, self.seq),
                       self.extends(self.bytes, self.seq),
                       self.extends(self.tuple, self.seq),
+
+                      self.extends(self.typevar, self.upper(self.typevar)),
 
                       self.extends(self.func, self.object),
 
@@ -190,6 +215,10 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
     type_sort.declare("float")
     type_sort.declare("int")
     type_sort.declare("bool")
+
+    type_sort.declare('typevar')
+
+    type_sort.declare('generic', ('type_var', type_sort), ('generic_func', type_sort))
 
     type_sort.declare("sequence")
     type_sort.declare("str")

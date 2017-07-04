@@ -315,8 +315,15 @@ def _infer_func_def(node, context, solver):
         
     func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
     result_type = solver.new_z3_const("func")
-    solver.add(result_type == func_type,
-               fail_message="Function definition in line {}".format(node.lineno))
+
+    if node.name.startswith('generic'):
+        solver.add(
+            result_type == solver.z3_types.generic(solver.z3_types.typevar, func_type),
+            fail_message="URGH")
+    else:
+        solver.add(result_type == func_type,
+                   fail_message="Function definition in line {}".format(node.lineno))
+
 
     context.set_type(node.name, result_type)
 
