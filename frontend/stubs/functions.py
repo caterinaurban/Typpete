@@ -1,8 +1,8 @@
 """Stub file for built in functions"""
 from typing import TypeVar, List, Tuple, Dict
 
-T = TypeVar("Any")
-U = TypeVar("Any2")
+T = TypeVar("T")
+U = TypeVar("U")
 Num = TypeVar("Num", bound=complex)
 Str = TypeVar("Str", str, bytes)
 Seq = TypeVar("Seq", Str, List[T])
@@ -151,6 +151,16 @@ def len(_: Seq) -> int:
     pass
 
 
+def max(_: List[T]) -> T:
+    """Return the maximum object from the list any
+    
+    TODO:
+        - Verify that the argument is comparable
+        - Add support for different iterable objects
+    """
+    pass
+
+
 def object() -> object:
     """Return a new featureless object."""
     pass
@@ -171,8 +181,16 @@ def pow(x, y):
     return x ** y
 
 
+def print(_: object) -> None:
+    """Print an object"""
+    pass
+
+
 def range(x: int) -> List[int]:
-    """Return a list of int from 0 (inclusive) to `x` (exclusive)"""
+    """Return a list of int from 0 (inclusive) to `x` (exclusive)
+    
+    TODO: make it RangeObject after implementing interfaces
+    """
     pass
 
 
@@ -196,6 +214,22 @@ def round(_: float) -> int:
     pass
 
 
+def sorted(_: List[T]) -> List[T]:
+    """Return the input list in a sorted order
+    
+    TODO: Add support for different iterable objects
+    """
+    pass
+
+
 def str(_: object) -> str:
     """Return a str version of object."""
+    pass
+
+
+def sum(_: List[Num]) -> Num:
+    """Return the sum of numbers in a list
+    
+    TODO: Add support for different iterable objects
+    """
     pass

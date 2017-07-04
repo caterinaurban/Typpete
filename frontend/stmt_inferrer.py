@@ -362,7 +362,7 @@ def _infer_func_def(node, context, solver):
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
         if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
-            or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
+           or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
             # Stub function
             body_type = return_type
         else:

@@ -48,10 +48,16 @@ def mult(left, right, result, types):
     """
     return [
         Or(
-            And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
-            And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
-            And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+            # multiplication of two booleans is an integer. Handle it separately
+            And(left == types.bool, right == types.bool, result == types.int),
+            And(Or(left != types.bool, right != types.bool),
+                Or(
+                    And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
+                    And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
+                    And(types.subtype(left, types.num), types.subtype(right, left), result == left),
+                    And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+                    )
+                )
         )
     ]
 
@@ -272,7 +278,6 @@ def multiple_assignment(target, value, position, types):
     # Assert with tuples of different lengths, maintaining the correct position of the target in the tuple.
     t = []
     for cur_len in range(position + 1, len(types.tuples)):
-
         before_target = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(value)
                          for i in range(position)]  # The tuple elements before the target
         after_target = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(value)
