@@ -65,8 +65,9 @@ class AnnotationResolver:
             return result_type
 
         if isinstance(annotation, ast.Subscript):
-            assert isinstance(annotation.value, ast.Name)
-            assert isinstance(annotation.slice, ast.Index)
+            if not (isinstance(annotation.value, ast.Name) and isinstance(annotation.slice, ast.Index)):
+                raise TypeError("Invalid type annotation in line {}.".format(annotation.lineno))
+
             annotation_val = annotation.value.id
             if annotation_val == "List":
                 # Parse List type
@@ -74,8 +75,9 @@ class AnnotationResolver:
             
             if annotation_val == "Dict":
                 # Parse Dict type
-                assert isinstance(annotation.slice.value, ast.Tuple)
-                assert len(annotation.slice.value.elts) == 2
+                if not (isinstance(annotation.slice.value, ast.Tuple) and len(annotation.slice.value.elts) == 2):
+                    raise TypeError("Dict annotation in line {} should have 2 comma-separated args"
+                                    .format(annotation.lineno))
 
                 # Get the types of the dict args
                 keys_type = self.resolve(annotation.slice.value.elts[0], solver, generics_map)
@@ -92,7 +94,8 @@ class AnnotationResolver:
             
             if annotation_val == "Tuple":
                 # Parse Tuple type
-                assert isinstance(annotation.slice.value, (ast.Name, ast.Tuple))
+                if not isinstance(annotation.slice.value, (ast.Name, ast.Tuple)):
+                    raise TypeError("Invalid tuple type annotation in line {}".format(annotation.lineno))
 
                 # Get the types of the tuple args
                 if isinstance(annotation.slice.value, ast.Name):
@@ -103,9 +106,13 @@ class AnnotationResolver:
             
             if annotation_val == "Callable":
                 # Parse Callable type
-                assert isinstance(annotation.slice.value, ast.Tuple)
-                assert len(annotation.slice.value.elts) == 2
-                assert isinstance(annotation.slice.value.elts[0], ast.List)
+                try:
+                    assert isinstance(annotation.slice.value, ast.Tuple)
+                    assert len(annotation.slice.value.elts) == 2
+                    assert isinstance(annotation.slice.value.elts[0], ast.List)
+                except AssertionError:
+                    raise TypeError("Callable annotation in line {} should be in the format:"
+                                    "Callable[[args_types], return_type]".format(annotation.lineno))
 
                 # Get the args and return types
                 args_annotations = annotation.slice.value.elts[0].elts
@@ -116,7 +123,8 @@ class AnnotationResolver:
 
             if annotation_val == "Union":
                 # Parse Union type
-                assert isinstance(annotation.slice.value, (ast.Name, ast.Tuple))
+                if not isinstance(annotation.slice.value, (ast.Name, ast.Tuple)):
+                    raise TypeError("Invalid union type annotation in line {}".format(annotation.lineno))
 
                 # Get the types of the union args
                 if isinstance(annotation.slice.value, ast.Name):
