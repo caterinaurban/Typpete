@@ -387,6 +387,10 @@ def _infer_import(node, context, solver):
 
 def _infer_import_from(node, context, solver):
     """Infer the imported module in an `import from` statement"""
+    if node.module == "typing":
+        # FIXME ignore typing module for now, so as not to break type variables
+        # Remove after implementing stub for typing and built-in importing
+        return solver.z3_types.none
     import_context = ImportHandler.infer_import(node.module, solver.config.base_folder, infer, solver)
 
     if len(node.names) == 1 and node.names[0].name == "*":

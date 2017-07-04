@@ -1,6 +1,5 @@
 import ast
 from frontend.context import Context
-from frontend.stubs.stubs_handler import StubsHandler
 
 
 class ImportHandler:

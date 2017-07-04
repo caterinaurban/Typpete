@@ -30,6 +30,9 @@ class PreAnalyzer:
                 new_ast = ImportHandler.get_ast(name.name, self.base_folder)
                 result += self.walk(new_ast)
         for node in import_from_nodes:
+            if node.module == "typing":
+                # FIXME ignore typing for now, not to break type vars
+                continue
             new_ast = ImportHandler.get_ast(node.module, self.base_folder)
             result += self.walk(new_ast)
 
