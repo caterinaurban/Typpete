@@ -310,11 +310,12 @@ def _infer_args_defaults(args_types, defaults, context, solver):
     
     A default array of length `n` represents the default values of the last `n` arguments
     """
-    for i in range(len(defaults)):
+    for i, default in enumerate(defaults):
         arg_idx = i + len(args_types) - len(defaults)  # The defaults array correspond to the last arguments
-        default_type = expr.infer(defaults[i], context, solver)
+        default_type = expr.infer(default, context, solver)
         solver.add(solver.z3_types.subtype(default_type, args_types[arg_idx]),
                    fail_message="Function default argument in line {}".format(defaults[i].lineno))
+        solver.optimize.add_soft(default_type == args_types[arg_idx])
 
 
 def _infer_func_def(node, context, solver):
