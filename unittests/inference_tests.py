@@ -66,10 +66,10 @@ class TestInference(unittest.TestCase):
 
         model = solver.optimize.model()
         for v in expected_result:
-            self.assertIn(v, context.types_map,
-                          "Expected to have variable '{}' in the global context".format(v))
+            self.assertTrue(context.has_var_in_children(v),
+                            "Expected to have variable '{}' in the program".format(v))
 
-            z3_type = context.types_map[v]
+            z3_type = context.get_var_from_children(v)
             self.assertEqual(model[z3_type], expected_result[v],
                              "Expected variable '{}' to have type '{}', but found '{}'".format(v,
                                                                                                expected_result[v],

@@ -215,6 +215,8 @@ def _infer_control_flow(node, context, solver):
                        fail_message="subtyping in flow branching in line {}".format(node.lineno))
             solver.add(solver.z3_types.subtype(t2, var_type),
                        fail_message="subtyping in flow branching in line {}".format(node.lineno))
+            solver.optimize.add_soft(t1 == var_type)
+            solver.optimize.add_soft(t2 == var_type)
             context.set_type(v, var_type)
 
     if hasattr(node, "test"):
