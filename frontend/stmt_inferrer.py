@@ -349,14 +349,14 @@ def _infer_class_def(node, context, solver):
             sub_args_len = class_to_funcs[attr][0]
             decorators = base_class_to_funcs[attr][1] + class_to_funcs[attr][1]
 
-            if not base_args_len:
-                raise TypeError("Class methods should have at least one argument (the receiver)."
-                                "If you wish to create a static method, please add the appropriate decorator.")
-            if base_args_len != sub_args_len:
-                raise TypeError("Method {} in subclass {} should have same arguments length as in superclass."
-                                .format(attr, node.name))
-
             if "staticmethod" not in decorators:
+                if not base_args_len:
+                    raise TypeError("Instance methods should have at least one argument (the receiver)."
+                                    "If you wish to create a static method, please add the appropriate decorator.")
+                if base_args_len != sub_args_len:
+                    raise TypeError("Method {} in subclass {} should have same arguments length as in superclass."
+                                    .format(attr, node.name))
+
                 # handle arguments and return contravariance/covariance
                 for i in range(base_args_len):
                     arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}".format(base_args_len, i + 1))
