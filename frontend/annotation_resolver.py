@@ -18,7 +18,8 @@ class AnnotationResolver:
             "number": z3_types.num,
             "sequence": z3_types.seq
         }
-        self.type_vars = {}
+        self.type_var_poss = {}
+        self.type_var_super = {}
 
     def resolve(self, annotation, solver, generics_map=None):
         """Resolve the type annotation with the following grammar:
@@ -48,21 +49,27 @@ class AnnotationResolver:
                 raise ValueError("Invalid type annotation {} in line {}".format(annotation.id, annotation.lineno))
             if annotation.id in generics_map:
                 return generics_map[annotation.id]
-            if annotation.id not in self.type_vars:
+            if annotation.id not in self.type_var_poss:
                 raise ValueError("Invalid type annotation {} in line {}".format(annotation.id, annotation.lineno))
 
             result_type = solver.new_z3_const("generic")
             generics_map[annotation.id] = result_type
 
-            supers_types = [self.resolve(x, solver, generics_map) for x in self.type_vars[annotation.id]]
-            if supers_types:
-                solver.add(Or([solver.z3_types.subtype(result_type, x) for x in supers_types]),
+            possible_types = [self.resolve(x, solver, generics_map) for x in self.type_var_poss[annotation.id]]
+            if possible_types:
+                solver.add(Or([result_type == x for x in possible_types]),
                            fail_message="Generic type in line {}".format(annotation.lineno))
+
+            if annotation.id in self.type_var_super:
+                type_var_super = self.resolve(self.type_var_super[annotation.id], solver, generics_map)
+                solver.add(solver.z3_types.subtype(result_type, type_var_super),
+                           fail_message="Generic bound in line {}".format(annotation.lineno))
             return result_type
 
         if isinstance(annotation, ast.Subscript):
-            assert isinstance(annotation.value, ast.Name)
-            assert isinstance(annotation.slice, ast.Index)
+            if not (isinstance(annotation.value, ast.Name) and isinstance(annotation.slice, ast.Index)):
+                raise TypeError("Invalid type annotation in line {}.".format(annotation.lineno))
+
             annotation_val = annotation.value.id
             if annotation_val == "List":
                 # Parse List type
@@ -70,8 +77,9 @@ class AnnotationResolver:
             
             if annotation_val == "Dict":
                 # Parse Dict type
-                assert isinstance(annotation.slice.value, ast.Tuple)
-                assert len(annotation.slice.value.elts) == 2
+                if not (isinstance(annotation.slice.value, ast.Tuple) and len(annotation.slice.value.elts) == 2):
+                    raise TypeError("Dict annotation in line {} should have 2 comma-separated args"
+                                    .format(annotation.lineno))
 
                 # Get the types of the dict args
                 keys_type = self.resolve(annotation.slice.value.elts[0], solver, generics_map)
@@ -88,7 +96,8 @@ class AnnotationResolver:
             
             if annotation_val == "Tuple":
                 # Parse Tuple type
-                assert isinstance(annotation.slice.value, (ast.Name, ast.Tuple))
+                if not isinstance(annotation.slice.value, (ast.Name, ast.Tuple)):
+                    raise TypeError("Invalid tuple type annotation in line {}".format(annotation.lineno))
 
                 # Get the types of the tuple args
                 if isinstance(annotation.slice.value, ast.Name):
@@ -99,9 +108,13 @@ class AnnotationResolver:
             
             if annotation_val == "Callable":
                 # Parse Callable type
-                assert isinstance(annotation.slice.value, ast.Tuple)
-                assert len(annotation.slice.value.elts) == 2
-                assert isinstance(annotation.slice.value.elts[0], ast.List)
+                try:
+                    assert isinstance(annotation.slice.value, ast.Tuple)
+                    assert len(annotation.slice.value.elts) == 2
+                    assert isinstance(annotation.slice.value.elts[0], ast.List)
+                except AssertionError:
+                    raise TypeError("Callable annotation in line {} should be in the format:"
+                                    "Callable[[args_types], return_type]".format(annotation.lineno))
 
                 # Get the args and return types
                 args_annotations = annotation.slice.value.elts[0].elts
@@ -112,7 +125,8 @@ class AnnotationResolver:
 
             if annotation_val == "Union":
                 # Parse Union type
-                assert isinstance(annotation.slice.value, (ast.Name, ast.Tuple))
+                if not isinstance(annotation.slice.value, (ast.Name, ast.Tuple)):
+                    raise TypeError("Invalid union type annotation in line {}".format(annotation.lineno))
 
                 # Get the types of the union args
                 if isinstance(annotation.slice.value, ast.Name):
@@ -127,9 +141,10 @@ class AnnotationResolver:
                 # def f(x: Union[int, str]): ...
                 # f(1)
                 # f("str")
+                # TODO add support for above example using union
                 result_type = solver.new_z3_const("union")
                 solver.add(Or([result_type == arg for arg in union_args_types]),
-                           fail_message="Union in type annotation")
+                           fail_message="Union in type annotation in line {}".format(annotation.lineno))
 
                 return result_type
 
@@ -151,10 +166,10 @@ class AnnotationResolver:
 
         generics_map = {}
 
-        for i in range(len(args_annotations)):
-            arg_type = self.resolve(args_annotations[i], solver, generics_map)
+        for i, annotation in enumerate(args_annotations):
+            arg_type = self.resolve(annotation, solver, generics_map)
             axioms.append(solver.z3_types.subtype(args_types[i], arg_type))
-
+            solver.optimize.add_soft(args_types[i] == arg_type)
         axioms.append(result_type == self.resolve(result_annotation, solver, generics_map))
         return And(axioms)
 
@@ -167,9 +182,13 @@ class AnnotationResolver:
         if not isinstance(args[0], ast.Str):
             raise TypeError("Name of type variable in line {} should be a string".format(type_var_node.lineno))
         type_var_name = target.id
-        type_var_supers = args[1:]
+        type_var_possibilities = args[1:]
 
-        if len(type_var_supers) == 1:
+        if type_var_node.keywords and type_var_node.keywords[0].arg == "bound":
+            type_var_super = type_var_node.keywords[0].value
+            self.type_var_super[type_var_name] = type_var_super
+
+        if len(type_var_possibilities) == 1:
             raise TypeError("A single constraint is not allowed in TypeVar in line {}".format(type_var_node.lineno))
 
-        self.type_vars[type_var_name] = type_var_supers
+        self.type_var_poss[type_var_name] = type_var_possibilities

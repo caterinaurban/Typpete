@@ -59,7 +59,6 @@ def _infer_one_target(target, context, solver):
     target_type = expr.infer(target, context, solver)
 
     if isinstance(target, ast.Subscript):
-
         solver.add(axioms.subscript_assignment(expr.infer(target.value, context, solver), solver.z3_types),
                    fail_message="Subscript assignment in line {}".format(target.lineno))
 
@@ -282,7 +281,7 @@ def _init_func_context(args, context, solver):
     return local_context, args_types
 
 
-def annotated(node):
+def is_annotated(node):
     """Check the arguments and return are annotated in a function definition"""
     if not node.returns:
         return False
@@ -292,9 +291,58 @@ def annotated(node):
     return True
 
 
+def is_stub(node):
+    """Check if the function is a stub definition:
+    
+    For the function to be a stub, it should be fully annotated and should have no body.
+    The body should be a single `Pass` statement with optional docstring.
+    """
+    if not is_annotated(node):
+        return False
+
+    return ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
+            or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass)))
+
+
+def has_type_var(node, solver):
+    """Check if the function definition has a generic type variable annotation
+    
+    Inspect all the nodes of the type annotations and look for relevant generic type vars
+    """
+    found_type_var = False
+
+    # Get annotations of args and return in one list
+    all_annotations = []
+    if node.returns:
+        all_annotations.append(node.returns)
+
+    for arg in node.args.args:
+        if arg.annotation:
+            all_annotations.append(arg.annotation)
+
+    # check if any annotation has a type variable
+    for annotation in all_annotations:
+        if found_type_var:
+            break
+        # walk over all nodes because the type variable might be deep inside.
+        # example: Tuple[List[str], Dict[T, str]]
+        all_annotation_nodes = list(ast.walk(annotation))
+        for n in all_annotation_nodes:
+            # check all nodes which are instance of ast.Name; they are the only candidates for type vars
+            if isinstance(n, ast.Name) and n.id in solver.annotation_resolver.type_var_poss:
+                found_type_var = True
+                break
+    if found_type_var:
+        if len(all_annotations) < len(node.args.args) + 1:
+            raise TypeError("Function {} in line {} containing type variables should be fully annotated."
+                            .format(node.name, node.lineno))
+
+    return found_type_var
+
+
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
-    if annotated(node):
+    if is_stub(node) or has_type_var(node, solver):
         return_annotation = node.returns
         args_annotations = []
         for arg in node.args.args:
@@ -314,7 +362,7 @@ def _infer_func_def(node, context, solver):
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
         if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
-           or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
+            or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
             # Stub function
             body_type = return_type
         else:
@@ -323,7 +371,7 @@ def _infer_func_def(node, context, solver):
                        fail_message="Return type annotation in line {}".format(node.lineno))
     else:
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
-        
+
     func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
 
     solver.add(result_type == func_type,
