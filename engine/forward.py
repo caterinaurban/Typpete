@@ -48,6 +48,7 @@ class ForwardInterpreter(Interpreter):
                         predecessor = deepcopy(initial).bottom()
                     # handle conditional edges
                     if isinstance(edge, Conditional):
+                        # TODO somewhere here call before(pp: ProgramPoint) after deepcopy, before semantics
                         predecessor = self.semantics.semantics(edge.condition, predecessor).filter()
                     # handle non-default edges
                     if edge.kind == Edge.Kind.IF_IN:
@@ -69,6 +70,7 @@ class ForwardInterpreter(Interpreter):
                 if isinstance(current, Basic):
                     successor = entry
                     for stmt in current.stmts:
+                        # TODO somewhere here call before(pp: ProgramPoint) after deepcopy, before semantics
                         successor = self.semantics.semantics(stmt, deepcopy(successor))
                         states.append(successor)
                 elif isinstance(current, Loop):
