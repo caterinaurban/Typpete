@@ -3,7 +3,7 @@ from typing import TypeVar, List, Tuple, Dict
 
 T = TypeVar("Any")
 U = TypeVar("Any2")
-Num = TypeVar("Num", bool, int, float, complex)
+Num = TypeVar("Num", bound=complex)
 Str = TypeVar("Str", str, bytes)
 Seq = TypeVar("Seq", Str, List[T])
 NumOrStr = TypeVar("NumOrStr", Num, Str)

@@ -103,6 +103,9 @@ class AnnotationResolver:
                     tuple_args_types = [self.resolve(annotation.slice.value, solver, generics_map)]
                 else:
                     tuple_args_types = [self.resolve(x, solver, generics_map) for x in annotation.slice.value.elts]
+
+                if len(tuple_args_types) == 0:
+                    return self.z3_types.tuples[0]
                 return self.z3_types.tuples[len(tuple_args_types)](*tuple_args_types)
             
             if annotation_val == "Callable":
@@ -143,7 +146,7 @@ class AnnotationResolver:
                 # TODO add support for above example using union
                 result_type = solver.new_z3_const("union")
                 solver.add(Or([result_type == arg for arg in union_args_types]),
-                           fail_message="Union in type annotation")
+                           fail_message="Union in type annotation in line {}".format(annotation.lineno))
 
                 return result_type
 
@@ -166,10 +169,11 @@ class AnnotationResolver:
         for i, annotation in enumerate(args_annotations):
             arg_type = self.resolve(annotation, solver, generics_map)
             solver.add(solver.z3_types.subtype(args_types[i], arg_type),
-                       fail_message="Generic parameter type")
+                       fail_message="Generic parameter type in line {}".format(annotation.lineno))
+            solver.optimize.add_soft(args_types[i] == arg_type)
 
         solver.add(result_type == self.resolve(result_annotation, solver, generics_map),
-                   fail_message="Generic return type")
+                   fail_message="Generic return type in line {}".format(result_annotation.lineno))
 
     def add_type_var(self, target, type_var_node):
         if not isinstance(target, ast.Name):
