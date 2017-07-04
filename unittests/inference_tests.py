@@ -10,6 +10,7 @@ class TestInference(unittest.TestCase):
     def __init__(self, file_path):
         super().__init__()
         self.file_path = file_path
+        self.sat = True
 
     @staticmethod
     def parse_comment(comment):
@@ -17,19 +18,20 @@ class TestInference(unittest.TestCase):
         variable, type_annotation = assignment_text.split(" := ")
         return variable, type_annotation
 
-    @classmethod
-    def parse_results(cls, source, solver):
+    def parse_results(self, source, solver):
         result = {}
         for line in source:
             line = line.strip()
             if not line.startswith("#"):
                 continue
-            variable, t = cls.parse_comment(line)
+            if line[2:] == "unsat":
+                self.sat = False
+                continue
+            variable, t = self.parse_comment(line)
             result[variable] = solver.resolve_annotation(ast.parse(t).body[0].value)
         return result
 
-    @classmethod
-    def infer_file(cls, path):
+    def infer_file(self, path):
         """Infer a single python program
 
         :param path: file system path of the program to infer 
@@ -53,7 +55,7 @@ class TestInference(unittest.TestCase):
             infer(stmt, context, solver)
 
         solver.push()
-        expected_result = cls.parse_results(open(path), solver)
+        expected_result = self.parse_results(open(path), solver)
 
         return solver, context, expected_result
 
@@ -62,7 +64,11 @@ class TestInference(unittest.TestCase):
         solver, context, expected_result = self.infer_file(self.file_path)
 
         check = solver.optimize.check()
-        self.assertNotEqual(check, z3_types.unsat)
+        if self.sat:
+            self.assertNotEqual(check, z3_types.unsat)
+        else:
+            self.assertEqual(check, z3_types.unsat)
+            return
 
         model = solver.optimize.model()
         for v in expected_result:
