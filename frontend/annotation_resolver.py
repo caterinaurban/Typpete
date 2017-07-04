@@ -139,6 +139,7 @@ class AnnotationResolver:
                 # def f(x: Union[int, str]): ...
                 # f(1)
                 # f("str")
+                # TODO add support for above example using union
                 result_type = solver.new_z3_const("union")
                 solver.add(Or([result_type == arg for arg in union_args_types]),
                            fail_message="Union in type annotation")
@@ -161,8 +162,8 @@ class AnnotationResolver:
                                                                                        len(args_types)))
         generics_map = {}
 
-        for i in range(len(args_annotations)):
-            arg_type = self.resolve(args_annotations[i], solver, generics_map)
+        for i, annotation in enumerate(args_annotations):
+            arg_type = self.resolve(annotation, solver, generics_map)
             solver.add(solver.z3_types.subtype(args_types[i], arg_type),
                        fail_message="Generic parameter type")
 

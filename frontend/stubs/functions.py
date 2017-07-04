@@ -1,17 +1,17 @@
 """Stub file for built in functions"""
 from typing import TypeVar, List, Tuple, Dict
 
-Any = TypeVar("Any")
-Any2 = TypeVar("Any2")
+T = TypeVar("Any")
+U = TypeVar("Any2")
 Num = TypeVar("Num", bool, int, float, complex)
 Str = TypeVar("Str", str, bytes)
-Seq = TypeVar("Seq", Str, List[Any])
+Seq = TypeVar("Seq", Str, List[T])
 NumOrStr = TypeVar("NumOrStr", Num, Str)
 
 
 def abs(x: Num) -> Num:
     """Return the absolute value of the argument. """
-    return x
+    pass
 
 
 def all(_: Seq) -> bool:
@@ -84,7 +84,7 @@ def complex() -> complex:
     pass
 
 
-def dict() -> Dict[Any, Any2]:
+def dict() -> Dict[T, U]:
     """Create a new dictionary."""
     pass
 
