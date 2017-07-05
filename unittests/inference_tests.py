@@ -23,7 +23,7 @@ class TestInference(unittest.TestCase):
             if not line.startswith("#"):
                 continue
             variable, t = cls.parse_comment(line)
-            result[variable] = solver.resolve_annotation(t)
+            result[variable] = solver.resolve_annotation(ast.parse(t).body[0].value)
         return result
 
     @classmethod

@@ -375,18 +375,26 @@ def _get_args_types(args, context, instance, solver):
     return args_types
 
 
+def _infer_annotated_function_call(args_types, solver, annotations):
+    result_type = solver.new_z3_const("call")
+    solver.annotation_resolver.add_annotated_function_axioms(args_types, solver, annotations, result_type)
+
+    return result_type
+
+
 def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
     instance = None
     if isinstance(node.func, ast.Attribute):
         called, instance = infer(node.func, context, solver, True)
+        args_types = _get_args_types(node.args, context, instance, solver)
     else:
+        args_types = _get_args_types(node.args, context, instance, solver)
+        if isinstance(node.func, ast.Name) and context.has_annotated_func(node.func.id):
+            return _infer_annotated_function_call(args_types, solver, context.get_annotated_func(node.func.id))
         called = infer(node.func, context, solver)
-    args_types = _get_args_types(node.args, context, instance, solver)
 
     result_type = solver.new_z3_const("call")
-
-    # TODO covariant and invariant subtyping
 
     solver.add(axioms.call(called, args_types, result_type, solver.z3_types),
                fail_message="Call in line {}".format(node.lineno))
