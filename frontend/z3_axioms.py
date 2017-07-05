@@ -387,29 +387,51 @@ def instance_axioms(called, args, result, types):
         init_func = types.instance_attributes[t]["__init__"]
 
         # Assert that it's a call to this __init__ function
+
+        defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(len(args) + 1))
+
+        # TODO default args in __init__ function
         axioms.append(
             And(called == types.all_types[t],
                 result == instance,
-                init_func == types.funcs[len(args) + 1]((instance,) + args + (types.none,))))
+                init_func == types.funcs[len(args) + 1]((defaults_accessor(init_func),) +
+                                                        (instance,) + args + (types.none,))))
 
     return axioms
 
 
-def func_call(called, args, result, types):
-    if len(args) == 0:
-        return called == types.funcs[0](result)
+def function_call_axioms(called, args, result, types):
+    """Constraints for function calls
+    
+    To support default arguments values, an axiom for every possible arguments length is added, provided that the
+    defaults count for the function matches the inferred one.
+    """
+    axioms = []
+    for i in range(len(args), len(types.funcs)):  # Only assert with functions with length >= call arguments length
+        rem_args = i - len(args)  # The remaining arguments are expected to have default value in the func definition.
+        rem_args_types = ()
+        for j in range(rem_args):
+            arg_idx = len(args) + j + 1
+            arg_accessor = getattr(types.type_sort, "func_{}_arg_{}".format(i, arg_idx))  # Get the default arg type
+            rem_args_types += (arg_accessor(called),)
 
-    subtype_axioms = []
-    z3_args = []
-    for i in range(len(args)):
-        z3_arg = getattr(types.type_sort, "func_{}_arg_{}".format(len(args), i + 1))(called)
-        z3_args.append(z3_arg)
-        arg = args[i]
-        subtype_axioms.append(types.subtype(arg, z3_arg))
+        # The function call args should be covariant with function definition args
+        subtype_axioms = []
+        z3_args = []
+        for j in range(len(args)):
+            z3_arg = getattr(types.type_sort, "func_{}_arg_{}".format(i, j + 1))(called)
+            z3_args.append(z3_arg)
+            arg = args[j]
+            subtype_axioms.append(types.subtype(arg, z3_arg))
 
-    func_type = types.funcs[len(args)]
-    z3_args.append(result)
-    return And(subtype_axioms + [called == func_type(*z3_args)])
+        # Get the default args count accessor
+        defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(i))
+
+        # Add the axioms for function call, default args count, and arguments subtyping.
+        axioms.append(And(called == types.funcs[i]((defaults_accessor(called),) + tuple(z3_args) + rem_args_types + (result,)),
+                          defaults_accessor(called) >= rem_args, *subtype_axioms))
+
+    return axioms
 
 
 def call(called, args, result, types):
@@ -421,7 +443,7 @@ def call(called, args, result, types):
     """
     return [
         Or(
-            [func_call(called, args, result, types)] + instance_axioms(called, args, result, types)
+           function_call_axioms(called, args, result, types) + instance_axioms(called, args, result, types)
         )
     ]
 
