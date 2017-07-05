@@ -1,9 +1,7 @@
 import glob
 import os
 import unittest
-from frontend.pre_analysis import PreAnalyzer
 from frontend.stmt_inferrer import *
-from frontend.stubs.stubs_handler import StubsHandler
 
 
 class TestInference(unittest.TestCase):
@@ -25,7 +23,7 @@ class TestInference(unittest.TestCase):
             if not line.startswith("#"):
                 continue
             variable, t = cls.parse_comment(line)
-            result[variable] = solver.resolve_annotation(t)
+            result[variable] = solver.resolve_annotation(ast.parse(t).body[0].value)
         return result
 
     @classmethod
@@ -39,21 +37,20 @@ class TestInference(unittest.TestCase):
         t = ast.parse(r.read())
         r.close()
 
-        analyzer = PreAnalyzer(t)
-        stub_handler = StubsHandler(analyzer)
-
-        config = analyzer.get_all_configurations()
-        solver = z3_types.TypesSolver(config)
+        solver = z3_types.TypesSolver(t)
 
         context = Context()
 
-        stub_handler.infer_all_files(context, solver, config.used_names)
+        solver.infer_stubs(context, infer)
 
         for stmt in t.body:
             infer(stmt, context, solver)
 
         solver.push()
-        expected_result = cls.parse_results(open(path), solver)
+
+        r = open(path)
+        expected_result = cls.parse_results(r, solver)
+        r.close()
 
         return solver, context, expected_result
 
