@@ -403,6 +403,8 @@ def infer(node, context, solver):
     elif isinstance(node, ast.AugAssign):
         return _infer_augmented_assign(node, context, solver)
     elif isinstance(node, ast.Return):
+        if not node.value:
+            return solver.z3_types.none
         return expr.infer(node.value, context, solver)
     elif isinstance(node, ast.Delete):
         return _infer_delete(node, context, solver)
