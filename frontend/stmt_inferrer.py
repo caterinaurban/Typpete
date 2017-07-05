@@ -282,6 +282,26 @@ def _init_func_context(args, context, solver):
     return local_context, args_types
 
 
+
+def _infer_args_defaults(args_types, defaults, context, solver):
+    """Infer the default values of function arguments (if any)
+    
+    :param args_types: Z3 constants for arguments types
+    :param defaults: AST nodes for default values of arguments
+    :param context: The parent of the function context
+    :param solver: The inference Z3 solver
+    
+    
+    A default array of length `n` represents the default values of the last `n` arguments
+    """
+    for i, default in enumerate(defaults):
+        arg_idx = i + len(args_types) - len(defaults)  # The defaults array correspond to the last arguments
+        default_type = expr.infer(default, context, solver)
+        solver.add(solver.z3_types.subtype(default_type, args_types[arg_idx]),
+                   fail_message="Function default argument in line {}".format(defaults[i].lineno))
+        solver.optimize.add_soft(default_type == args_types[arg_idx])
+
+
 def is_annotated(node):
     """Check the arguments and return are annotated in a function definition"""
     if not node.returns:
@@ -355,6 +375,13 @@ def _infer_func_def(node, context, solver):
     result_type = solver.new_z3_const("func")
     context.set_type(node.name, result_type)
 
+    if hasattr(node.args, "defaults"):
+        # Use the default args to infer the function parameters
+        _infer_args_defaults(args_types, node.args.defaults, context, solver)
+        defaults_len = len(node.args.defaults)
+    else:
+        defaults_len = 0
+
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
         if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
@@ -368,8 +395,7 @@ def _infer_func_def(node, context, solver):
     else:
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
 
-    func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
-
+    func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (body_type,))
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
 
