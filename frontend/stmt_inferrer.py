@@ -27,6 +27,7 @@ import frontend.z3_types as z3_types
 import sys
 
 from frontend.context import Context
+from frontend.import_handler import ImportHandler
 
 
 def _infer_one_target(target, context, solver):
@@ -368,6 +369,72 @@ def _infer_class_def(node, context, solver):
     context.set_type(node.name, result_type)
 
 
+def _infer_import(node, context, solver):
+    """Infer the imported module in normal import statement
+    
+    The imported modules can be used with direct module access only.
+    Which means, re-assigning the module to a variable or passing it as a function arg is not supported.
+    
+    For example, the following is not possible:
+        - import X
+          x = X
+          
+        - import X
+          f(X)
+          
+    The importing supports deep module access. For example, the following is supported.
+    
+    >> A.py
+    x = 1
+    
+    >> B.py
+    import A
+    
+    >> C.py
+    import B
+    
+    print(B.A.x)
+    """
+    for name in node.names:
+        import_context = ImportHandler.infer_import(name.name, solver.config.base_folder, infer, solver)
+
+        if name.asname:
+            # import X as Y
+            module_name = name.asname
+        else:
+            module_name = name.name
+
+        # Store the module context in the current context.
+        context.set_type(module_name, import_context)
+
+    return solver.z3_types.none
+
+
+def _infer_import_from(node, context, solver):
+    """Infer the imported module in an `import from` statement"""
+    if node.module == "typing":
+        # FIXME ignore typing module for now, so as not to break type variables
+        # Remove after implementing stub for typing and built-in importing
+        return solver.z3_types.none
+    import_context = ImportHandler.infer_import(node.module, solver.config.base_folder, infer, solver)
+
+    if len(node.names) == 1 and node.names[0].name == "*":
+        # import all module elements
+        for v in import_context.types_map:
+            context.set_type(v, import_context.get_type(v))
+    else:
+        # Import only stated names
+        for name in node.names:
+            elt_name = name.name
+            if name.asname:
+                elt_name = name.asname
+            if name.name not in import_context.types_map:
+                raise ImportError("Cannot import name {}".format(name.name))
+            context.set_type(elt_name, import_context.get_type(name.name))
+
+    return solver.z3_types.none
+
+
 def infer(node, context, solver):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context, solver)
@@ -397,4 +464,8 @@ def infer(node, context, solver):
         return _infer_class_def(node, context, solver)
     elif isinstance(node, ast.Expr):
         expr.infer(node.value, context, solver)
+    elif isinstance(node, ast.Import):
+        return _infer_import(node, context, solver)
+    elif isinstance(node, ast.ImportFrom):
+        return _infer_import_from(node, context, solver)
     return solver.z3_types.none
