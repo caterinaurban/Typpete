@@ -1,18 +1,42 @@
 from collections import OrderedDict
+from frontend.import_handler import ImportHandler
 import ast
 
 
 class PreAnalyzer:
-    """Analyzer for the AST to give some configurations before the type inference"""
+    """Analyzer for the AST, It provides the following configurations before the type inference:
+        - The maximum args length of functions in the whole program
+        - The maximum tuple length in the whole program
+        - All the used names (variables, functions, classes, etc.) in the program,
+            to be used in inferring relevant stub functions.
+        - Class and instance attributes
+    """
 
-    def __init__(self, prog_ast):
+    def __init__(self, prog_ast, base_folder):
         """
         :param prog_ast: The AST for the python program  
         """
-
         # List all the nodes existing in the AST
-        self.all_nodes = list(ast.walk(prog_ast))
+        self.base_folder = base_folder
+        self.all_nodes = self.walk(prog_ast)
         self.stub_nodes = []
+
+    def walk(self, prog_ast):
+        result = list(ast.walk(prog_ast))
+        import_nodes = [node for node in result if isinstance(node, ast.Import)]
+        import_from_nodes = [node for node in result if isinstance(node, ast.ImportFrom)]
+        for node in import_nodes:
+            for name in node.names:
+                new_ast = ImportHandler.get_ast(name.name, self.base_folder)
+                result += self.walk(new_ast)
+        for node in import_from_nodes:
+            if node.module == "typing":
+                # FIXME ignore typing for now, not to break type vars
+                continue
+            new_ast = ImportHandler.get_ast(node.module, self.base_folder)
+            result += self.walk(new_ast)
+
+        return result
 
     def add_stub_ast(self, tree):
         """Add an AST of a stub file to the pre-analyzer"""
@@ -126,6 +150,7 @@ class PreAnalyzer:
         config = Configuration()
         config.max_tuple_length = self.maximum_tuple_length()
         config.max_function_args = self.maximum_function_args()
+        config.base_folder = self.base_folder
         (config.classes_to_instance_attrs, config.classes_to_class_attrs,
          config.class_to_base, config.class_to_funcs) = self.analyze_classes()
         config.used_names = self.get_all_used_names()
@@ -141,6 +166,7 @@ class Configuration:
         self.classes_to_attrs = OrderedDict()
         self.class_to_base = OrderedDict()
         self.class_to_funcs = OrderedDict()
+        self.base_folder = ""
         self.used_names = []
 
 

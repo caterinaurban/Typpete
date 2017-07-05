@@ -27,6 +27,7 @@ import frontend.z3_types as z3_types
 import sys
 
 from frontend.context import Context
+from frontend.import_handler import ImportHandler
 
 
 def _infer_one_target(target, context, solver):
@@ -80,19 +81,25 @@ def _infer_assignment_target(target, context, value_type, solver):
         - List. Ex: [a, b] = [1, "string"]
         - Subscript. Ex: x[0] = 1, x[1 : 2] = [2,3], x["key"] = value
         - Compound: Ex: a, b[0], [c, d], e["key"] = 1, 2.0, [True, False], "value"
-        
-    TODO: Attributes assignment
     """
     target_type = _infer_one_target(target, context, solver)
     solver.add(axioms.assignment(target_type, value_type, solver.z3_types),
                fail_message="Assignment in line {}".format(target.lineno))
+    solver.optimize.add_soft(target_type == value_type)
+
+
+def _is_type_var_declaration(node):
+    return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "TypeVar"
 
 
 def _infer_assign(node, context, solver):
     """Infer the types of target variables in an assignment node."""
 
-    for target in node.targets:
-        _infer_assignment_target(target, context, expr.infer(node.value, context, solver), solver)
+    if _is_type_var_declaration(node.value):
+        solver.annotation_resolver.add_type_var(node.targets[0], node.value)
+    else:
+        for target in node.targets:
+            _infer_assignment_target(target, context, expr.infer(node.value, context, solver), solver)
 
     return solver.z3_types.none
 
@@ -159,7 +166,7 @@ def _infer_body(body, context, lineno, solver):
         stmts_types.append(stmt_type)
         solver.add(axioms.body(body_type, stmt_type, solver.z3_types),
                    fail_message="Body type in line {}".format(lineno))
-
+        solver.optimize.add_soft(body_type == stmt_type)
     # The body type should be none if all statements have none type.
     solver.add(z3_types.Implies(z3_types.And([x == solver.z3_types.none for x in stmts_types]),
                                 body_type == solver.z3_types.none),
@@ -193,7 +200,8 @@ def _infer_control_flow(node, context, solver):
     result_type = solver.new_z3_const("control_flow")
     solver.add(axioms.control_flow(body_type, else_type, result_type, solver.z3_types),
                fail_message="Control flow in line {}".format(node.lineno))
-
+    solver.optimize.add_soft(result_type == body_type)
+    solver.optimize.add_soft(result_type == else_type)
     return result_type
 
 
@@ -242,6 +250,9 @@ def _infer_try(node, context, solver):
 
     solver.add(axioms.try_except(body_type, else_type, final_type, result_type, solver.z3_types),
                fail_message="Try/Except block in line {}".format(node.lineno))
+    solver.optimize.add_soft(result_type == body_type)
+    solver.optimize.add_soft(result_type == else_type)
+    solver.optimize.add_soft(result_type == final_type)
 
     # TODO: Infer exception handlers as classes
 
@@ -253,31 +264,6 @@ def _infer_try(node, context, solver):
     return result_type
 
 
-def unparse_annotation(annotation_node):
-    """Unparse to the AST node for the type annotation into its original text
-    
-    Cases:
-        - Name, ex: x: int
-        - Subscript, ex: x: List[int]
-        - Tuple: ex: x: Dict[str, int]
-    """
-    if isinstance(annotation_node, ast.Name):
-        return annotation_node.id
-    elif isinstance(annotation_node, ast.List):
-        return "[{}]".format(", ".join([unparse_annotation(elt) for elt in annotation_node.elts]))
-    elif isinstance(annotation_node, ast.Subscript):
-        return "{}[{}]".format(unparse_annotation(annotation_node.value), unparse_annotation(annotation_node.slice))
-    elif isinstance(annotation_node, ast.Index):
-        return unparse_annotation(annotation_node.value)
-    elif isinstance(annotation_node, ast.Slice):
-        return "{}:{}:{}".format(unparse_annotation(annotation_node.lower),
-                                 unparse_annotation(annotation_node.upper),
-                                 unparse_annotation(annotation_node.step))
-    elif isinstance(annotation_node, ast.Tuple):
-        return ", ".join([unparse_annotation(elt) for elt in annotation_node.elts])
-    raise ValueError("Invalid type annotation")
-
-
 def _init_func_context(args, context, solver):
     """Initialize the local function scope, and the arguments types"""
     local_context = Context(parent_context=context)
@@ -287,7 +273,7 @@ def _init_func_context(args, context, solver):
     args_types = ()
     for arg in args:
         if arg.annotation:
-            arg_type = solver.resolve_annotation(unparse_annotation(arg.annotation))
+            arg_type = solver.resolve_annotation(arg.annotation)
         else:
             arg_type = solver.new_z3_const("func_arg")
         local_context.set_type(arg.arg, arg_type)
@@ -296,12 +282,81 @@ def _init_func_context(args, context, solver):
     return local_context, args_types
 
 
+def is_annotated(node):
+    """Check the arguments and return are annotated in a function definition"""
+    if not node.returns:
+        return False
+    for arg in node.args.args:
+        if not arg.annotation:
+            return False
+    return True
+
+
+def is_stub(node):
+    """Check if the function is a stub definition:
+    
+    For the function to be a stub, it should be fully annotated and should have no body.
+    The body should be a single `Pass` statement with optional docstring.
+    """
+    if not is_annotated(node):
+        return False
+
+    return ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
+            or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass)))
+
+
+def has_type_var(node, solver):
+    """Check if the function definition has a generic type variable annotation
+    
+    Inspect all the nodes of the type annotations and look for relevant generic type vars
+    """
+    found_type_var = False
+
+    # Get annotations of args and return in one list
+    all_annotations = []
+    if node.returns:
+        all_annotations.append(node.returns)
+
+    for arg in node.args.args:
+        if arg.annotation:
+            all_annotations.append(arg.annotation)
+
+    # check if any annotation has a type variable
+    for annotation in all_annotations:
+        if found_type_var:
+            break
+        # walk over all nodes because the type variable might be deep inside.
+        # example: Tuple[List[str], Dict[T, str]]
+        all_annotation_nodes = list(ast.walk(annotation))
+        for n in all_annotation_nodes:
+            # check all nodes which are instance of ast.Name; they are the only candidates for type vars
+            if isinstance(n, ast.Name) and n.id in solver.annotation_resolver.type_var_poss:
+                found_type_var = True
+                break
+    if found_type_var:
+        if len(all_annotations) < len(node.args.args) + 1:
+            raise TypeError("Function {} in line {} containing type variables should be fully annotated."
+                            .format(node.name, node.lineno))
+
+    return found_type_var
+
+
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
+    if is_stub(node) or has_type_var(node, solver):
+        return_annotation = node.returns
+        args_annotations = []
+        for arg in node.args.args:
+            args_annotations.append(arg.annotation)
+        context.annotated_functions[node.name] = (args_annotations, return_annotation)
+        return
+
     func_context, args_types = _init_func_context(node.args.args, context, solver)
+    result_type = solver.new_z3_const("func")
+    context.set_type(node.name, result_type)
 
     if node.returns:
-        return_type = solver.resolve_annotation(unparse_annotation(node.returns))
+        return_type = solver.resolve_annotation(node.returns)
         if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
             or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
             # Stub function
@@ -314,11 +369,9 @@ def _infer_func_def(node, context, solver):
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
 
     func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
-    result_type = solver.new_z3_const("func")
+
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
-
-    context.set_type(node.name, result_type)
 
 
 def _infer_class_def(node, context, solver):
@@ -377,6 +430,72 @@ def _infer_class_def(node, context, solver):
     context.set_type(node.name, result_type)
 
 
+def _infer_import(node, context, solver):
+    """Infer the imported module in normal import statement
+    
+    The imported modules can be used with direct module access only.
+    Which means, re-assigning the module to a variable or passing it as a function arg is not supported.
+    
+    For example, the following is not possible:
+        - import X
+          x = X
+          
+        - import X
+          f(X)
+          
+    The importing supports deep module access. For example, the following is supported.
+    
+    >> A.py
+    x = 1
+    
+    >> B.py
+    import A
+    
+    >> C.py
+    import B
+    
+    print(B.A.x)
+    """
+    for name in node.names:
+        import_context = ImportHandler.infer_import(name.name, solver.config.base_folder, infer, solver)
+
+        if name.asname:
+            # import X as Y
+            module_name = name.asname
+        else:
+            module_name = name.name
+
+        # Store the module context in the current context.
+        context.set_type(module_name, import_context)
+
+    return solver.z3_types.none
+
+
+def _infer_import_from(node, context, solver):
+    """Infer the imported module in an `import from` statement"""
+    if node.module == "typing":
+        # FIXME ignore typing module for now, so as not to break type variables
+        # Remove after implementing stub for typing and built-in importing
+        return solver.z3_types.none
+    import_context = ImportHandler.infer_import(node.module, solver.config.base_folder, infer, solver)
+
+    if len(node.names) == 1 and node.names[0].name == "*":
+        # import all module elements
+        for v in import_context.types_map:
+            context.set_type(v, import_context.get_type(v))
+    else:
+        # Import only stated names
+        for name in node.names:
+            elt_name = name.name
+            if name.asname:
+                elt_name = name.asname
+            if name.name not in import_context.types_map:
+                raise ImportError("Cannot import name {}".format(name.name))
+            context.set_type(elt_name, import_context.get_type(name.name))
+
+    return solver.z3_types.none
+
+
 def infer(node, context, solver):
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context, solver)
@@ -406,4 +525,8 @@ def infer(node, context, solver):
         return _infer_class_def(node, context, solver)
     elif isinstance(node, ast.Expr):
         expr.infer(node.value, context, solver)
+    elif isinstance(node, ast.Import):
+        return _infer_import(node, context, solver)
+    elif isinstance(node, ast.ImportFrom):
+        return _infer_import_from(node, context, solver)
     return solver.z3_types.none
