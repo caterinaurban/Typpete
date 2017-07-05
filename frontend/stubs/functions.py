@@ -203,6 +203,14 @@ def repr(_: object) -> str:
     pass
 
 
+def reversed(_: List[T]) -> List[T]:
+    """Return a reversed version of the input list
+    
+    TODO: make it return reversed object after implementing interfaces
+    """
+    pass
+
+
 def round(_: float) -> int:
     """
     round(number[, ndigits]) -> number
