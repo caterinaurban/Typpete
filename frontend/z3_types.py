@@ -6,6 +6,9 @@ Limitations:
 """
 from collections import OrderedDict
 from frontend.annotation_resolver import AnnotationResolver
+from frontend.pre_analysis import PreAnalyzer
+from frontend.stubs.stubs_handler import StubsHandler
+
 from z3 import *
 
 
@@ -291,13 +294,21 @@ set_param("smt.mbqi", False)
 
 class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""
-    def __init__(self, config, solver=None, ctx=None):
+    def __init__(self, tree, solver=None, ctx=None):
         super().__init__(solver, ctx)
-        self.set(unsat_core=True)
-        self.z3_types = Z3Types(config)
+
+        self.set(auto_config=False, mbqi=False, unsat_core=True)
+
         self.element_id = 0  # Unique id given to newly created Z3 consts
         self.assertions_vars = []
         self.assertions_errors = {}
+
+        analyzer = PreAnalyzer(tree, "tests/inference")
+        self.stubs_handler = StubsHandler(analyzer)
+
+        self.config = analyzer.get_all_configurations()
+        self.z3_types = Z3Types(self.config)
+
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         self.optimize = Optimize(ctx)
         self.optimize.set("timeout", 15000)
@@ -306,6 +317,9 @@ class TypesSolver(Solver):
     def init_axioms(self):
         self.add(self.z3_types.subtype_properties + self.z3_types.axioms + self.z3_types.generics_axioms,
                  fail_message="Subtyping error")
+
+    def infer_stubs(self, context, infer_func):
+        self.stubs_handler.infer_all_files(context, self, self.config.used_names, infer_func)
 
     def add(self, *args, fail_message):
         assertion = self.new_z3_const("assertion_bool", BoolSort())
