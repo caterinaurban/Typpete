@@ -1,8 +1,9 @@
 """Stub file for built in functions"""
 from typing import TypeVar, List, Tuple, Dict
 
-T = TypeVar("Any")
-U = TypeVar("Any2")
+T = TypeVar("T")
+U = TypeVar("U")
+
 Num = TypeVar("Num", bound=complex)
 Str = TypeVar("Str", str, bytes)
 Seq = TypeVar("Seq", Str, List[T])

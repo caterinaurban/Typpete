@@ -2,7 +2,6 @@ from z3 import Or, And
 import ast
 
 
-
 class AnnotationResolver:
     """Resolver for type annotations in functions"""
     def __init__(self, z3_types):
@@ -64,6 +63,7 @@ class AnnotationResolver:
                 type_var_super = self.resolve(self.type_var_super[annotation.id], solver, generics_map)
                 solver.add(solver.z3_types.subtype(result_type, type_var_super),
                            fail_message="Generic bound in line {}".format(annotation.lineno))
+
             return result_type
 
         if isinstance(annotation, ast.Subscript):
@@ -104,6 +104,9 @@ class AnnotationResolver:
                     tuple_args_types = [self.resolve(annotation.slice.value, solver, generics_map)]
                 else:
                     tuple_args_types = [self.resolve(x, solver, generics_map) for x in annotation.slice.value.elts]
+
+                if len(tuple_args_types) == 0:
+                    return self.z3_types.tuples[0]
                 return self.z3_types.tuples[len(tuple_args_types)](*tuple_args_types)
             
             if annotation_val == "Callable":
@@ -121,7 +124,7 @@ class AnnotationResolver:
                 args_types = [self.resolve(x, solver, generics_map) for x in args_annotations]
                 return_type = self.resolve(annotation.slice.value.elts[1], solver, generics_map)
 
-                return self.z3_types.funcs[len(args_types)](*(args_types + [return_type]))
+                return self.z3_types.funcs[len(args_types)](*([0] + args_types + [return_type]))
 
             if annotation_val == "Union":
                 # Parse Union type

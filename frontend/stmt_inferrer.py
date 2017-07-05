@@ -27,6 +27,7 @@ import frontend.z3_types as z3_types
 import sys
 
 from frontend.context import Context
+from frontend.import_handler import ImportHandler
 
 
 def _infer_one_target(target, context, solver):
@@ -188,10 +189,43 @@ def _infer_control_flow(node, context, solver):
             ......
             return 2.0
 
-        type: Union{String, Float}
+        type: super{String, Float}
     """
-    body_type = _infer_body(node.body, context, node.lineno, solver)
-    else_type = _infer_body(node.orelse, context, node.lineno, solver)
+    body_context = Context(parent_context=context)
+    else_context = Context(parent_context=context)
+
+    body_type = _infer_body(node.body, body_context, node.lineno, solver)
+    else_type = _infer_body(node.orelse, else_context, node.lineno, solver)
+
+    # Re-assigning variables in the body branch
+    for v in body_context.types_map:
+        if context.has_variable(v):
+            t1 = body_context.types_map[v]
+            t2 = context.get_type(v)
+            solver.add(t1 == t2,
+                       fail_message="re-assigning in flow branching in line {}".format(node.lineno))
+
+    # Re-assigning variables in the else branch
+    for v in else_context.types_map:
+        if context.has_variable(v):
+            t1 = else_context.types_map[v]
+            t2 = context.get_type(v)
+            solver.add(t1 == t2,
+                       fail_message="re-assigning in flow branching in line {}".format(node.lineno))
+
+    # Take intersection of variables in both contexts
+    for v in body_context.types_map:
+        if v in else_context.types_map and not context.has_variable(v):
+            var_type = solver.new_z3_const("branching_var")
+            t1 = body_context.types_map[v]
+            t2 = else_context.types_map[v]
+            solver.add(solver.z3_types.subtype(t1, var_type),
+                       fail_message="subtyping in flow branching in line {}".format(node.lineno))
+            solver.add(solver.z3_types.subtype(t2, var_type),
+                       fail_message="subtyping in flow branching in line {}".format(node.lineno))
+            solver.optimize.add_soft(t1 == var_type)
+            solver.optimize.add_soft(t2 == var_type)
+            context.set_type(v, var_type)
 
     if hasattr(node, "test"):
         expr.infer(node.test, context, solver)
@@ -281,6 +315,26 @@ def _init_func_context(args, context, solver):
     return local_context, args_types
 
 
+
+def _infer_args_defaults(args_types, defaults, context, solver):
+    """Infer the default values of function arguments (if any)
+    
+    :param args_types: Z3 constants for arguments types
+    :param defaults: AST nodes for default values of arguments
+    :param context: The parent of the function context
+    :param solver: The inference Z3 solver
+    
+    
+    A default array of length `n` represents the default values of the last `n` arguments
+    """
+    for i, default in enumerate(defaults):
+        arg_idx = i + len(args_types) - len(defaults)  # The defaults array correspond to the last arguments
+        default_type = expr.infer(default, context, solver)
+        solver.add(solver.z3_types.subtype(default_type, args_types[arg_idx]),
+                   fail_message="Function default argument in line {}".format(defaults[i].lineno))
+        solver.optimize.add_soft(default_type == args_types[arg_idx])
+
+
 def is_annotated(node):
     """Check the arguments and return are annotated in a function definition"""
     if not node.returns:
@@ -359,6 +413,13 @@ def _infer_func_def(node, context, solver):
     result_type = solver.new_z3_const("func")
     context.set_type(node.name, result_type)
 
+    if hasattr(node.args, "defaults"):
+        # Use the default args to infer the function parameters
+        _infer_args_defaults(args_types, node.args.defaults, context, solver)
+        defaults_len = len(node.args.defaults)
+    else:
+        defaults_len = 0
+
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
         if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
@@ -372,8 +433,7 @@ def _infer_func_def(node, context, solver):
     else:
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
 
-    func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
-
+    func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (body_type,))
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
 
@@ -395,6 +455,72 @@ def _infer_class_def(node, context, solver):
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
     context.set_type(node.name, result_type)
+
+
+def _infer_import(node, context, solver):
+    """Infer the imported module in normal import statement
+    
+    The imported modules can be used with direct module access only.
+    Which means, re-assigning the module to a variable or passing it as a function arg is not supported.
+    
+    For example, the following is not possible:
+        - import X
+          x = X
+          
+        - import X
+          f(X)
+          
+    The importing supports deep module access. For example, the following is supported.
+    
+    >> A.py
+    x = 1
+    
+    >> B.py
+    import A
+    
+    >> C.py
+    import B
+    
+    print(B.A.x)
+    """
+    for name in node.names:
+        import_context = ImportHandler.infer_import(name.name, solver.config.base_folder, infer, solver)
+
+        if name.asname:
+            # import X as Y
+            module_name = name.asname
+        else:
+            module_name = name.name
+
+        # Store the module context in the current context.
+        context.set_type(module_name, import_context)
+
+    return solver.z3_types.none
+
+
+def _infer_import_from(node, context, solver):
+    """Infer the imported module in an `import from` statement"""
+    if node.module == "typing":
+        # FIXME ignore typing module for now, so as not to break type variables
+        # Remove after implementing stub for typing and built-in importing
+        return solver.z3_types.none
+    import_context = ImportHandler.infer_import(node.module, solver.config.base_folder, infer, solver)
+
+    if len(node.names) == 1 and node.names[0].name == "*":
+        # import all module elements
+        for v in import_context.types_map:
+            context.set_type(v, import_context.get_type(v))
+    else:
+        # Import only stated names
+        for name in node.names:
+            elt_name = name.name
+            if name.asname:
+                elt_name = name.asname
+            if name.name not in import_context.types_map:
+                raise ImportError("Cannot import name {}".format(name.name))
+            context.set_type(elt_name, import_context.get_type(name.name))
+
+    return solver.z3_types.none
 
 
 def infer(node, context, solver):
@@ -426,4 +552,8 @@ def infer(node, context, solver):
         return _infer_class_def(node, context, solver)
     elif isinstance(node, ast.Expr):
         expr.infer(node.value, context, solver)
+    elif isinstance(node, ast.Import):
+        return _infer_import(node, context, solver)
+    elif isinstance(node, ast.ImportFrom):
+        return _infer_import_from(node, context, solver)
     return solver.z3_types.none
