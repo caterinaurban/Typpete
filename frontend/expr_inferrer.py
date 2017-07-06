@@ -399,6 +399,9 @@ def infer_func_call(node, context, solver):
     if isinstance(node.func, ast.Attribute):
         # Add axioms for built-in methods
         instance = infer(node.func.value, context, solver)
+        if isinstance(instance, Context):
+            # Module access; instance is a module, so don't add it as a receiver to `arg_types`
+            instance = None
         args_types = _get_args_types(node.args, context, instance, solver)
         call_axioms += _get_builtin_method_call_axioms(args_types, solver, context, result_type, node.func.attr)
     else:
