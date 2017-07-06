@@ -4,11 +4,25 @@ import unittest
 from frontend.stmt_inferrer import *
 
 
+def print_complete_solver(z3solver):
+    pp = z3_types.z3printer._PP
+    pp.max_lines = 4000
+    pp.max_width = 120
+    formatter = z3_types.z3printer._Formatter
+    formatter.max_visited = 100000
+    formatter.max_depth = 50
+    formatter.max_args = 512
+    out = sys.stdout
+    pp(out, formatter(z3solver))
+
+
 class TestInference(unittest.TestCase):
-    def __init__(self, file_path):
+    def __init__(self, file_path, file_name):
         super().__init__()
         self.file_path = file_path
+        self.file_name = file_name
         self.sat = True
+        self.ignore = False
 
     @staticmethod
     def parse_comment(comment):
@@ -24,6 +38,9 @@ class TestInference(unittest.TestCase):
                 continue
             if line[2:] == "unsat":
                 self.sat = False
+                continue
+            if line[2:] == "ignore":
+                self.ignore = True
                 continue
             variable, t = self.parse_comment(line)
             result[variable] = solver.resolve_annotation(ast.parse(t).body[0].value)
@@ -51,7 +68,7 @@ class TestInference(unittest.TestCase):
         solver.push()
 
         r = open(path)
-        expected_result = self.parse_results(open(path), solver)
+        expected_result = self.parse_results(r, solver)
         r.close()
 
         return solver, context, expected_result
@@ -59,6 +76,9 @@ class TestInference(unittest.TestCase):
     def runTest(self):
         """Test for expressions inference"""
         solver, context, expected_result = self.infer_file(self.file_path)
+
+        if self.ignore:
+            return
 
         check = solver.optimize.check()
         if self.sat:
@@ -70,13 +90,12 @@ class TestInference(unittest.TestCase):
         model = solver.optimize.model()
         for v in expected_result:
             self.assertTrue(context.has_var_in_children(v),
-                            "Expected to have variable '{}' in the program".format(v))
+                            "Test file {}. Expected to have variable '{}' in the program".format(self.file_name, v))
 
             z3_type = context.get_var_from_children(v)
             self.assertEqual(model[z3_type], expected_result[v],
-                             "Expected variable '{}' to have type '{}', but found '{}'".format(v,
-                                                                                               expected_result[v],
-                                                                                               model[z3_type]))
+                             "Test file {}. Expected variable '{}' to have type '{}', but found '{}'"
+                             .format(self.file_name, v, expected_result[v], model[z3_type]))
 
 
 def suite():
@@ -84,9 +103,11 @@ def suite():
     g = os.getcwd() + '/unittests/inference/**.py'
     for path in glob.iglob(g):
         if os.path.basename(path) != "__init__.py":
-            s.addTest(TestInference(path))
+            name = path.split("/")[-1]
+            s.addTest(TestInference(path, name))
     runner = unittest.TextTestRunner()
     runner.run(s)
+
 
 if __name__ == '__main__':
     suite()
