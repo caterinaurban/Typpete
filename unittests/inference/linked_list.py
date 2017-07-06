@@ -41,8 +41,14 @@ for i in range(5):
     else:
         l.insert_at_begin(l.first_node.get_data() + i)
 
-"""TODO: Add assertion for inner class methods after merging deep context access in PR 25"""
 # Node := Type[Node]
+# get_data := Callable[[Node], int]
+# set_data := Callable[[Node, int], None]
+# get_next_node := Callable[[Node], Node]
+# set_next_node := Callable[[Node, Node], None]
+
 # List := Type[List]
+# is_empty := Callable[[List], bool]
+# insert_at_begin := Callable[[List, int], None]
 # n := Node
 # l := List
