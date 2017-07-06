@@ -380,8 +380,8 @@ def _infer_annotated_function_call(args_types, solver, annotations, result_type)
     return solver.annotation_resolver.get_annotated_function_axioms(args_types, solver, annotations, result_type)
 
 
-def _infer_builtin_method(args_types, solver, context, result_type, method_name):
-    """Get the axioms of built-in methods inference"""
+def _get_builtin_method_call_axioms(args_types, solver, context, result_type, method_name):
+    """Get the axioms of built-in method calls"""
     possible_methods = context.get_matching_methods(method_name)
     method_axioms = []
     for method in possible_methods:
@@ -399,8 +399,11 @@ def infer_func_call(node, context, solver):
     if isinstance(node.func, ast.Attribute):
         # Add axioms for built-in methods
         instance = infer(node.func.value, context, solver)
+        if isinstance(instance, Context):
+            # Module access; instance is a module, so don't add it as a receiver to `arg_types`
+            instance = None
         args_types = _get_args_types(node.args, context, instance, solver)
-        call_axioms += _infer_builtin_method(args_types, solver, context, result_type, node.func.attr)
+        call_axioms += _get_builtin_method_call_axioms(args_types, solver, context, result_type, node.func.attr)
     else:
         args_types = _get_args_types(node.args, context, instance, solver)
         if isinstance(node.func, ast.Name) and context.has_annotated_func(node.func.id):
@@ -426,7 +429,7 @@ def infer_func_call(node, context, solver):
     return result_type
 
 
-def _get_builtin_attr_access(instance_type, attr, result_type, context, solver):
+def _get_builtin_attr_access_axioms(instance_type, attr, result_type, context, solver):
     """Return axioms for built-in attribute access"""
 
     # get the built-in methods matching the attribute
@@ -470,7 +473,7 @@ def infer_attribute(node, context, from_call, solver):
     result_type = solver.new_z3_const("attribute")
 
     # get axioms for built-in attribute access. Ex: x.append(sth)
-    builtin_axioms = _get_builtin_attr_access(instance, node.attr, result_type, context, solver)
+    builtin_axioms = _get_builtin_attr_access_axioms(instance, node.attr, result_type, context, solver)
 
     # get axioms for user-defined attribute acces. Ex: A().sth
     user_defined_attribute_axioms = axioms.attribute(instance, node.attr, result_type, solver.z3_types)
