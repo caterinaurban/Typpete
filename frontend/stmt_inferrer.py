@@ -26,7 +26,7 @@ import frontend.z3_axioms as axioms
 import frontend.z3_types as z3_types
 import sys
 
-from frontend.context import Context
+from frontend.context import Context, AnnotatedFunction
 from frontend.import_handler import ImportHandler
 
 
@@ -401,7 +401,7 @@ def _infer_func_def(node, context, solver):
         args_annotations = []
         for arg in node.args.args:
             args_annotations.append(arg.annotation)
-        context.annotated_functions[node.name] = (args_annotations, return_annotation)
+        context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation))
         return
 
     func_context, args_types = _init_func_context(node.args.args, context, solver)
