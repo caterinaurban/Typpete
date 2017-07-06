@@ -81,6 +81,7 @@ class Context:
         return self.parent_context.get_annotated_func(func_name)
 
     def get_matching_methods(self, method_name):
+        """Return the built-in methods in this context (or a parent context) which match the given method name"""
         methods = []
         for t in self.builtin_methods:
             if method_name in self.builtin_methods[t]:
