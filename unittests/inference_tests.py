@@ -4,18 +4,6 @@ import unittest
 from frontend.stmt_inferrer import *
 
 
-def print_complete_solver(z3solver):
-    pp = z3_types.z3printer._PP
-    pp.max_lines = 4000
-    pp.max_width = 120
-    formatter = z3_types.z3printer._Formatter
-    formatter.max_visited = 100000
-    formatter.max_depth = 50
-    formatter.max_args = 512
-    out = sys.stdout
-    pp(out, formatter(z3solver))
-
-
 class TestInference(unittest.TestCase):
     def __init__(self, file_path, file_name):
         super().__init__()
