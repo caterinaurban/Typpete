@@ -36,8 +36,8 @@ import frontend.z3_axioms as axioms
 import sys
 import z3
 
-from frontend.context import Context
 from z3 import Or, And
+from frontend.context import Context, AnnotatedFunction
 
 
 def infer_numeric(node, solver):
@@ -406,22 +406,14 @@ def infer_func_call(node, context, solver):
         call_axioms += _get_builtin_method_call_axioms(args_types, solver, context, result_type, node.func.attr)
     else:
         args_types = _get_args_types(node.args, context, instance, solver)
-        if isinstance(node.func, ast.Name) and context.has_annotated_func(node.func.id):
-            # Add axioms for built-in functions
-            annotated_func = context.get_annotated_func(node.func.id)
-            func_axioms = _infer_annotated_function_call(args_types, solver, annotated_func, result_type)
-            if func_axioms is not None:
-                call_axioms.append(func_axioms)
 
-    try:
-        # Add normal call inference axioms
-        called = infer(node.func, context, solver)
+    called = infer(node.func, context, solver)
+    if isinstance(called, AnnotatedFunction):
+        func_axioms = solver.annotation_resolver.get_annotated_function_axioms(args_types, solver, called, result_type)
+        if func_axioms is not None:
+            call_axioms.append(func_axioms)
+    else:
         call_axioms += axioms.call(called, args_types, result_type, solver.z3_types)
-    except NameError as e:
-        # function name wasn't found in the context
-        if not call_axioms:
-            # no match for the function name in the context or in the built-ins
-            raise e
 
     solver.add(Or(call_axioms),
                fail_message="Call in line {}".format(node.lineno))
@@ -437,7 +429,7 @@ def _get_builtin_attr_access_axioms(instance_type, attr, result_type, context, s
 
     attr_axioms = []
     for method in possible_methods:
-        first_arg = method[0][0]
+        first_arg = method.args_annotations[0]
         resolved_type = solver.annotation_resolver.resolve(first_arg, solver, {})
 
         # Making result type to be none to prevent it from satisfying user-defined call axioms
@@ -462,7 +454,6 @@ def infer_attribute(node, context, from_call, solver):
     """
     # Check if it's a module access
     instance = infer(node.value, context, solver)
-
     if isinstance(instance, Context):
         # module import
         if from_call:

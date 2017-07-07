@@ -153,14 +153,15 @@ class AnnotationResolver:
 
         raise ValueError("Invalid type annotation in line {}".format(annotation.lineno))
 
-    def get_annotated_function_axioms(self, args_types, solver, annotations, result_type):
+    def get_annotated_function_axioms(self, args_types, solver, annotated_function, result_type):
+
         """Add axioms for a function call to an annotated function
         
         Reprocess the type annotations for every function call to prevent binding a certain type
         to the function definition
         """
-        args_annotations = annotations[0]
-        result_annotation = annotations[1]
+        args_annotations = annotated_function.args_annotations
+        result_annotation = annotated_function.return_annotation
 
         axioms = []
 

@@ -43,7 +43,7 @@ else:
     for v in sorted(context.types_map):
         z3_t = context.types_map[v]
 
-        if isinstance(z3_t, Context):
+        if isinstance(z3_t, (Context, AnnotatedFunction)):
             continue
 
         print("{}: {}".format(v, model[z3_t]))
