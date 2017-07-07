@@ -75,6 +75,7 @@ class PreAnalyzer:
         names = [node.id for node in self.all_nodes if isinstance(node, ast.Name)]
         names += [node.name for node in self.all_nodes if isinstance(node, ast.ClassDef)]
         names += [node.attr for node in self.all_nodes if isinstance(node, ast.Attribute)]
+        names += [node.name for node in self.all_nodes if isinstance(node, ast.alias)]
         return names
 
     def analyze_classes(self):

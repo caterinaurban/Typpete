@@ -10,7 +10,6 @@ class StubsHandler:
 
         classes_and_functions_files = paths.classes_and_functions
         for file in classes_and_functions_files:
-
             r = open(file)
             tree = ast.parse(r.read())
             r.close()
@@ -53,6 +52,13 @@ class StubsHandler:
                                isinstance(node.value.func, ast.Name) and
                                node.value.func.id == "TypeVar")]
 
+        # Variable assignments
+        # For example, math package has `pi` declaration as pi = 3.14...
+        relevant_nodes += [node for node in tree.body
+                           if (isinstance(node, ast.Assign) and
+                               any([isinstance(x, ast.Name) and
+                                    x.id in used_names for x in node.targets]))]
+
         if method_type:
             # Add the flag in the statements to recognize the method statements during the inference
             for node in relevant_nodes:
@@ -71,4 +77,3 @@ class StubsHandler:
         if module_name not in self.lib_asts:
             raise ImportError("No module named {}".format(module_name))
         self.infer_file(self.lib_asts[module_name], context, solver, used_names, infer_func)
-
