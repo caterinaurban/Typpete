@@ -1,6 +1,6 @@
 import unittest
 
-from abstract_domains.numerical.octagon import SingleVarLinearForm
+from abstract_domains.numerical.linear_forms import SingleVarLinearForm
 from unittests.generic_tests import ExpressionTreeTestCase
 
 
@@ -19,21 +19,21 @@ class TestSingleVarLinearForm(ExpressionTreeTestCase):
             form = SingleVarLinearForm(right_expr)
         except ValueError:
             form = "INVALID FORM"
-        # print(form)
 
-        self.assertEqual(str(form), self._expected_result)
+        self.assertEqual(str(form), self._expected_result, self.source)
 
 
 def suite():
     s = unittest.TestSuite()
-    # s.addTest(TestSingleVarLinearForm("simple", """a = b * (2+5)""", "INVALID FORM"))
-    # s.addTest(TestSingleVarLinearForm("simple", """a = (2+5) * b""", "INVALID FORM"))
-    # s.addTest(TestSingleVarLinearForm("simple", """a = b + (2+5)""", "+ b + [7,7]"))
-    # s.addTest(TestSingleVarLinearForm("simple", """a = (2+5) + b""", "+ b + [7,7]"))
-    # s.addTest(TestSingleVarLinearForm("simple", """a = -b + 2*(2+5)""", "- b + [14,14]"))
-    # s.addTest(TestSingleVarLinearForm("simple", """a = 2*(2+5) -b""", "- b + [14,14]"))
+    s.addTest(TestSingleVarLinearForm("simple", """a = b * (2+5)""", "INVALID FORM"))
+    s.addTest(TestSingleVarLinearForm("simple", """a = (2+5) * b""", "INVALID FORM"))
+    s.addTest(TestSingleVarLinearForm("simple", """a = b + (2+5)""", "+ b + [7,7]"))
+    s.addTest(TestSingleVarLinearForm("simple", """a = (2+5) + b""", "+ b + [7,7]"))
+    s.addTest(TestSingleVarLinearForm("simple", """a = -b + 2*(2+5)""", "- b + [14,14]"))
+    s.addTest(TestSingleVarLinearForm("simple", """a = 2*(2+5) -b""", "- b + [14,14]"))
     s.addTest(TestSingleVarLinearForm("simple", """a = b - (2+5)""", "+ b + [-7,-7]"))
     s.addTest(TestSingleVarLinearForm("simple", """a = -(2+5) + b""", "+ b + [-7,-7]"))
+    s.addTest(TestSingleVarLinearForm("simple", """a = b""", "+ b"))
     runner = unittest.TextTestRunner()
     runner.run(s)
 
