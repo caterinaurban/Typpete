@@ -126,10 +126,14 @@ class SingleVarLinearForm(LinearForm):
         if len(self.var_summands) > 1:
             raise ValueError("More than a single variable detected!")
 
+        # extract single var information from inherited, more complex data-structure
+        self._var_sign = list(self.var_summands.values())[0] if self.var_summands else PLUS
+        self._var = list(self.var_summands.keys())[0] if self.var_summands else None
+
     @property
     def var_sign(self):
-        return self.var_summands[0]
+        return self._var_sign
 
     @property
     def var(self):
-        return self.var_summands.keys()[0]
+        return self._var
