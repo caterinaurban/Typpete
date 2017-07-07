@@ -1,3 +1,4 @@
+import builtins
 import glob
 import os
 import unittest
@@ -10,6 +11,7 @@ class TestInference(unittest.TestCase):
         self.file_path = file_path
         self.file_name = file_name
         self.sat = True
+        self.throws = None
         self.ignore = False
 
     @staticmethod
@@ -18,7 +20,7 @@ class TestInference(unittest.TestCase):
         variable, type_annotation = assignment_text.split(" := ")
         return variable, type_annotation
 
-    def parse_results(self, source, solver):
+    def parse_results(self, source):
         result = {}
         for line in source:
             line = line.strip()
@@ -30,8 +32,11 @@ class TestInference(unittest.TestCase):
             if line[2:] == "ignore":
                 self.ignore = True
                 continue
+            if line[2:8] == "throws":
+                self.throws = line[9:]
+                continue
             variable, t = self.parse_comment(line)
-            result[variable] = solver.resolve_annotation(ast.parse(t).body[0].value)
+            result[variable] = t
         return result
 
     def infer_file(self, path):
@@ -55,18 +60,22 @@ class TestInference(unittest.TestCase):
 
         solver.push()
 
-        r = open(path)
-        expected_result = self.parse_results(r, solver)
-        r.close()
-
-        return solver, context, expected_result
+        return solver, context
 
     def runTest(self):
         """Test for expressions inference"""
-        solver, context, expected_result = self.infer_file(self.file_path)
+        r = open(self.file_path)
+        expected_result = self.parse_results(r)
+        r.close()
 
         if self.ignore:
             return
+
+        if self.throws:
+            self.assertRaises(getattr(builtins, self.throws), self.infer_file, self.file_path)
+            return
+
+        solver, context = self.infer_file(self.file_path)
 
         check = solver.optimize.check()
         if self.sat:
@@ -81,9 +90,10 @@ class TestInference(unittest.TestCase):
                             "Test file {}. Expected to have variable '{}' in the program".format(self.file_name, v))
 
             z3_type = context.get_var_from_children(v)
-            self.assertEqual(model[z3_type], expected_result[v],
+            expected = solver.annotation_resolver.resolve(ast.parse(expected_result[v]).body[0].value, solver)
+            self.assertEqual(model[z3_type], expected,
                              "Test file {}. Expected variable '{}' to have type '{}', but found '{}'"
-                             .format(self.file_name, v, expected_result[v], model[z3_type]))
+                             .format(self.file_name, v, expected, model[z3_type]))
 
 
 def suite():
