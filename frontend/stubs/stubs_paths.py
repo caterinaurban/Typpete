@@ -3,7 +3,7 @@ classes_and_functions = [
 ]
 
 libraries = {
-    "math": "frontend/stubs/lib/math.py",
+    "math": "frontend/stubs/libraries/math.py",
 }
 
 methods = [
