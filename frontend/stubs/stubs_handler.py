@@ -26,7 +26,7 @@ class StubsHandler:
             self.methods_asts.append(tree)
 
         for lib in paths.libraries:
-            r = open(paths.libraries["lib"])
+            r = open(paths.libraries[lib])
             tree = ast.parse(r.read())
             r.close()
             pre_analyzer.add_stub_ast(tree)
