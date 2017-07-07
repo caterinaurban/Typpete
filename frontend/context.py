@@ -7,7 +7,6 @@ class Context:
 
     def __init__(self, parent_context=None):
         self.types_map = {}
-        self.annotated_functions = {}
         self.parent_context = parent_context
         self.children_contexts = []
 
@@ -63,19 +62,8 @@ class Context:
                 continue
         raise NameError("Name {} is not defined".format(var_name))
 
-    def has_annotated_func(self, func_name):
-        """Check if this context (or parent context) has an annotated function `func_name`"""
-        if func_name in self.annotated_functions:
-            return True
-        if self.parent_context is None:
-            return False
-        return self.parent_context.has_annotated_func(func_name)
 
-    def get_annotated_func(self, func_name):
-        """Get the annotated function `func_name` from this context (or a parent context)"""
-        if func_name in self.annotated_functions:
-            return self.annotated_functions[func_name]
-        if self.parent_context is None:
-            raise NameError("Name {} is not defined".format(func_name))
-        return self.parent_context.get_annotated_func(func_name)
-
+class AnnotatedFunction:
+    def __init__(self, args_annotations, return_annotation):
+        self.args_annotations = args_annotations
+        self.return_annotation = return_annotation
