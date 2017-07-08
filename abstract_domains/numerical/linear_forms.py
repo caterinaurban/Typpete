@@ -49,10 +49,10 @@ class LinearForm(ExpressionVisitor):
 
     # the visit methods should either set parts of the linear form or call visit method on children, propagating if
     # the sub-expressions is negated. They can also fallback on other visitors like the interval visitor via
-    # IntervalLattice.evaluate_expression(expr)
+    # IntervalLattice.evaluate(expr)
 
     def visit_Literal(self, expr: Literal, invert=False):
-        self.interval = IntervalLattice.evaluate_expression(expr)
+        self.interval = IntervalLattice.evaluate(expr)
         if invert:
             self.interval.negate()
 
@@ -81,7 +81,7 @@ class LinearForm(ExpressionVisitor):
 
         try:
             # just try if interval lattice is capable of reducing to single interval (if no vars inside expr)
-            self.interval = IntervalLattice.evaluate_expression(expr.left)
+            self.interval = IntervalLattice.evaluate(expr.left)
         except ValueError:
             if expr.operator not in [BinaryArithmeticOperation.Operator.Add, BinaryArithmeticOperation.Operator.Sub]:
                 raise ValueError("unsupported binary arithmetic operator")
@@ -92,7 +92,7 @@ class LinearForm(ExpressionVisitor):
 
         try:
             # just try if interval lattice is capable of reducing to single interval (if no vars inside expr)
-            self.interval = IntervalLattice.evaluate_expression(expr.right)
+            self.interval = IntervalLattice.evaluate(expr.right)
             if expr.operator == BinaryArithmeticOperation.Operator.Sub:
                 self.interval.negate()
         except ValueError:

@@ -12,7 +12,8 @@ from math import inf, isinf
 
 from abstract_domains.numerical.linear_forms import SingleVarLinearForm, LinearForm
 
-from core.expressions_tools import ExpressionVisitor, ExpressionTransformer
+from core.expressions_tools import ExpressionVisitor, ExpressionTransformer, NotFreeConditionTransformer, \
+    make_condition_not_free, simplify
 
 Sign = UnaryArithmeticOperation.Operator
 PLUS = Sign.Add
@@ -95,10 +96,10 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
                     res.append(f"{lower}≤{var.name}")
                 elif upper < inf:
                     res.append(f"{var.name}≤{upper}")
-            # represent binary constraints second
-            for var1 in self._variables_list:
-                for var2 in self._variables_list:
-                    if var1 != var2:
+            # represent binary constraints second, do not repeat identical inequalities
+            for i, var1 in enumerate(self._variables_list):
+                for j, var2 in enumerate(self._variables_list):
+                    if i > j:
                         c = self[MINUS, var1, PLUS, var2]
                         if c < inf:
                             res.append(f"{var1.name}+{var2.name}≤{c}")
@@ -167,19 +168,19 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         return IntervalLattice(self.get_lb(var), self.get_ub())
 
     def set_lb(self, var: VariableIdentifier, constant):
-        self[MINUS, var, PLUS, var] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
+        self[PLUS, var, MINUS, var] = -2 * constant  # encodes -2*var <= -2*constant <=> var >= constant
 
     def raise_lb(self, var: VariableIdentifier, constant):
-        self.set_lb(max(self.get_lb(var), constant))
+        self.set_lb(var, max(self.get_lb(var), constant))
 
     def get_lb(self, var: VariableIdentifier):
         return self[PLUS, var, MINUS, var] / 2
 
     def set_ub(self, var: VariableIdentifier, constant):
-        self[PLUS, var, MINUS, var] = -2 * constant  # encodes -2*var <= -2*constant <=> var >= constant
+        self[MINUS, var, PLUS, var] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
 
     def lower_ub(self, var: VariableIdentifier, constant):
-        self.set_ub(min(self.get_ub(var), constant))
+        self.set_ub(var, min(self.get_ub(var), constant))
 
     def get_ub(self, var: VariableIdentifier):
         return self[MINUS, var, PLUS, var] / 2
@@ -200,68 +201,10 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         self[index2] = temp
 
     def evaluate(self, expr: Expression):
-        interval = self._visitor.visit(expr)
-        return interval
+        raise NotImplementedError()
 
 
 class OctagonDomain(OctagonLattice, State):
-    class NotFreeConditionTransformer(ExpressionTransformer):
-        """Transforms an expression by pushing ``not``-operators down the expression tree and reversing binary operations
-        
-        Uses De-Morgans law to push down ``not``-operators. Finally gets rid of all ``not``-operators, by reversing 
-        binary comparison operators that are negated. 
-        """
-
-        def visit_UnaryBooleanOperation(self, expr: UnaryBooleanOperation, invert=False):
-            if expr.operator == UnaryBooleanOperation.Operator.Neg:
-                return self.generic_visit(expr.expression, invert=not invert)  # double inversion cancels itself
-            else:
-                raise NotImplementedError()
-
-        def visit_BinaryBooleanOperation(self, expr: BinaryBooleanOperation, invert=False):
-            if invert:
-                if expr.operator == BinaryBooleanOperation.Operator.And:
-                    return BinaryBooleanOperation(expr.typ, self.generic_visit(expr.left, invert=True),
-                                                  BinaryBooleanOperation.Operator.Or,
-                                                  self.generic_visit(expr.right, invert=True))
-                elif expr.operator == BinaryBooleanOperation.Operator.Or:
-                    return BinaryBooleanOperation(expr.typ, self.generic_visit(expr.left, invert=True),
-                                                  BinaryBooleanOperation.Operator.And,
-                                                  self.generic_visit(expr.right, invert=True))
-                elif expr.operator == BinaryBooleanOperation.Operator.Xor:
-                    # use not(a xor b) == (a and b) or (not(a) and not(b))
-                    cond_both = BinaryBooleanOperation(expr.typ, self.generic_visit(deepcopy(expr.left), invert=False),
-                                                       BinaryBooleanOperation.Operator.And,
-                                                       self.generic_visit(deepcopy(expr.right), invert=False))
-                    cond_none = BinaryBooleanOperation(expr.typ, self.generic_visit(deepcopy(expr.left), invert=True),
-                                                       BinaryBooleanOperation.Operator.And,
-                                                       self.generic_visit(deepcopy(expr.right), invert=True))
-                    return BinaryBooleanOperation(expr.typ, cond_both,
-                                                  BinaryBooleanOperation.Operator.Or,
-                                                  cond_none)
-            else:
-                # get rid of xor also if not inverted!
-                if expr.operator == BinaryBooleanOperation.Operator.Xor:
-                    # use a xor b == (a or b) and not(a and b) == (a or b) and (not(a) or not(b))
-                    cond_one = BinaryBooleanOperation(expr.typ, self.generic_visit(deepcopy(expr.left), invert=False),
-                                                      BinaryBooleanOperation.Operator.Or,
-                                                      self.generic_visit(deepcopy(expr.right), invert=False))
-                    cond_not_both = BinaryBooleanOperation(expr.typ,
-                                                           self.generic_visit(deepcopy(expr.left), invert=True),
-                                                           BinaryBooleanOperation.Operator.Or,
-                                                           self.generic_visit(deepcopy(expr.right), invert=True))
-                    return BinaryBooleanOperation(expr.typ, cond_one, BinaryBooleanOperation.Operator.And,
-                                                  cond_not_both)
-                else:
-                    return BinaryBooleanOperation(expr.typ, self.generic_visit(expr.left),
-                                                  expr.operator,
-                                                  self.generic_visit(expr.right))
-
-        def visit_BinaryComparisonOperation(self, expr: BinaryComparisonOperation, invert=False):
-            return BinaryComparisonOperation(expr.typ, self.generic_visit(expr.left),
-                                             expr.operator.reverse_operator() if invert else expr.operator,
-                                             self.generic_visit(expr.right))
-
     class SmallerEqualConditionTransformer(ExpressionTransformer):
         """Transforms all conditions inside expression to format ``e <= 0``.
         """
@@ -385,8 +328,9 @@ class OctagonDomain(OctagonLattice, State):
             condition_set = OctagonDomain.SmallerEqualConditionTransformer().visit(expr)
             for cond in condition_set.conditions:
                 state_copy = deepcopy(state)
+                left_side = cond.left
                 try:
-                    form = LinearForm(cond)
+                    form = LinearForm(simplify(left_side))
                 except ValueError:
                     # right is not in single variable linear form
                     raise NotImplementedError(
@@ -401,7 +345,7 @@ class OctagonDomain(OctagonLattice, State):
                         state_copy.bottom()
                 elif len(form.var_summands) == 1:
                     # +/- x + [a, b] <= 0
-                    var, sign = form.var_summands.items()[0]
+                    var, sign = list(form.var_summands.items())[0]
 
                     if sign == PLUS:
                         # +x + [a, b] <= 0
@@ -413,8 +357,9 @@ class OctagonDomain(OctagonLattice, State):
                         raise ValueError("unknown sign")
                 elif len(form.var_summands) == 2:
                     # +/- x +/- y + [a, b] <= 0
-                    var1, sign1 = form.var_summands.items()[0]
-                    var2, sign2 = form.var_summands.items()[1]
+                    items = list(form.var_summands.items())
+                    var1, sign1 = items[0]
+                    var2, sign2 = items[1]
 
                     state_copy.lower_octagonal_constraint(sign1, var1, sign2, var2, -interval.lower)
                 else:
@@ -440,7 +385,7 @@ class OctagonDomain(OctagonLattice, State):
         raise NotImplementedError()
 
     def _assume(self, condition: Expression) -> 'OctagonDomain':
-        not_free_condition = OctagonDomain.NotFreeConditionTransformer().visit(condition)
+        not_free_condition = make_condition_not_free(condition)
 
         res = OctagonDomain.AssumeVisitor().visit(not_free_condition, self)
         self.replace(res)

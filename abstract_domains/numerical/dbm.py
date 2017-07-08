@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from copy import deepcopy
 from math import inf, nan, isinf, isnan
 from typing import Tuple
 
@@ -115,10 +116,11 @@ class CDBM(metaclass=ABCMeta):
         
         :return: True, if there where negative diagonal elements before they where set to 0, False otherwise.
         """
+        copy = deepcopy(self)
         for k in range(self.size):
             for i in range(self.size):
                 for j in range(self.size):  # TODO optimize to not set upper right diagonal entries
-                    self[i, j] = min(self[i, j], self[i, k] + self[k, j])
+                    self[i, j] = min(copy[i, j], copy[i, k] + copy[k, j])
 
         negative_diagonal_elements = any([self[i, i] < 0 for i in range(self.size)])
 

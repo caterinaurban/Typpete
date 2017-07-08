@@ -20,7 +20,7 @@ class NumericalLattice(metaclass=ABCMeta):
         pass
 
     @classmethod
-    def evaluate_expression(cls, expr: Expression):
+    def evaluate(cls, expr: Expression):
         """Evaluates the expression within this abstract domain."""
         raise NotImplementedError()
 

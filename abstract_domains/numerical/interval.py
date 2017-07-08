@@ -112,7 +112,7 @@ class IntervalLattice(BottomElementMixin, NumericalLattice):
         return self
 
     @classmethod
-    def evaluate_expression(cls, expr: Expression):
+    def evaluate(cls, expr: Expression):
         return cls._visitor.visit(expr)
 
     class Visitor(ExpressionVisitor):

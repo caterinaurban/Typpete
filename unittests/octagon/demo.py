@@ -3,7 +3,7 @@ a = 0
 
 a = a - 1
 
-if 3 > x:
+if a > 0:
     a = x
 else:
     x = a
