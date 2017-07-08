@@ -341,7 +341,7 @@ class UnaryOperation(Expression):
         return hash((self.typ, self.operator, self.expression))
 
     def __str__(self):
-        return "{0.operator}({0.expression})".format(self)
+        return f"{str(self.operator)}({self.expression})"
 
 
 class UnaryArithmeticOperation(UnaryOperation):
