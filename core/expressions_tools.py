@@ -106,9 +106,9 @@ class ExpressionTransformer(ExpressionVisitor):
                    ctx=node.ctx
                ), node)
 
-    Keep in mind that if the expression you're operating on has child nodes you must
-    either transform the child expressions yourself or call the :meth:`generic_visit`
-    method for the expression first.
+    Keep in mind that if the expression you're operating on has child nodes you must either transform the child 
+    expressions yourself by calling :meth:`visit` on child nodes or call the :meth:`generic_visit` method for the 
+    current expression. 
 
     For expressions that were part of a collection of expressions, the visitor may also return a list of expressions 
     rather than just a single expression. 
@@ -224,14 +224,14 @@ class SimplifierTransformer(ExpressionTransformer):
         if hasattr(expr, 'summands'):
             return expr.summands.to_expression()
         else:
-            self.generic_visit(expr.expression)
+            self.visit(expr.expression)
 
     def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation):
         if hasattr(expr, 'summands'):
             return expr.summands.to_expression()
         else:
-            self.generic_visit(expr.left)
-            self.generic_visit(expr.right)
+            self.visit(expr.left)
+            self.visit(expr.right)
 
 
 def simplify(expr: Expression):
@@ -248,28 +248,28 @@ class NotFreeConditionTransformer(ExpressionTransformer):
 
     def visit_UnaryBooleanOperation(self, expr: UnaryBooleanOperation, invert=False):
         if expr.operator == UnaryBooleanOperation.Operator.Neg:
-            return self.generic_visit(expr.expression, invert=not invert)  # double inversion cancels itself
+            return self.visit(expr.expression, invert=not invert)  # double inversion cancels itself
         else:
             raise NotImplementedError()
 
     def visit_BinaryBooleanOperation(self, expr: BinaryBooleanOperation, invert=False):
         if invert:
             if expr.operator == BinaryBooleanOperation.Operator.And:
-                return BinaryBooleanOperation(expr.typ, self.generic_visit(expr.left, invert=True),
+                return BinaryBooleanOperation(expr.typ, self.visit(expr.left, invert=True),
                                               BinaryBooleanOperation.Operator.Or,
-                                              self.generic_visit(expr.right, invert=True))
+                                              self.visit(expr.right, invert=True))
             elif expr.operator == BinaryBooleanOperation.Operator.Or:
-                return BinaryBooleanOperation(expr.typ, self.generic_visit(expr.left, invert=True),
+                return BinaryBooleanOperation(expr.typ, self.visit(expr.left, invert=True),
                                               BinaryBooleanOperation.Operator.And,
-                                              self.generic_visit(expr.right, invert=True))
+                                              self.visit(expr.right, invert=True))
             elif expr.operator == BinaryBooleanOperation.Operator.Xor:
                 # use not(a xor b) == (a and b) or (not(a) and not(b))
-                cond_both = BinaryBooleanOperation(expr.typ, self.generic_visit(deepcopy(expr.left), invert=False),
+                cond_both = BinaryBooleanOperation(expr.typ, self.visit(deepcopy(expr.left), invert=False),
                                                    BinaryBooleanOperation.Operator.And,
-                                                   self.generic_visit(deepcopy(expr.right), invert=False))
-                cond_none = BinaryBooleanOperation(expr.typ, self.generic_visit(deepcopy(expr.left), invert=True),
+                                                   self.visit(deepcopy(expr.right), invert=False))
+                cond_none = BinaryBooleanOperation(expr.typ, self.visit(deepcopy(expr.left), invert=True),
                                                    BinaryBooleanOperation.Operator.And,
-                                                   self.generic_visit(deepcopy(expr.right), invert=True))
+                                                   self.visit(deepcopy(expr.right), invert=True))
                 return BinaryBooleanOperation(expr.typ, cond_both,
                                               BinaryBooleanOperation.Operator.Or,
                                               cond_none)
@@ -277,24 +277,24 @@ class NotFreeConditionTransformer(ExpressionTransformer):
             # get rid of xor also if not inverted!
             if expr.operator == BinaryBooleanOperation.Operator.Xor:
                 # use a xor b == (a or b) and not(a and b) == (a or b) and (not(a) or not(b))
-                cond_one = BinaryBooleanOperation(expr.typ, self.generic_visit(deepcopy(expr.left), invert=False),
+                cond_one = BinaryBooleanOperation(expr.typ, self.visit(deepcopy(expr.left), invert=False),
                                                   BinaryBooleanOperation.Operator.Or,
-                                                  self.generic_visit(deepcopy(expr.right), invert=False))
+                                                  self.visit(deepcopy(expr.right), invert=False))
                 cond_not_both = BinaryBooleanOperation(expr.typ,
-                                                       self.generic_visit(deepcopy(expr.left), invert=True),
+                                                       self.visit(deepcopy(expr.left), invert=True),
                                                        BinaryBooleanOperation.Operator.Or,
-                                                       self.generic_visit(deepcopy(expr.right), invert=True))
+                                                       self.visit(deepcopy(expr.right), invert=True))
                 return BinaryBooleanOperation(expr.typ, cond_one, BinaryBooleanOperation.Operator.And,
                                               cond_not_both)
             else:
-                return BinaryBooleanOperation(expr.typ, self.generic_visit(expr.left),
+                return BinaryBooleanOperation(expr.typ, self.visit(expr.left),
                                               expr.operator,
-                                              self.generic_visit(expr.right))
+                                              self.visit(expr.right))
 
     def visit_BinaryComparisonOperation(self, expr: BinaryComparisonOperation, invert=False):
-        return BinaryComparisonOperation(expr.typ, self.generic_visit(expr.left),
+        return BinaryComparisonOperation(expr.typ, self.visit(expr.left),
                                          expr.operator.reverse_operator() if invert else expr.operator,
-                                         self.generic_visit(expr.right))
+                                         self.visit(expr.right))
 
 
 def make_condition_not_free(expr: Expression):
