@@ -212,7 +212,8 @@ class IntervalDomain(IntervalStore, State):
 
     def _assign_variable(self, left: Expression, right: Expression) -> 'IntervalDomain':
         if isinstance(left, VariableIdentifier):
-            self.variables[left] = self._visitor.visit(right)
+            if left.typ == int:
+                self.variables[left] = self._visitor.visit(right)
         else:
             raise NotImplementedError("")
         return self

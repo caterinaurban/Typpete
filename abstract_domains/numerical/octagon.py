@@ -518,48 +518,46 @@ class OctagonDomain(OctagonLattice, State):
     def _assign_variable(self, left: Expression, right: Expression) -> 'OctagonDomain':
         # Octagonal Assignments
         if isinstance(left, VariableIdentifier):
-            if left.typ != int:
-                raise ValueError()
-
-            try:
-                form = SingleVarLinearForm(right)
-                if not form.var and form.interval:
-                    # x = [a,b]
-                    self._assign_constant(left, form.interval)
-                elif form.var and form.interval:
-                    # x = +/- y + [a, b]
-                    if form.var == left:
-                        if form.var_sign == PLUS:
-                            # x = x + [a,b]
-                            self._assign_same_var_plus_constant(form.var, form.interval)
-                        elif form.var_sign == MINUS:
-                            # x = - x + [a,b]
-                            self._assign_negated_same_var_plus_constant(form.var, form.interval)
+            if left.typ == int:
+                try:
+                    form = SingleVarLinearForm(right)
+                    if not form.var and form.interval:
+                        # x = [a,b]
+                        self._assign_constant(left, form.interval)
+                    elif form.var and form.interval:
+                        # x = +/- y + [a, b]
+                        if form.var == left:
+                            if form.var_sign == PLUS:
+                                # x = x + [a,b]
+                                self._assign_same_var_plus_constant(form.var, form.interval)
+                            elif form.var_sign == MINUS:
+                                # x = - x + [a,b]
+                                self._assign_negated_same_var_plus_constant(form.var, form.interval)
+                            else:
+                                raise ValueError()
                         else:
-                            raise ValueError()
-                    else:
-                        if form.var_sign == PLUS:
-                            # x = y + [a,b]
-                            self._assign_other_var_plus_constant(left, form.var, form.interval)
-                elif form.var:
-                    # x = +/- x/y
-                    if form.var == left:
-                        if form.var_sign == PLUS:
-                            pass  # nothing to change
-                        elif form.var_sign == MINUS:
-                            # x = - x
-                            self._assign_negated_same_var(form.var)
+                            if form.var_sign == PLUS:
+                                # x = y + [a,b]
+                                self._assign_other_var_plus_constant(left, form.var, form.interval)
+                    elif form.var:
+                        # x = +/- x/y
+                        if form.var == left:
+                            if form.var_sign == PLUS:
+                                pass  # nothing to change
+                            elif form.var_sign == MINUS:
+                                # x = - x
+                                self._assign_negated_same_var(form.var)
+                            else:
+                                raise ValueError()
                         else:
-                            raise ValueError()
+                            # x = - y
+                            self._assign_negated_other_var(left, form.var)
                     else:
-                        # x = - y
-                        self._assign_negated_other_var(left, form.var)
-                else:
-                    raise ValueError()
-            except InvalidFormError:
-                # right is not in single variable linear form, use interval abstraction fallback
-                interval_domain = self.to_interval_domain()
-                interval = interval_domain.evaluate(right)
-                self._assign_constant(left, interval)
+                        raise ValueError()
+                except InvalidFormError:
+                    # right is not in single variable linear form, use interval abstraction fallback
+                    interval_domain = self.to_interval_domain()
+                    interval = interval_domain.evaluate(right)
+                    self._assign_constant(left, interval)
 
         return self
