@@ -444,10 +444,6 @@ class OctagonDomain(OctagonLattice, State):
             self[index] -= interval.lower
         for index in self.binary_constraints_indices(sign1=MINUS, var1=x):
             self[index] += interval.lower
-        for index in self.binary_constraints_indices(sign2=PLUS, var2=x):
-            self[index] += interval.lower
-        for index in self.binary_constraints_indices(sign2=MINUS, var2=x):
-            self[index] -= interval.lower
 
         # update unary constraints
         self.set_interval(x,
