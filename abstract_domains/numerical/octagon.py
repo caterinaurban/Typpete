@@ -74,7 +74,7 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
             for var2 in vars2:
                 if var1 == var2:
                     # do not yield diagonal and upper right triangular matrix
-                    break
+                    continue
                 for sign1 in signs1:
                     for sign2 in signs2:
                         yield (sign1, var1, sign2, var2)
@@ -163,9 +163,16 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         return self
 
     def forget(self, var: VariableIdentifier):
+        # close first to not loose implicit constraints about other variables
         self.close()
+
+        # forget binary constraints
         for index in self.binary_constraints_indices(sign1=None, var1=var):
             self[index] = inf
+
+        # forget unary constraints
+        self[PLUS, var, MINUS, var] = inf
+        self[MINUS, var, PLUS, var] = inf
 
     def set_interval(self, var: VariableIdentifier, interval: Union[int, IntervalLattice]):
         if isinstance(interval, IntervalLattice):
