@@ -32,6 +32,12 @@ class OctagonTestCase(ResultCommentsFileTestCase):
         # Run Octagon numerical Analysis
         forward_interpreter = ForwardInterpreter(self.cfg, DefaultForwardSemantics(), 3)
         result = forward_interpreter.analyze(OctagonDomain(variables))
+
+        # ensure all results are closed for displaying
+        for node_result_list in result.result.values():
+            for oct in node_result_list:
+                oct.close()
+
         self.render_result_cfg(result)
         self.check_result_comments(result)
 
