@@ -10,6 +10,10 @@ PLUS = Sign.Add
 MINUS = Sign.Sub
 
 
+class InvalidFormError(ValueError):
+    pass
+
+
 class LinearForm(ExpressionVisitor):
     """Holds an expression in linear form with one or several variables: `+/- var1 +/- var2 + ... + interval`."""
 
@@ -17,7 +21,7 @@ class LinearForm(ExpressionVisitor):
         """Initializes this instance with the linear form of an expression.
 
         If possible, this instance holds the parts of the linear form separately. If not possible to 
-        construct this form, this raises a ValueError.
+        construct this form, this raises a InvalidFormError.
         """
         self._var_summands = {}  # dictionary holding {var: sign}
         self._interval = None
@@ -30,7 +34,7 @@ class LinearForm(ExpressionVisitor):
 
     def _encounter_new_var(self, var, sign=PLUS):
         if var in self.var_summands:
-            raise ValueError(f"VariableIdentifier {var} appears twice!")
+            raise InvalidFormError(f"VariableIdentifier {var} appears twice!")
         self.var_summands[var] = sign
 
     @property
@@ -40,7 +44,7 @@ class LinearForm(ExpressionVisitor):
     @interval.setter
     def interval(self, value):
         if self._interval:
-            raise ValueError("interval set twice (is immutable)!")
+            raise InvalidFormError("interval set twice (is immutable)!")
         self._interval = value
 
     def __str__(self):
@@ -77,7 +81,7 @@ class LinearForm(ExpressionVisitor):
             elif binary_operator == BinaryArithmeticOperation.Operator.Sub:
                 return MINUS
             else:
-                raise ValueError()
+                raise ValueError("Unknown operator")
 
         try:
             # just try if interval lattice is capable of reducing to single interval (if no vars inside expr)
@@ -107,7 +111,7 @@ class LinearForm(ExpressionVisitor):
             raise ValueError("Unknown operator")
 
     def generic_visit(self, expr, *args, **kwargs):
-        raise ValueError(
+        raise InvalidFormError(
             f"{type(self)} does not support generic visit of expressions! Define handling for expression {type(expr)} explicitly!")
 
 
@@ -118,13 +122,13 @@ class SingleVarLinearForm(LinearForm):
         """Initializes this instance with the single variable form of an expression.
 
         If possible, this instance holds the parts of the single variable linear form separately. If not possible to 
-        construct this form, this raises a ValueError.
+        construct this form, this raises a InvalidFormError.
         """
 
         super().__init__(expr)
 
         if len(self.var_summands) > 1:
-            raise ValueError("More than a single variable detected!")
+            raise InvalidFormError("More than a single variable detected!")
 
         # extract single var information from inherited, more complex data-structure
         self._var_sign = list(self.var_summands.values())[0] if self.var_summands else PLUS

@@ -164,9 +164,13 @@ class IntervalStore(StoreLattice, NumericalDomain):
     def forget(self, var: VariableIdentifier):
         self.variables[var].top()
 
-    def set_interval(self, var: VariableIdentifier, constant):
-        self.variables[var].lower = constant
-        self.variables[var].upper = constant
+    def set_bounds(self, var: VariableIdentifier, lower: int, upper: int):
+        self.variables[var].lower = lower
+        self.variables[var].upper = upper
+
+    def set_interval(self, var: VariableIdentifier, interval: IntervalLattice):
+        self.variables[var].lower = interval.lower
+        self.variables[var].upper = interval.upper
 
     def set_lb(self, var: VariableIdentifier, constant):
         self.variables[var].lower = constant

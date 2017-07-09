@@ -3,14 +3,14 @@ from functools import reduce
 
 from abstract_domains.lattice import BottomElementMixin, Kind
 from abstract_domains.numerical.dbm import IntegerCDBM
-from abstract_domains.numerical.interval import IntervalLattice, IntervalStore
+from abstract_domains.numerical.interval import IntervalLattice, IntervalStore, IntervalDomain
 from abstract_domains.numerical.numerical import NumericalDomain
 from abstract_domains.state import State
 from core.expressions import *
 from typing import List, Set, Tuple, Union
 from math import inf, isinf
 
-from abstract_domains.numerical.linear_forms import SingleVarLinearForm, LinearForm
+from abstract_domains.numerical.linear_forms import SingleVarLinearForm, LinearForm, InvalidFormError
 
 from core.expressions_tools import ExpressionVisitor, ExpressionTransformer, NotFreeConditionTransformer, \
     make_condition_not_free, simplify
@@ -41,6 +41,10 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
             index += 2
         self._dbm = IntegerCDBM(len(variables) * 2)
         super().__init__()
+
+    @property
+    def variables_list(self):
+        return self._variables_list
 
     @property
     def dbm(self):
@@ -183,7 +187,7 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
             self.set_ub(var, interval)
 
     def get_interval(self, var: VariableIdentifier):
-        return IntervalLattice(self.get_lb(var), self.get_ub())
+        return IntervalLattice(self.get_lb(var), self.get_ub(var))
 
     def set_lb(self, var: VariableIdentifier, constant):
         self[PLUS, var, MINUS, var] = -2 * constant  # encodes -2*var <= -2*constant <=> var >= constant
@@ -349,39 +353,44 @@ class OctagonDomain(OctagonLattice, State):
                 left_side = cond.left
                 try:
                     form = LinearForm(simplify(left_side))
-                except ValueError:
-                    # right is not in single variable linear form
-                    raise NotImplementedError(
-                        "condition is not in linear form and this is not yet supported")
 
-                # simplify implementation by always having a valid interval part
-                interval = form.interval or IntervalLattice(0, 0)
+                    # simplify implementation by always having a valid interval part
+                    interval = form.interval or IntervalLattice(0, 0)
 
-                if not form.var_summands:  # TODO double check since this case is not handled in paper mine-HOSC06
-                    # [a,b] <= 0
-                    if interval.lower > 0:
-                        state_copy.bottom()
-                elif len(form.var_summands) == 1:
-                    # +/- x + [a, b] <= 0
-                    var, sign = list(form.var_summands.items())[0]
+                    if not form.var_summands:  # TODO double check since this case is not handled in paper mine-HOSC06
+                        # [a,b] <= 0
+                        if interval.lower > 0:
+                            state_copy.bottom()
+                    elif len(form.var_summands) == 1:
+                        # +/- x + [a, b] <= 0
+                        var, sign = list(form.var_summands.items())[0]
 
-                    if sign == PLUS:
-                        # +x + [a, b] <= 0
-                        state_copy.lower_ub(var, -interval.lower)
-                    elif sign == MINUS:
-                        # -x + [a, b] <= 0
-                        state_copy.raise_lb(var, interval.lower)
+                        if sign == PLUS:
+                            # +x + [a, b] <= 0
+                            state_copy.lower_ub(var, -interval.lower)
+                        elif sign == MINUS:
+                            # -x + [a, b] <= 0
+                            state_copy.raise_lb(var, interval.lower)
+                        else:
+                            raise ValueError("unknown sign")
+                    elif len(form.var_summands) == 2:
+                        # +/- x +/- y + [a, b] <= 0
+                        items = list(form.var_summands.items())
+                        var1, sign1 = items[0]
+                        var2, sign2 = items[1]
+
+                        state_copy.lower_octagonal_constraint(sign1, var1, sign2, var2, -interval.lower)
                     else:
-                        raise ValueError("unknown sign")
-                elif len(form.var_summands) == 2:
-                    # +/- x +/- y + [a, b] <= 0
-                    items = list(form.var_summands.items())
-                    var1, sign1 = items[0]
-                    var2, sign2 = items[1]
+                        raise InvalidFormError(
+                            "Condition with more than two variables cannot be represented as octagonal constraints")
 
-                    state_copy.lower_octagonal_constraint(sign1, var1, sign2, var2, -interval.lower)
-                else:
-                    raise NotImplementedError("more than two variables are not yet supported in conditions")
+                except InvalidFormError:
+                    # Non-octagonal constraint
+                    interval_domain = state.to_interval_domain()
+                    interval_domain.assume({expr})
+                    new_oct = OctagonDomain(state.variables_list)
+                    new_oct.from_interval_domain(interval_domain)
+                    state.meet(new_oct)
 
                 # finally store modified octagon copy for later combination
                 condition_set.condition_to_octagon[cond] = state_copy
@@ -398,6 +407,18 @@ class OctagonDomain(OctagonLattice, State):
         :param variables: list of program variables
         """
         super().__init__(variables)
+
+    def to_interval_domain(self):
+        interval_store = IntervalDomain(self._variables_list)
+        for var in self._variables_list:
+            interval_store.set_interval(var, self.get_interval(var))
+        return interval_store
+
+    def from_interval_domain(self, interval_domain: IntervalStore):
+        assert interval_domain.variables_list == self._variables_list
+
+        for var in self._variables_list:
+            self.set_interval(var, interval_domain.variables[var])
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'OctagonDomain':
         raise NotImplementedError()

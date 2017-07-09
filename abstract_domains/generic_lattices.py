@@ -21,6 +21,10 @@ class StoreLattice(Lattice):
         super().__init__()
 
     @property
+    def variables_list(self):
+        return self._variables_list
+
+    @property
     def variables(self):
         return self._variables
 
