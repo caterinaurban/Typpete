@@ -196,7 +196,7 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         self.set_lb(var, max(self.get_lb(var), constant))
 
     def get_lb(self, var: VariableIdentifier):
-        return self[PLUS, var, MINUS, var] / 2
+        return -self[PLUS, var, MINUS, var] / 2
 
     def set_ub(self, var: VariableIdentifier, constant):
         self[MINUS, var, PLUS, var] = 2 * constant  # encodes 2*var <= 2*constant <=> var <= constant
@@ -556,8 +556,10 @@ class OctagonDomain(OctagonLattice, State):
                         self._assign_negated_other_var(left, form.var)
                 else:
                     raise ValueError()
-            except ValueError:
-                # right is not in single variable linear form
-                raise NotImplementedError("right is not in single variable linear form and this is not yet supported")
+            except InvalidFormError:
+                # right is not in single variable linear form, use interval abstraction fallback
+                interval_domain = self.to_interval_domain()
+                interval = interval_domain.evaluate(right)
+                self._assign_constant(left, interval)
 
         return self

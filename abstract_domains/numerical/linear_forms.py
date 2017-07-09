@@ -74,33 +74,24 @@ class LinearForm(ExpressionVisitor):
         # OR
         # +/- var1 +/- var2
 
-        # second check if right argument of binary operation can be transformed to format (respecting what left was)
-        def binary_to_unary_operator(binary_operator):
-            if binary_operator == BinaryArithmeticOperation.Operator.Add:
-                return PLUS
-            elif binary_operator == BinaryArithmeticOperation.Operator.Sub:
-                return MINUS
-            else:
-                raise ValueError("Unknown operator")
-
         try:
             # just try if interval lattice is capable of reducing to single interval (if no vars inside expr)
             self.interval = IntervalLattice.evaluate(expr.left)
+            if invert:
+                self.interval.negate()
         except ValueError:
-            if expr.operator not in [BinaryArithmeticOperation.Operator.Add, BinaryArithmeticOperation.Operator.Sub]:
-                raise ValueError("unsupported binary arithmetic operator")
-            self.visit(expr.left)
+            self.visit(expr.left, invert=invert)
 
         if expr.operator not in [BinaryArithmeticOperation.Operator.Add, BinaryArithmeticOperation.Operator.Sub]:
-            raise ValueError("unsupported binary arithmetic operator")
+            raise InvalidFormError("Unsupported binary arithmetic operator")
 
         try:
             # just try if interval lattice is capable of reducing to single interval (if no vars inside expr)
             self.interval = IntervalLattice.evaluate(expr.right)
-            if expr.operator == BinaryArithmeticOperation.Operator.Sub:
+            if (expr.operator == BinaryArithmeticOperation.Operator.Sub) != invert:
                 self.interval.negate()
         except ValueError:
-            self.visit(expr.right, invert=expr.operator == BinaryArithmeticOperation.Operator.Sub)
+            self.visit(expr.right, invert=(expr.operator == BinaryArithmeticOperation.Operator.Sub) != invert)
 
     def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation, invert=False):
         if expr.operator == UnaryArithmeticOperation.Operator.Add:

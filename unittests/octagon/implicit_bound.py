@@ -7,6 +7,6 @@ if x < 3:
 # surprisingly octagon domain does not detect that a < 3 in any case :(
 # this is because the closure does not infer a≤2 from x≤2, x-a≤0, -x+a≤0
 
-# RESULT: TOP
+# RESULT: -x+a≤0
 
 print(a)
