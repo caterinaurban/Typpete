@@ -152,23 +152,28 @@ class ResultCommentsFileTestCase(FileTestCase):
 
     def _find_analysis_result_for_comments(self, result, line_of_comment, expected_result):
         """
-        Search for closest succeeding analysis result after the line of the comment
+        Search for closest succeeding analysis result after the line of the comment.
+        
+        NOTE: If the result was produced by a forward/backwards analysis is **not** important.
         """
         actual_result = None
-        actual_result_line = sys.maxsize
+        least_distance = sys.maxsize
         for node in self.cfg.nodes.values():
             states = result.get_node_result(node)
 
             for i, stmt in enumerate(node.stmts):
-                if line_of_comment < stmt.pp.line < actual_result_line:
+                d = stmt.pp.line - line_of_comment
+                if 0 < d < least_distance:
                     actual_result = states[i]
-                    actual_result_line = stmt.pp.line
+                    least_distance = d
 
             # special treatment for expected result comments after last statement of a block but before any other
             # statement of succeeding (= larger start line number) block
-            if node.stmts and node.stmts[-1].pp.line < line_of_comment < actual_result_line:
-                actual_result = states[-1]  # take last result in block as actual result
-                actual_result_line = line_of_comment
+            if node.stmts:
+                d = line_of_comment - node.stmts[-1].pp.line
+                if 0 <= d < least_distance:
+                    actual_result = states[-1]
+                    least_distance = d
 
         if actual_result:
             return actual_result
