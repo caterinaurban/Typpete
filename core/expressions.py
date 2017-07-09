@@ -90,7 +90,7 @@ class Literal(Expression):
         if issubclass(self.typ, str):
             return f'"{self.val}"'
         else:
-            return f'{self.val}'
+            return f"{self.val}"
 
 
 class Input(Expression):
@@ -108,7 +108,7 @@ class Input(Expression):
         return hash(self.typ)
 
     def __str__(self):
-        return 'input()'
+        return "input()"
 
 
 class Identifier(Expression):

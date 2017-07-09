@@ -13,7 +13,7 @@ class TestSingleVarLinearForm(ExpressionTreeTestCase):
         result = super().runTest()
 
         result_store = result.get_node_result(self.cfg.nodes[2])[1]
-        right_expr = result_store.variables[self.variables['a']]
+        right_expr = result_store.store[self.variables['a']]
 
         try:
             form = SingleVarLinearForm(right_expr)

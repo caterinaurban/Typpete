@@ -1,17 +1,17 @@
 from abc import ABCMeta, abstractmethod
-from abstract_domains.lattice import Lattice
+from abstract_domains.lattice import BoundedLattice
 from copy import deepcopy
 from core.expressions import Expression, VariableIdentifier
 from typing import Set
 
 
-class State(Lattice, metaclass=ABCMeta):
+class State(BoundedLattice, metaclass=ABCMeta):
     def __init__(self):
         """Analysis state representation. 
         Account for lattice operations and statement effects by modifying the current state.
         """
         super().__init__()
-        self._result = set()  # set of expressions representing the result of the previously analyze statement
+        self._result = set()  # set of expressions representing the result of the previously analyzed statement
 
     @property
     def result(self):
@@ -100,6 +100,20 @@ class State(Lattice, metaclass=ABCMeta):
         return self
 
     @abstractmethod
+    def enter_if(self) -> 'State':
+        """Enter a conditional if statement.
+
+        :return: current state modified to enter a conditional if statement
+        """
+
+    @abstractmethod
+    def exit_if(self) -> 'State':
+        """Exit a conditional if statement.
+
+        :return: current state modified to enter a conditional if statement
+        """
+
+    @abstractmethod
     def enter_loop(self) -> 'State':
         """Enter a loop.
 
@@ -111,20 +125,6 @@ class State(Lattice, metaclass=ABCMeta):
         """Exit a loop.
 
         :return: current state modified to exit a loop
-        """
-
-    @abstractmethod
-    def enter_if(self) -> 'State':
-        """Enter an if-statement.
-
-        :return: current state modified to enter an if-statement
-        """
-
-    @abstractmethod
-    def exit_if(self) -> 'State':
-        """Exit an if-statement.
-
-        :return: current state modified to enter an if-statement
         """
 
     def filter(self) -> 'State':

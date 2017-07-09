@@ -1,7 +1,7 @@
 from copy import deepcopy
 from functools import reduce
 
-from abstract_domains.lattice import BottomElementMixin, Kind
+from abstract_domains.lattice import BoundedLattice
 from abstract_domains.numerical.dbm import IntegerCDBM
 from abstract_domains.numerical.interval import IntervalLattice, IntervalStore, IntervalDomain
 from abstract_domains.numerical.numerical import NumericalDomain
@@ -24,17 +24,17 @@ def _index_shift(sign: Sign):
     return 1 if sign == MINUS else 0
 
 
-class OctagonLattice(BottomElementMixin, NumericalDomain):
+class OctagonLattice(BoundedLattice, NumericalDomain):
     def __init__(self, variables: List[VariableIdentifier]):
         """Create an Octagon Lattice for given variables.
         
         :param variables: list of program variables
         """
-        self._variables_list = variables
+        self._variables = variables
         self._var_to_index = {}
         self._index_to_var = {}
         index = 0
-        for var in self._variables_list:
+        for var in self.variables:
             self._var_to_index[var] = index
             self._index_to_var[index] = var
             self._index_to_var[index + 1] = var
@@ -43,8 +43,8 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         super().__init__()
 
     @property
-    def variables_list(self):
-        return self._variables_list
+    def variables(self):
+        return self._variables
 
     @property
     def dbm(self):
@@ -72,8 +72,8 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
                                    sign2: Sign = None, var2: VariableIdentifier = None):
         signs1 = [sign1] if sign1 else [PLUS, MINUS]
         signs2 = [sign2] if sign2 else [PLUS, MINUS]
-        vars1 = [var1] if var1 else self._variables_list
-        vars2 = [var2] if var2 else self._variables_list
+        vars1 = [var1] if var1 else self.variables
+        vars2 = [var2] if var2 else self.variables
         for var1 in vars1:
             for var2 in vars2:
                 if var1 == var2:
@@ -91,7 +91,7 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         else:
             res = []
             # represent unary constraints first
-            for var in self._variables_list:
+            for var in self.variables:
                 lower = - self[PLUS, var, MINUS, var] // 2
                 upper = self[MINUS, var, PLUS, var] // 2
                 if lower < inf and upper < inf:
@@ -101,8 +101,8 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
                 elif upper < inf:
                     res.append(f"{var.name}≤{upper}")
             # represent binary constraints second, do not repeat identical inequalities
-            for i, var1 in enumerate(self._variables_list):
-                for j, var2 in enumerate(self._variables_list):
+            for i, var1 in enumerate(self.variables):
+                for j, var2 in enumerate(self.variables):
                     if i > j:
                         c = self[MINUS, var1, PLUS, var2]
                         if c < inf:
@@ -388,7 +388,7 @@ class OctagonDomain(OctagonLattice, State):
                     # Non-octagonal constraint
                     interval_domain = state.to_interval_domain()
                     interval_domain.assume({expr})
-                    new_oct = OctagonDomain(state.variables_list)
+                    new_oct = OctagonDomain(state.variables)
                     new_oct.from_interval_domain(interval_domain)
                     state.meet(new_oct)
 
@@ -409,16 +409,16 @@ class OctagonDomain(OctagonLattice, State):
         super().__init__(variables)
 
     def to_interval_domain(self):
-        interval_store = IntervalDomain(self._variables_list)
-        for var in self._variables_list:
+        interval_store = IntervalDomain(self.variables)
+        for var in self.variables:
             interval_store.set_interval(var, self.get_interval(var))
         return interval_store
 
     def from_interval_domain(self, interval_domain: IntervalStore):
-        assert interval_domain.variables_list == self._variables_list
+        assert interval_domain.variables == self.variables
 
-        for var in self._variables_list:
-            self.set_interval(var, interval_domain.variables[var])
+        for var in self.variables:
+            self.set_interval(var, interval_domain.store[var])
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'OctagonDomain':
         raise NotImplementedError()

@@ -36,7 +36,7 @@ import frontend.z3_axioms as axioms
 import sys
 import z3
 
-from frontend.context import Context
+from frontend.context import Context, AnnotatedFunction
 
 
 def infer_numeric(node, solver):
@@ -375,18 +375,26 @@ def _get_args_types(args, context, instance, solver):
     return args_types
 
 
+def _infer_annotated_function_call(args_types, solver, annotations):
+    result_type = solver.new_z3_const("call")
+    solver.annotation_resolver.add_annotated_function_axioms(args_types, solver, annotations, result_type)
+
+    return result_type
+
+
 def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
     instance = None
+    result_type = solver.new_z3_const("call")
     if isinstance(node.func, ast.Attribute):
         called, instance = infer(node.func, context, solver, True)
+        args_types = _get_args_types(node.args, context, instance, solver)
     else:
+        args_types = _get_args_types(node.args, context, instance, solver)
         called = infer(node.func, context, solver)
-    args_types = _get_args_types(node.args, context, instance, solver)
-
-    result_type = solver.new_z3_const("call")
-
-    # TODO covariant and invariant subtyping
+    if isinstance(called, AnnotatedFunction):
+        solver.annotation_resolver.add_annotated_function_axioms(args_types, solver, called, result_type)
+        return result_type
 
     solver.add(axioms.call(called, args_types, result_type, solver.z3_types),
                fail_message="Call in line {}".format(node.lineno))
@@ -395,8 +403,30 @@ def infer_func_call(node, context, solver):
 
 
 def infer_attribute(node, context, from_call, solver):
+    """Infer the type of attribute access
+    
+    Cases:
+        - Instance attribute access. ex:
+            class A:
+                def f(self):
+                    pass
+            A().f()
+        - Module access. ex:
+            import A
+            A.f()
+    """
+    # Check if it's a module access
     instance = infer(node.value, context, solver)
+
+    if isinstance(instance, Context):
+        # module import
+        if from_call:
+            return instance.get_type(node.attr), None
+        else:
+            return instance.get_type(node.attr)
+
     result_type = solver.new_z3_const("attribute")
+
     solver.add(axioms.attribute(instance, node.attr, result_type, solver.z3_types),
                fail_message="Attribute access in line {}".format(node.lineno))
     if from_call:

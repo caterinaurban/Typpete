@@ -6,85 +6,89 @@ from uuid import uuid4 as uuid
 import html
 
 
-class GraphRenderer:
-    graphattrs = {
+class GraphRenderer(metaclass=ABCMeta):
+    """Graphviz rendering."""
+
+    graph_attr = {
         'labelloc': 't',
         'fontcolor': 'black',
         'fontname': 'roboto',
-        'bgcolor': '#FFFFFF',
+        'bgcolor': '#ffffff',
         'margin': '0',
-    }
+    }   # graph attributes
 
-    nodeattrs = {
+    node_attr = {
         'color': 'black',
         'fontcolor': 'black',
         'fontname': 'roboto',
         'style': 'filled',
         'fillcolor': '#70a6ff',
         'forcelabels': 'true'
-    }
+    }   # node attributes
 
-    edgeattrs = {
+    edge_attr = {
         'color': '#565656',
         'fontcolor': '#565656',
         'fontname': 'roboto',
-    }
+        'fontsize': '12'
+    }   # edge attributes
 
-    _graph = None
-    _rendered_nodes = None
-    _max_label_len = 100
+    _graph = None           # graph to be rendered
+    _rendered = None        # rendered nodes
+    _max_label_len = 100    # maximum length for labels
 
     @staticmethod
-    def _escape_dot_label(label):
+    def _escape_label(label):
+        """Escape special characters in DOT label."""
         return label.replace("\\", "\\\\").replace("|", "\\|").replace("<", "\\<").replace(">", "\\>")
 
-    def _shorten_string(self, string):
-        if len(string) > self._max_label_len - 3:
-            halflen = int((self._max_label_len - 3) / 2)
-            return string[:halflen] + "..." + string[-halflen:]
-        return string
+    def _shorten_label(self, label):
+        """Shorten long labels."""
+        if len(label) > self._max_label_len - 3:
+            half = int((self._max_label_len - 3) / 2)
+            return label[:half] + "..." + label[-half:]
+        return label
 
     @staticmethod
-    def _list2lines(l, escape=True):
-        escape_func = html.escape if escape else lambda x: x
-        return '''<<TABLE BORDER="0" CELLBORDER="0">{}</TABLE>>'''.format(
-            '\n'.join(map('''<TR><TD ALIGN="LEFT">{}</TD></TR>'''.format,
-                          map(lambda s: escape_func(str(s)), l or [""]))))
+    def _list2table(lst, escape=True):
+        """Turn a list into an HTML table (to be used as a DOT label)."""
+        table = '<<table border="0" cellborder="0">{}</table>>'     # table HTML format
+        row = '<tr><td align="center">{}</td></tr>'                 # row HTML format
+        escape_function = html.escape if escape else lambda x: x
+        return table.format("\n".join(map(row.format, map(lambda x: escape_function(str(x)), lst or [""]))))
 
     @abstractmethod
-    def _render_graph(self, data):
-        """
-        Entry point for rendering graph represented by data.
-        :param data: the whole data necessary to render graph
-        :return:
+    def _render(self, data):
+        """Graphviz rendering of data.
+
+        :param data: the data to be rendered
         """
 
     def render(self, data, label=None, filename="Graph", directory="graphs", view=True):
-        # create the graph
-        graphattrs = self.graphattrs.copy()
+        """Graphviz rendering."""
+
+        # create the Graphviz graph
+        graph_attr = self.graph_attr.copy()
         if label is not None:
-            graphattrs['label'] = self._escape_dot_label(label)
-        graph = gv.Digraph(graph_attr=graphattrs, node_attr=self.nodeattrs, edge_attr=self.edgeattrs)
+            graph_attr['label'] = self._escape_label(label)
+        graph = gv.Digraph(graph_attr=graph_attr, node_attr=self.node_attr, edge_attr=self.edge_attr)
 
-        # recursively draw all the nodes and edges
+        # draw nodes and edges of the Graphviz graph
         self._graph = graph
-        self._rendered_nodes = set()
-        self._render_graph(data)
+        self._rendered = set()
+        self._render(data)
         self._graph = None
-        self._rendered_nodes = None
+        self._rendered = None
 
-        # display the graph
+        # display the Graphviz graph
         graph.format = "pdf"
         graph.render(f"{filename}.gv", directory, view, cleanup=True)
 
 
 class ListDictTreeRenderer(GraphRenderer):
-    """
-    this class is capable of rendering data structures consisting of
-    dicts and lists as a graph using graphviz
-    """
+    """Graphviz rendering of dictionaries and lists."""
 
-    def _render_graph(self, data):
+    def _render(self, data):
         self._render_node(data)
 
     def _render_node(self, node):
@@ -99,14 +103,14 @@ class ListDictTreeRenderer(GraphRenderer):
             node_id = id(node)
         node_id = str(node_id)
 
-        if node_id not in self._rendered_nodes:
-            self._rendered_nodes.add(node_id)
+        if node_id not in self._rendered:
+            self._rendered.add(node_id)
             if isinstance(node, dict):
                 self._render_dict(node, node_id)
             elif isinstance(node, list):
                 self._render_list(node, node_id)
             else:
-                self._graph.node(node_id, label=self._escape_dot_label(self._shorten_string(repr(node))))
+                self._graph.node(node_id, label=self._escape_label(self._shorten_label(repr(node))))
 
         return node_id
 
@@ -116,89 +120,82 @@ class ListDictTreeRenderer(GraphRenderer):
             if key == "node_type":
                 continue
             child_node_id = self._render_node(value)
-            self._graph.edge(node_id, child_node_id, label=self._escape_dot_label(key))
+            self._graph.edge(node_id, child_node_id, label=self._escape_label(key))
 
     def _render_list(self, node, node_id):
         self._graph.node(node_id, label="[list]")
         for idx, value in enumerate(node):
             child_node_id = self._render_node(value)
-            self._graph.edge(node_id, child_node_id, label=self._escape_dot_label(str(idx)))
+            self._graph.edge(node_id, child_node_id, label=self._escape_label(str(idx)))
 
 
 class CfgRenderer(GraphRenderer):
-    """
-    this class is capable of rendering a cfg
-    """
+    """Graphviz rendering of a control flow graph."""
 
-    def _render_graph(self, cfg):
-        for node_id, node in cfg.nodes.items():
-            fillcolor = self.nodeattrs['fillcolor']
-            if node is cfg.in_node:
-                fillcolor = '#24bf26'
-            elif node is cfg.out_node:
-                fillcolor = '#ce3538'
+    def _node_color(self, node, cfg):
+        fillcolor = self.node_attr['fillcolor']
+        if node is cfg.in_node:
+            fillcolor = '#24bf26'
+        elif node is cfg.out_node:
+            fillcolor = '#ce3538'
+        elif any(edge.kind == Edge.Kind.LOOP_IN for edge in cfg.out_edges(node)):
+            fillcolor = '#f4b942'
+        return fillcolor
 
-            if isinstance(node, (Basic, Loop)):
-                self._graph.node(str(node), label=self._list2lines(node.stmts),
-                                 xlabel=str(node.identifier),
-                                 fillcolor=fillcolor, shape='box')
-            else:
-                self._graph.node(str(node), label=self._escape_dot_label(self._shorten_string(str(node))),
-                                 xlabel=str(node.identifier),
-                                 fillcolor=fillcolor, shape='circle')
+    def _render_node(self, node, label, fillcolor):
+        if isinstance(node, (Basic, Loop)):
+            self._graph.node(str(node), label=label, xlabel=str(node.identifier), fillcolor=fillcolor, shape='box')
+        else:
+            self._graph.node(str(node), label=label, xlabel=str(node.identifier), fillcolor=fillcolor, shape='circle')
 
+    def _render_edge(self, edge):
+        kind = edge.kind.name if edge.kind != Edge.Kind.DEFAULT else ""
+        source = str(edge.source.identifier)
+        target = str(edge.target.identifier)
+        if isinstance(edge, Conditional):
+            label = self._escape_label((kind + ": " if kind else "") + str(edge.condition))
+            self._graph.edge(source, target, label=label)
+        elif isinstance(edge, Unconditional):
+            self._graph.edge(source, target, label=self._escape_label(kind))
+        else:
+            self._graph.edge(source, target, label=self._escape_label(str(edge)))
+
+    def _render_edges(self, cfg):
         for edge in cfg.edges.values():
-            edge_kind = edge.kind.name if edge.kind != Edge.Kind.DEFAULT else ""
-            if isinstance(edge, Conditional):
-                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(
-                                     (edge_kind + ": " if edge_kind else '') + str(edge.condition)))
-            elif isinstance(edge, Unconditional):
-                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(edge_kind))
+            self._render_edge(edge)
+
+    def _render(self, cfg):
+        for node in cfg.nodes.values():
+            fillcolor = self._node_color(node, cfg)
+            if isinstance(node, (Basic, Loop)):
+                stmt = '<font color="#ffffff" point-size="11">{}</font>'
+                stmts = map(lambda x: stmt.format(html.escape(str(x))), node.stmts)
+                label = self._list2table(list(stmts), escape=False)
             else:
-                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(str(edge)))
+                label = self._escape_label(self._shorten_label(str(node)))
+            self._render_node(node, label, fillcolor)
+        self._render_edges(cfg)
 
 
-class AnalysisResultRenderer(GraphRenderer):
-    """Rendering of an analysis result together with the analyzed control flow graph."""
+class AnalysisResultRenderer(CfgRenderer):
+    """Graphviz rendering of an analysis result on the analyzed control flow graph."""
 
-    def _render_graph(self, data):
+    def _basic_node_label(self, node, result):
+        state = '<font point-size="9">{}</font>'
+        states = map(lambda x: state.format(html.escape(str(x)).replace('\n', '<br />')), result.get_node_result(node))
+        stmt = '<font color="#ffffff" point-size="11">{}</font>'
+        stmts = map(lambda x: stmt.format(html.escape(str(x))), node.stmts)
+        node_result = [item for items in zip_longest(states, stmts) for item in items if item is not None]
+        return self._list2table(node_result, escape=False)
+
+    def _render(self, data):
         (cfg, result) = data
-        for node_id, node in cfg.nodes.items():
-            fillcolor = self.nodeattrs['fillcolor']
-            if node is cfg.in_node:
-                fillcolor = '#24bf26'
-            elif node is cfg.out_node:
-                fillcolor = '#ce3538'
-
+        for node in cfg.nodes.values():
+            fillcolor = self._node_color(node, cfg)
             if isinstance(node, (Basic, Loop)):
-                states = result.get_node_result(node)
-                # special format states here and pass formatted strings along
-                # NOTE: the space behind the text is
-                # necessary because we must ensure that content inside <FONT>...</FONT> is never empty for graphviz
-                states = map(lambda x: '<FONT COLOR="#191919" POINT-SIZE="11">{} </FONT>'.format(html.escape(str(x))),
-                             states)
-                stmts = map(lambda x: '<B>{}</B>'.format(html.escape(str(x))), node.stmts)
-                node_result = [item for items in zip_longest(states, stmts) for item in items if item is not None]
-                self._graph.node(str(node), label=self._list2lines(node_result, escape=False),
-                                 xlabel=str(node.identifier),
-                                 fillcolor=fillcolor, shape='box')
+                label = self._basic_node_label(node, result)
+                self._render_node(node, label, fillcolor)
             else:
-                self._graph.node(str(node), label=self._escape_dot_label(self._shorten_string(str(node))),
-                                 xlabel=str(node.identifier),
-                                 fillcolor=fillcolor, shape='circle')
-
-        for edge in cfg.edges.values():
-            edge_kind = edge.kind.name if edge.kind != Edge.Kind.DEFAULT else ""
-            if isinstance(edge, Conditional):
-                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(
-                                     (edge_kind + ": " if edge_kind else '') + str(edge.condition)))
-            elif isinstance(edge, Unconditional):
-                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(edge_kind))
-            else:
-                self._graph.edge(str(edge.source.identifier), str(edge.target.identifier),
-                                 label=self._escape_dot_label(str(edge)))
+                label = self._escape_label(self._shorten_label(str(node)))
+                self._render_node(node, label, fillcolor)
+        self._render_edges(cfg)

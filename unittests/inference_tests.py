@@ -1,9 +1,7 @@
 import glob
 import os
 import unittest
-from frontend.pre_analysis import PreAnalyzer
 from frontend.stmt_inferrer import *
-from frontend.stubs.stubs_handler import StubsHandler
 
 
 class TestInference(unittest.TestCase):
@@ -25,7 +23,7 @@ class TestInference(unittest.TestCase):
             if not line.startswith("#"):
                 continue
             variable, t = cls.parse_comment(line)
-            result[variable] = solver.resolve_annotation(t)
+            result[variable] = solver.resolve_annotation(ast.parse(t).body[0].value)
         return result
 
     @classmethod
@@ -39,21 +37,20 @@ class TestInference(unittest.TestCase):
         t = ast.parse(r.read())
         r.close()
 
-        analyzer = PreAnalyzer(t)
-        stub_handler = StubsHandler(analyzer)
-
-        config = analyzer.get_all_configurations()
-        solver = z3_types.TypesSolver(config)
+        solver = z3_types.TypesSolver(t)
 
         context = Context()
 
-        stub_handler.infer_all_files(context, solver, config.used_names)
+        solver.infer_stubs(context, infer)
 
         for stmt in t.body:
             infer(stmt, context, solver)
 
         solver.push()
-        expected_result = cls.parse_results(open(path), solver)
+
+        r = open(path)
+        expected_result = cls.parse_results(r, solver)
+        r.close()
 
         return solver, context, expected_result
 
@@ -66,10 +63,10 @@ class TestInference(unittest.TestCase):
 
         model = solver.optimize.model()
         for v in expected_result:
-            self.assertIn(v, context.types_map,
-                          "Expected to have variable '{}' in the global context".format(v))
+            self.assertTrue(context.has_var_in_children(v),
+                            "Expected to have variable '{}' in the program".format(v))
 
-            z3_type = context.types_map[v]
+            z3_type = context.get_var_from_children(v)
             self.assertEqual(model[z3_type], expected_result[v],
                              "Expected variable '{}' to have type '{}', but found '{}'".format(v,
                                                                                                expected_result[v],

@@ -1,5 +1,5 @@
-from abstract_domains.generic_lattices import StoreLattice
-from abstract_domains.lattice import BottomElementMixin
+from abstract_domains.store import Store
+from abstract_domains.lattice import BoundedLattice
 from abstract_domains.numerical.numerical import NumericalDomain, NumericalLattice
 from abstract_domains.state import State
 from core.expressions import *
@@ -9,7 +9,7 @@ from math import inf, isinf
 from core.expressions_tools import ExpressionVisitor
 
 
-class IntervalLattice(BottomElementMixin, NumericalLattice):
+class IntervalLattice(BoundedLattice, NumericalLattice):
     def __init__(self, lower=-inf, upper=inf):
         """Create an Interval Lattice for a single variable.
         """
@@ -156,27 +156,27 @@ class IntervalLattice(BottomElementMixin, NumericalLattice):
     _visitor = Visitor()  # static class member shared between all instances
 
 
-class IntervalStore(StoreLattice, NumericalDomain):
+class IntervalStore(Store, NumericalDomain):
     def __init__(self, variables: List[VariableIdentifier]):
         super().__init__(variables, {int: IntervalLattice})
         self._visitor = IntervalStore.Visitor(self)
 
     def forget(self, var: VariableIdentifier):
-        self.variables[var].top()
+        self.store[var].top()
 
     def set_bounds(self, var: VariableIdentifier, lower: int, upper: int):
-        self.variables[var].lower = lower
-        self.variables[var].upper = upper
+        self.store[var].lower = lower
+        self.store[var].upper = upper
 
     def set_interval(self, var: VariableIdentifier, interval: IntervalLattice):
-        self.variables[var].lower = interval.lower
-        self.variables[var].upper = interval.upper
+        self.store[var].lower = interval.lower
+        self.store[var].upper = interval.upper
 
     def set_lb(self, var: VariableIdentifier, constant):
-        self.variables[var].lower = constant
+        self.store[var].lower = constant
 
     def set_ub(self, var: VariableIdentifier, constant):
-        self.variables[var].upper = constant
+        self.store[var].upper = constant
 
     def evaluate(self, expr: Expression):
         interval = self._visitor.visit(expr)
@@ -194,7 +194,7 @@ class IntervalStore(StoreLattice, NumericalDomain):
 
         def visit_VariableIdentifier(self, expr: VariableIdentifier):
             if expr.typ == int:
-                return self.store.variables[expr]
+                return self.store.store[expr]
             else:
                 raise ValueError(f"Variable type {expr.typ} is not supported!")
 
@@ -213,7 +213,7 @@ class IntervalDomain(IntervalStore, State):
     def _assign_variable(self, left: Expression, right: Expression) -> 'IntervalDomain':
         if isinstance(left, VariableIdentifier):
             if left.typ == int:
-                self.variables[left] = self._visitor.visit(right)
+                self.store[left] = self._visitor.visit(right)
         else:
             raise NotImplementedError("")
         return self

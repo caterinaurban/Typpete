@@ -1,17 +1,20 @@
 from typing import List, Set
 
-from abstract_domains.generic_lattices import StoreLattice
-from abstract_domains.lattice import Lattice
+from abstract_domains.store import Store
+from abstract_domains.lattice import BoundedLattice
 from abstract_domains.state import State
 from core.expressions import Expression, VariableIdentifier
 
 
-class ExpressionLattice(Lattice):
+class ExpressionLattice(BoundedLattice):
     """A Lattice representing an expression or TOP if expression is ambiguous, BOTTOM if not yet set."""
 
     def __init__(self):
         self._expr = None
         super().__init__()
+
+    def __repr__(self):
+        return str(self._expr)
 
     def default(self):
         return self.bottom()
@@ -29,7 +32,7 @@ class ExpressionLattice(Lattice):
         return self.top()
 
 
-class ExpressionStore(StoreLattice, State):
+class ExpressionStore(Store, State):
     """A store that saves the current untouched expression for each variable (if possible)."""
 
     def __init__(self, variables: List[VariableIdentifier]):
@@ -40,7 +43,7 @@ class ExpressionStore(StoreLattice, State):
 
     def _assign_variable(self, left: Expression, right: Expression) -> 'ExpressionStore':
         if isinstance(left, VariableIdentifier):
-            self.variables[left] = right
+            self.store[left] = right
         else:
             raise NotImplementedError("")
         return self

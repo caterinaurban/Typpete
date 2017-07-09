@@ -1,14 +1,12 @@
-
 from typing import List, Set, Tuple, FrozenSet
 from itertools import chain, combinations, product
 from copy import deepcopy
-
 from abstract_domains.state import State
 from core.expressions import Expression, VariableIdentifier, UnaryBooleanOperation, Literal, BinaryBooleanOperation, \
     Input
 
 
-class Traces(State):
+class TracesState(State):
     class Trace:
         def __init__(self, values: Tuple):
             self._trace = [values]
@@ -21,7 +19,7 @@ class Traces(State):
         def trace(self, trace):
             self._trace = trace
 
-        def __eq__(self, other: 'Traces.Trace'):
+        def __eq__(self, other: 'TracesState.Trace'):
             if isinstance(other, self.__class__):
                 return repr(self) == repr(other)
             return False
@@ -29,7 +27,7 @@ class Traces(State):
         def __hash__(self):
             return hash(repr(self))
 
-        def __ne__(self, other: 'Traces.Trace'):
+        def __ne__(self, other: 'TracesState.Trace'):
             return not (self == other)
 
         def __repr__(self):
@@ -65,7 +63,7 @@ class Traces(State):
         def test(self, idx: int, value: str) -> bool:
             return self.trace[0][idx] == value
 
-        def replace(self, idx: int, value: str) -> 'Traces.Trace':
+        def replace(self, idx: int, value: str) -> 'TracesState.Trace':
             head = list(self.trace[0])
             head[idx] = value
             self.trace = [tuple(head)] + self.trace
@@ -85,7 +83,7 @@ class Traces(State):
         """
         super().__init__()
         self._variables = variables     # e.g., ['x', 'y']
-        self._traces = frozenset(Traces.Trace(t) for t in product(*[('T', 'F') for _ in variables]))
+        self._traces = frozenset(TracesState.Trace(t) for t in product(*[('T', 'F') for _ in variables]))
         # e.g., {[('T', 'T')], [('T', 'F')], [('F', 'T')], [('F', 'F')]}
         self._hyper = hyper
         t = len(self._traces)
@@ -123,9 +121,6 @@ class Traces(State):
     def sets(self, sets):
         self._sets = sets
 
-    def default(self):
-        pass
-
     def __repr__(self):
         """Unambiguous string representing the current state.
 
@@ -134,25 +129,40 @@ class Traces(State):
         def trace_repr(s):
             return ", ".join(str(trace) for trace in s)
 
-        def variety_repr(s):
+        def variety(s):
             if self._in and s:
                 varieties = [(x, self._variety(s, x)) for x in self._in]
                 values = set()
                 for trace in s:
                     values.add(tuple(trace.variety(self.variables, self._in)))
-                count = len(values)  # ceil( len(values) / reduce(lambda x, y: x * y, [v[1] for v in varieties]) )
+                count = len(values)
                 return " variety: " + " ".join(str(x) + "=" + str(v) for (x, v) in varieties) + " count: " + str(count)
             else:
                 return ""
 
+        def var_repr():
+            return ", ".join(str(x) for x in self.variables)
+
         if self.hyper:
-            return "{" + "}\n{".join(
-                str(k) + ":\t" + trace_repr(s) + variety_repr(s) for k, s in self.sets.items() if s
-            ) + "}"
+            sets = list(self.sets.values())
+            List.sort(sets, key=lambda x: len(x), reverse=True)
+            s1 = frozenset()
+            s2 = frozenset()
+            for el in sets:
+                if el and s1.issubset(el):
+                    s1 = el
+                elif el and (not el.issubset(s1)) and s2.issubset(el):
+                    s2 = el
+                else:
+                    pass
+            return var_repr() + " {" + trace_repr(s1) + variety(s1) + "}\n{" + trace_repr(s2) + variety(s2) + "}"
+            # return "{" + "}\n{".join(
+            #     str(k) + ":\t" + trace_repr(s) + variety_repr(s) for k, s in self.sets.items() if s
+            # ) + "}"
         else:
             return ", ".join(str(trace) for trace in self.traces)
 
-    def _less_equal(self, other: 'Traces') -> bool:
+    def _less_equal(self, other: 'TracesState') -> bool:
         if self.hyper:
             subset = True
             for key in self.sets:
@@ -161,7 +171,7 @@ class Traces(State):
         else:
             return self.traces.issubset(other.traces)
 
-    def _join(self, other: 'Traces') -> 'Traces':
+    def _join(self, other: 'TracesState') -> 'TracesState':
         if self.hyper:
             self._in = self._in.union(other._in)
             for key in self.sets:
@@ -170,10 +180,10 @@ class Traces(State):
             self.traces = self.traces.union(other.traces)
         return self
 
-    def _widening(self, other: 'Traces'):
+    def _widening(self, other: 'TracesState'):
         return self._join(other)
 
-    def _meet(self, other: 'Traces'):
+    def _meet(self, other: 'TracesState'):
         if self.hyper:
             self._in = self._in.intersection(other._in)
             for key in self.sets:
@@ -185,7 +195,7 @@ class Traces(State):
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return {variable}
 
-    def _assign_variable(self, left: Expression, right: Expression) -> 'Traces':
+    def _assign_variable(self, left: Expression, right: Expression) -> 'TracesState':
         raise NotImplementedError("Variable assignment is not implemented!")
 
     def _assume_aux(self, traces: FrozenSet[Trace], condition: Expression) -> FrozenSet[Trace]:
@@ -209,7 +219,7 @@ class Traces(State):
         else:
             NotImplementedError("Assume for {} is not implemented!".format(condition))
 
-    def _assume(self, condition: Expression) -> 'Traces':
+    def _assume(self, condition: Expression) -> 'TracesState':
         if self.hyper:
             for key in self.sets:
                 self.sets[key] = self._assume_aux(self.sets[key], condition)
@@ -232,7 +242,7 @@ class Traces(State):
     def exit_if(self):
         return self  # nothing to be done
 
-    def _output(self, output: Expression) -> 'Traces':
+    def _output(self, output: Expression) -> 'TracesState':
         if self.hyper:  # nothing to be done otherwise
             for key in self.sets:  # for all sets of traces...
                 unique = True
@@ -266,7 +276,7 @@ class Traces(State):
         else:
             raise NotImplementedError("Variable substitution for {} is not implemented!".format(left))
 
-    def _substitute_variable(self, left: Expression, right: Expression) -> 'Traces':
+    def _substitute_variable(self, left: Expression, right: Expression) -> 'TracesState':
         if self.hyper:
             for key in self.sets:
                 self.sets[key] = self._substitute_variable_aux(self.sets[key], left, right)
