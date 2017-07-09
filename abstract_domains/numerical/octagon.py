@@ -114,6 +114,17 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
                             res.append(f"-{var1.name}-{var2.name}≤{c}")
             return ", ".join(res)
 
+    def close(self):
+        """Closes this octagon.
+        
+        Closes the underlying CDBM, if possible, otherwise sets this octagon to BOTTOM.
+        :return: True, if this octagon is consistent <=> this octagon is not BOTTOM.
+        """
+        consistent = self.dbm.close()
+        if not consistent:
+            self.bottom()
+        return consistent
+
     def default(self):
         self.top()
         return self
@@ -142,8 +153,8 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         if self.dbm.size != other.dbm.size:
             raise ValueError("Can not join octagons with unequal sizes!")
         # closure is required to get best abstraction of join
-        self.dbm.close()
-        other.dbm.close()
+        self.close()
+        other.close()
         self.dbm.union(other.dbm)
         return self
 
@@ -152,7 +163,7 @@ class OctagonLattice(BottomElementMixin, NumericalDomain):
         return self
 
     def forget(self, var: VariableIdentifier):
-        self.dbm.close()
+        self.close()
         for index in self.binary_constraints_indices(sign1=None, var1=var):
             self[index] = inf
 
