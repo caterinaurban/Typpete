@@ -10,7 +10,7 @@ from queue import Queue
 
 class ForwardInterpreter(Interpreter):
     def __init__(self, cfg: ControlFlowGraph, semantics: ForwardSemantics, widening: int):
-        """Forward analysis runner.
+        """Forward control flow graph interpreter.
 
         :param cfg: control flow graph to analyze 
         :param widening: number of iterations before widening 

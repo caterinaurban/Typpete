@@ -3,7 +3,7 @@ from numbers import Number
 from typing import List, Set, Sequence
 from abstract_domains.state import State
 from abstract_domains.usage.used import UsedLattice, Used
-from abstract_domains.generic_lattices import StoreLattice
+from abstract_domains.store import Store
 from abstract_domains.usage.used_liststart import UsedListStartLattice
 from core.expressions import Expression, VariableIdentifier, ListDisplay, Literal, Index
 from math import inf
@@ -11,67 +11,67 @@ from math import inf
 from core.expressions_tools import walk
 
 
-class UsedStore(StoreLattice, State):
+class UsedStore(Store, State):
     def __init__(self, variables: List[VariableIdentifier]):
         super().__init__(variables, {int: UsedLattice, list: UsedListStartLattice})
 
     def __repr__(self):
-        variables = ", ".join("{} -> {}".format(variable, value) for variable, value in self.variables.items())
+        variables = ", ".join("{} -> {}".format(variable, value) for variable, value in self.store.items())
         return variables
 
     def descend(self) -> 'UsedStore':
-        for var in self.variables.values():
+        for var in self.store.values():
             var.descend()
         return self
 
     def combine(self, other: 'UsedStore') -> 'UsedStore':
-        for var, used in self.variables.items():
-            used.combine(other.variables[var])
+        for var, used in self.store.items():
+            used.combine(other.store[var])
         return self
 
     def _derive_list_display_usage_from_used_liststart(self, liststart, list_display):
         for index, e in enumerate(list_display.items):
             if liststart.used_at(index) in [Used.U, Used.S]:
                 for identifier in e.ids():
-                    self.variables[identifier].used = Used.U
+                    self.store[identifier].used = Used.U
 
     def _use(self, left: VariableIdentifier, right: Expression):
         if issubclass(left.typ, Number):
-            if self.variables[left].used in [Used.U, Used.S]:
+            if self.store[left].used in [Used.U, Used.S]:
                 for e in walk(right):
                     if isinstance(e, VariableIdentifier):
-                        self.variables[e].used = Used.U
+                        self.store[e].used = Used.U
                     elif isinstance(e, Index):
                         if isinstance(e.index, Literal):
-                            self.variables[e.target].set_used_at(e.index.val)
+                            self.store[e.target].set_used_at(e.index.val)
                         else:
                             raise NotImplementedError()
         elif issubclass(left.typ, Sequence):
             if isinstance(right, VariableIdentifier):
-                self.variables[right].replace(deepcopy(self.variables[left]))
-                self.variables[right].change_S_to_U()
+                self.store[right].replace(deepcopy(self.store[left]))
+                self.store[right].change_S_to_U()
             elif isinstance(right, ListDisplay):
-                self._derive_list_display_usage_from_used_liststart(self.variables[left], right)
+                self._derive_list_display_usage_from_used_liststart(self.store[left], right)
         else:
-            raise NotImplementedError(f"Method _use not implemented for {self.variables[left].typ}!")
+            raise NotImplementedError(f"Method _use not implemented for {self.store[left].typ}!")
         return self
 
     def _kill(self, left: VariableIdentifier, right: Expression):
         if issubclass(left.typ, Number):
-            if self.variables[left].used in [Used.U, Used.S]:
-                if left in [v for v, u in self.variables.items() if v in right.ids()]:
-                    self.variables[left].used = Used.U  # x is still used since it is used in assigned expression
+            if self.store[left].used in [Used.U, Used.S]:
+                if left in [v for v, u in self.store.items() if v in right.ids()]:
+                    self.store[left].used = Used.U  # x is still used since it is used in assigned expression
                 else:
-                    self.variables[left].used = Used.O  # x is overwritten
+                    self.store[left].used = Used.O  # x is overwritten
         elif issubclass(left.typ, Sequence):
             # TODO this whole if is no longer correct when lists of lists are allowed, e.g. l = [a,2,l]
             if isinstance(right, VariableIdentifier):
                 if right != left:  # if no self-assignemnt
-                    self.variables[left].change_SU_to_O()
+                    self.store[left].change_SU_to_O()
             elif isinstance(right, ListDisplay):
-                self.variables[left].change_SU_to_O()
+                self.store[left].change_SU_to_O()
         else:
-            raise NotImplementedError(f"Method _kill not implemented for {self.variables[left].typ}!")
+            raise NotImplementedError(f"Method _kill not implemented for {self.store[left].typ}!")
         return self
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
@@ -82,11 +82,11 @@ class UsedStore(StoreLattice, State):
 
     def _assume(self, condition: Expression) -> 'UsedStore':
         used_vars = len(
-            set([lat.used for lat in self.variables.values() if isinstance(lat, UsedLattice)]).intersection(
+            set([lat.used for lat in self.store.values() if isinstance(lat, UsedLattice)]).intersection(
                 [Used.U, Used.O])
         ) > 0
         used_lists = any(
-            [lat.suo[Used.U] > 0 or lat.suo[Used.O] > 0 for lat in self.variables.values() if
+            [lat.suo[Used.U] > 0 or lat.suo[Used.O] > 0 for lat in self.store.values() if
              isinstance(lat, UsedListStartLattice)]
         )
         store_has_effect = used_vars or used_lists
@@ -96,11 +96,11 @@ class UsedStore(StoreLattice, State):
                 # update to U if exists a variable y in state that is either U or O (note that S is not enough)
                 # or is set intersection, if checks if resulting list is empty
                 if store_has_effect:
-                    self.variables[e].used = Used.U
+                    self.store[e].used = Used.U
             elif isinstance(e, Index):
                 if isinstance(e.index, Literal):
                     if store_has_effect:
-                        self.variables[e.target].set_used_at(e.index.val)
+                        self.store[e.target].set_used_at(e.index.val)
                 else:
                     raise NotImplementedError()
 
@@ -124,10 +124,10 @@ class UsedStore(StoreLattice, State):
     def _output(self, output: Expression) -> 'UsedStore':
         for variable in output.ids():
             if issubclass(variable.typ, Number):
-                self.variables[variable].used = Used.U
+                self.store[variable].used = Used.U
             elif issubclass(variable.typ, Sequence):
-                self.variables[variable].suo[Used.U] = inf
-                self.variables[variable].closure()
+                self.store[variable].suo[Used.U] = inf
+                self.store[variable].closure()
             else:
                 raise NotImplementedError(f"Type {variable.typ} not yet supported!")
         return self  # nothing to be done

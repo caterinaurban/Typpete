@@ -1,6 +1,5 @@
 import glob
-
-from abstract_domains.traces.traces import Traces
+from abstract_domains.traces.traces_domain import TracesState
 from core.expressions import VariableIdentifier
 from engine.backward import BackwardInterpreter
 from semantics.backward import DefaultBackwardSemantics
@@ -30,7 +29,7 @@ class TracesTestCase(ResultCommentsFileTestCase):
 
         # run traces analysis
         backward_interpreter = BackwardInterpreter(self.cfg, DefaultBackwardSemantics(), 3)
-        result = backward_interpreter.analyze(Traces(variables, True))
+        result = backward_interpreter.analyze(TracesState(variables, True))
         self.render_result_cfg(result)
 
 
