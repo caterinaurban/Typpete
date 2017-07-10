@@ -50,26 +50,26 @@ class Node(metaclass=ABCMeta):
 
 
 class Basic(Node):
-    def __init__(self, identifier: int, stmts: List[Statement]):
+    def __init__(self, identifier: int, stmts: List[Statement] = None):
         """Basic node of a control flow graph.
         
         :param identifier: identifier associated with the node  
         :param stmts: list of statements stored in the node 
         """
-        super().__init__(identifier, stmts)
+        super().__init__(identifier, stmts or [])
 
     def __str__(self):
         return str(self.identifier)
 
 
 class Loop(Node):
-    def __init__(self, identifier: int, stmts: List[Statement] = list()):
+    def __init__(self, identifier: int, stmts: List[Statement] = None):
         """Loop head node of a control flow graph.
 
         :param identifier: identifier associated with the block  
         :param stmts: list of statements stored in the block 
         """
-        super().__init__(identifier, stmts)
+        super().__init__(identifier, stmts or [])
 
     def __str__(self):
         return str(self.identifier)
