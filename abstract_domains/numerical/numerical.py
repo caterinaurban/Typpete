@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from core.expressions import VariableIdentifier, Expression, UnaryArithmeticOperation
 
+
 # rename (without lattice) e.g. IntegerOperations
 class NumericalLattice(metaclass=ABCMeta):
     @abstractmethod
@@ -40,7 +41,20 @@ class NumericalDomain(metaclass=ABCMeta):
 
     # TODO remove_variable (also in state interface)
 
-    # TODO query bounds (interval)
+    @abstractmethod
+    def set_bounds(self, var: VariableIdentifier, lower: int, upper: int):
+        """Sets the upper and lower bound of a variable.
+        
+        :param var: the variable of interest
+        :param lower: the upper bound of ``var``
+        :param upper: the lower bound of ``var``"""
+
+    @abstractmethod
+    def get_bounds(self, var: VariableIdentifier):
+        """Returns the upper and lower bound of a variable.
+        
+        :param var: the variable of interest
+        :return: A tuple (lower, upper) of the bounds of ``var``"""
 
     @abstractmethod
     def evaluate(self, expr: Expression):

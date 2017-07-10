@@ -131,7 +131,7 @@ class IntervalLattice(BoundedLattice, NumericalLattice):
             elif expr.operator == BinaryArithmeticOperation.Operator.Mult:
                 return l.mult(r)
             else:
-                raise ValueError(f"Binary Operator {expr.operator} is not supported!")
+                raise ValueError(f"Binary Operator '{str(expr.operator)}' is not supported!")
 
         def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation):
             r = self.visit(expr.expression)
@@ -163,6 +163,9 @@ class IntervalStore(Store, NumericalDomain):
     def set_bounds(self, var: VariableIdentifier, lower: int, upper: int):
         self.store[var].lower = lower
         self.store[var].upper = upper
+
+    def get_bounds(self, var: VariableIdentifier):
+        return self.store[var].lower, self.store[var].upper
 
     def set_interval(self, var: VariableIdentifier, interval: IntervalLattice):
         self.store[var].lower = interval.lower
