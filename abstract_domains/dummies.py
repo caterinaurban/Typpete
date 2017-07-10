@@ -12,12 +12,10 @@ class ExpressionLattice(BoundedLattice):
     def __init__(self):
         self._expr = None
         super().__init__()
+        self.bottom()
 
     def __repr__(self):
         return str(self._expr)
-
-    def default(self):
-        return self.bottom()
 
     def _meet(self, other: 'ExpressionLattice'):
         return self if self == other else self.bottom()

@@ -77,10 +77,6 @@ class IntervalLattice(BoundedLattice, NumericalLattice):
         else:
             return f"[{self.lower},{self.upper}]"
 
-    def default(self):
-        self.top()
-        return self
-
     def top(self):
         self.lower = -inf
         self.upper = inf

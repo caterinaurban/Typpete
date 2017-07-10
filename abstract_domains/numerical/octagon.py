@@ -41,6 +41,7 @@ class OctagonLattice(BoundedLattice, NumericalDomain):
             index += 2
         self._dbm = IntegerCDBM(len(variables) * 2)
         super().__init__()
+        self.top()
 
     @property
     def variables(self):
@@ -128,10 +129,6 @@ class OctagonLattice(BoundedLattice, NumericalDomain):
         if not consistent:
             self.bottom()
         return consistent
-
-    def default(self):
-        self.top()
-        return self
 
     def top(self):
         for key in self.dbm.keys():
