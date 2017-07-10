@@ -210,7 +210,7 @@ class LooseControlFlowGraph:
 
 
 def _dummy(id_gen):
-    return Basic(id_gen.next, list())
+    return Basic(id_gen.next)
 
 
 def _dummy_cfg(id_gen):
@@ -375,7 +375,7 @@ class CfgVisitor(ast.NodeVisitor):
         return cfg
 
     def visit_While(self, node):
-        header_node = _dummy(self._id_gen)
+        header_node = Loop(self._id_gen.next)
 
         cfg = self._translate_body(node.body)
         body_in_node = cfg.in_node
