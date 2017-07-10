@@ -41,7 +41,9 @@ class OctagonLattice(BoundedLattice, NumericalDomain):
             index += 2
         self._dbm = IntegerCDBM(len(variables) * 2)
         super().__init__()
-        self.top()
+
+        for key in self.dbm.keys():
+            self.dbm[key] = inf
 
     @property
     def variables(self):
@@ -130,14 +132,6 @@ class OctagonLattice(BoundedLattice, NumericalDomain):
             self.bottom()
         return consistent
 
-    def top(self):
-        for key in self.dbm.keys():
-            self.dbm[key] = inf
-        return self
-
-    def is_top(self) -> bool:
-        return all([isinf(b) for k, b in self.dbm.items() if k[0] != k[1]])  # check all inf, ignore diagonal for check
-
     def _less_equal(self, other: 'OctagonLattice') -> bool:
         if self.dbm.size != other.dbm.size:
             raise ValueError("Can not compare octagons with unequal sizes!")
@@ -174,6 +168,13 @@ class OctagonLattice(BoundedLattice, NumericalDomain):
         # forget unary constraints
         self[PLUS, var, MINUS, var] = inf
         self[MINUS, var, PLUS, var] = inf
+
+    def set_bounds(self, var: VariableIdentifier, lower: int, upper: int):
+        self.set_lb(var, lower)
+        self.set_ub(var, upper)
+
+    def get_bounds(self, var: VariableIdentifier):
+        return self.get_lb(var), self.get_ub(var)
 
     def set_interval(self, var: VariableIdentifier, interval: Union[int, IntervalLattice]):
         if isinstance(interval, IntervalLattice):
