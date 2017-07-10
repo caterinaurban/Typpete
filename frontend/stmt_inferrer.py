@@ -315,7 +315,6 @@ def _init_func_context(args, context, solver):
     return local_context, args_types
 
 
-
 def _infer_args_defaults(args_types, defaults, context, solver):
     """Infer the default values of function arguments (if any)
     
@@ -407,6 +406,7 @@ def _infer_func_def(node, context, solver):
     func_context, args_types = _init_func_context(node.args.args, context, solver)
     result_type = solver.new_z3_const("func")
     context.set_type(node.name, result_type)
+    context.add_func_ast(node.name, node)
 
     if hasattr(node.args, "defaults"):
         # Use the default args to infer the function parameters

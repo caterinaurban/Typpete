@@ -1,3 +1,6 @@
+import ast
+from z3 import simplify
+
 class Context:
     """Represents types scope in a python program.
 
@@ -9,6 +12,7 @@ class Context:
         self.types_map = {}
         self.parent_context = parent_context
         self.children_contexts = []
+        self.func_to_ast = {}
 
         if parent_context:
             parent_context.children_contexts.append(self)
@@ -61,6 +65,39 @@ class Context:
             except NameError:
                 continue
         raise NameError("Name {} is not defined".format(var_name))
+
+    def add_func_ast(self, func_name, ast_node):
+        """Map a function with name `func_name` fo its corresponding AST node"""
+        self.func_to_ast[func_name] = ast_node
+
+    def add_annotations_to_funcs(self, model, solver):
+        """Add the function types given by the SMT model as annotations to the AST nodes"""
+        type_sort = solver.z3_types.type_sort
+        for func, node in self.func_to_ast.items():
+            z3_t = self.types_map[func]
+            inferred_type = model[z3_t]
+            func_len = len(node.args.args)
+
+            # Add the type annotations for the function arguments
+            for i, arg in enumerate(node.args.args):
+                arg_accessor = getattr(type_sort, "func_{}_arg_{}".format(func_len, i + 1))
+                arg_type = simplify(arg_accessor(inferred_type))
+
+                # Get the annotation with PEP 484 syntax
+                arg_annotation_str = solver.annotation_resolver.unparse_annotation(arg_type)
+
+                # Add the type annotation as an AST node
+                arg.annotation = ast.parse(arg_annotation_str).body[0].value
+
+            # Similarly, add the return type annotation
+            return_accessor = getattr(type_sort, "func_{}_return".format(func_len))
+            return_type = simplify(return_accessor(inferred_type))
+            return_annotation_str = solver.annotation_resolver.unparse_annotation(return_type)
+            node.returns = ast.parse(return_annotation_str).body[0].value
+
+        # Add the type annotations for functions in children contexts
+        for child in self.children_contexts:
+            child.add_annotations_to_funcs(model, solver)
 
 
 class AnnotatedFunction:

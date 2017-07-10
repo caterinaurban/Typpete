@@ -234,7 +234,14 @@ def add_init_if_not_existing(class_node):
             return
     class_node.body.append(ast.FunctionDef(
         name="__init__",
-        args=ast.arguments(args=[ast.arg(arg="self", annotation=None)]),
+        args=ast.arguments(
+            args=[ast.arg(arg="self", annotation=None, lineno=class_node.lineno)],
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=[]
+        ),
         body=[ast.Pass()],
         decorator_list=[],
         returns=None,

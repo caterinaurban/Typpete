@@ -1,5 +1,6 @@
-from z3 import Or
+from z3 import Or, simplify
 import ast
+import re
 
 
 class AnnotationResolver:
@@ -16,8 +17,23 @@ class AnnotationResolver:
             "bytes": z3_types.bytes,
             "None": z3_types.none,
             "number": z3_types.num,
-            "sequence": z3_types.seq
+            "sequence": z3_types.seq,
+            "Tuple": z3_types.tuple
         }
+
+        self.z3_type_to_PEP = {
+            "none": "None",
+            "int": "int",
+            "object": "object",
+            "float": "float",
+            "complex": "complex",
+            "str": "str",
+            "bytes": "bytes",
+            "number": "number",
+            "sequence": "sequence",
+            "tuple": "Tuple"
+        }
+
         self.type_var_poss = {}
         self.type_var_super = {}
 
@@ -194,3 +210,90 @@ class AnnotationResolver:
             raise TypeError("A single constraint is not allowed in TypeVar in line {}".format(type_var_node.lineno))
 
         self.type_var_poss[type_var_name] = type_var_possibilities
+
+    def unparse_annotation(self, z3_type):
+        """Unparse the z3_type into a type annotation in PEP 484 syntax
+        
+        :param z3_type: The z3 type to be unparsed
+        :returns str: the unparsed z3_type in PEP 484 syntax
+        """
+        type_str = str(z3_type)
+
+        if type_str in self.z3_type_to_PEP: # check if normal type
+            return self.z3_type_to_PEP[type_str]
+
+        # Use regex to match the prefix of the string representation of z3_type
+
+        match = re.match("list", type_str)
+        # unparse list type. Example: list(int) -> List[int]
+        if match:
+            # get the list elements' type
+            list_type_accessor = self.z3_types.list_type
+            list_type = simplify(list_type_accessor(z3_type))
+            return "List[{}]".format(self.unparse_annotation(list_type))
+
+        match = re.match("class_(.+)", type_str)
+        # unparse user defined class types. Example: class_A -> A
+        if match:
+            return match.group(1)
+
+        match = re.match("type_type", type_str)
+        # unparse type type. Example: type_type(class_A) -> Type[A]
+        if match:
+            # get the instance of this type
+            instance_accessor = getattr(self.z3_types.type_sort, "instance")
+            instance = simplify(instance_accessor(z3_type))
+            return "Type[{}]".format(self.unparse_annotation(instance))
+
+        if type_str == "tuple_0":
+            # unparse zero-length tuple. tuple_0 -> Tuple[()]
+            return "Tuple[()]"
+
+        match = re.match("tuple_(\d+)", type_str)
+        if match:
+            # unparse tuple type. tuple_2(int, list(int)) -> Tuple[int, List[int]]
+            args = []
+            tuple_len = int(match.group(1))
+            for i in range(tuple_len):
+                # Get the accessor for every tuple arg.
+                arg_accessor = getattr(self.z3_types.type_sort, "tuple_{}_arg_{}".format(tuple_len, i + 1))
+                arg = simplify(arg_accessor(z3_type))
+                args.append(self.unparse_annotation(arg))
+
+            args_str = ", ".join(args)
+            return "Tuple[{}]".format(args_str)
+
+        match = re.match("set", type_str)
+        # unparse set type. set(int) -> Set[int]
+        if match:
+            set_type_accessor = self.z3_types.set_type
+            set_type = simplify(set_type_accessor(z3_type))
+            return "Set[{}]".format(self.unparse_annotation(set_type))
+
+        match = re.match("dict", type_str)
+        # unparse dict type. dict(int, str) -> Dict[int, str]
+        if match:
+            key_accessor = self.z3_types.dict_key_type
+            val_accessor = self.z3_types.dict_value_type
+            key_type = simplify(key_accessor(z3_type))
+            val_type = simplify(val_accessor(z3_type))
+
+            return "Dict[{}, {}]".format(self.unparse_annotation(key_type),
+                                         self.unparse_annotation(val_type))
+
+        match = re.match("func_(\d+)", type_str)
+        # unparse func type. func_0(0, int, none) -> Callable[[int], None]
+        if match:
+            args = []
+            args_len = int(match.group(1))
+            for i in range(args_len):
+                arg_accessor = getattr(self.z3_types.type_sort, "func_{}_arg_{}".format(args_len, i + 1))
+                arg = simplify(arg_accessor(z3_type))
+                args.append(self.unparse_annotation(arg))
+            return_accessor = getattr(self.z3_types.type_sort, "func_{}_return".format(args_len))
+            return_type = simplify(return_accessor(z3_type))
+            return_annotation = self.unparse_annotation(return_type)
+
+            return "Callable[[{}], {}]".format(", ".join(args), return_annotation)
+
+        raise TypeError("Couldn't unparse type {}".format(type_str))
