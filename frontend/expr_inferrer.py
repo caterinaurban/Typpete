@@ -393,19 +393,22 @@ def _get_builtin_method_call_axioms(args_types, solver, context, result_type, me
 
 def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
+    # instance represents the receiver in case of method calls.
+    # It's none in all cases except method calls
     instance = None
     result_type = solver.new_z3_const("call")
     call_axioms = []
     if isinstance(node.func, ast.Attribute):
-        # Add axioms for built-in methods
         instance = infer(node.func.value, context, solver)
         if isinstance(instance, Context):
             # Module access; instance is a module, so don't add it as a receiver to `arg_types`
             instance = None
-        args_types = _get_args_types(node.args, context, instance, solver)
+
+    args_types = _get_args_types(node.args, context, instance, solver)
+
+    if isinstance(node.func, ast.Attribute):
+        # Add axioms for built-in methods
         call_axioms += _get_builtin_method_call_axioms(args_types, solver, context, result_type, node.func.attr)
-    else:
-        args_types = _get_args_types(node.args, context, instance, solver)
 
     called = infer(node.func, context, solver)
     if isinstance(called, AnnotatedFunction):
@@ -422,14 +425,26 @@ def infer_func_call(node, context, solver):
 
 
 def _get_builtin_attr_access_axioms(instance_type, attr, result_type, context, solver):
-    """Return axioms for built-in attribute access"""
+    """Return axioms for built-in attribute access
+    
+    Return disjunctions of equalities with all possible built-in types that have a method matching
+    the attribute we are trying to access.
+    
+    Example:
+        x = [1, 2, 3]
+        x.append
+    """
 
     # get the built-in methods matching the attribute
     possible_methods = context.get_matching_methods(attr)
 
     attr_axioms = []
     for method in possible_methods:
+        # The first argument in the method annotation will always be an annotation for the receiver
+        # (i.e. the built-in type whose attributes we are trying to access)
         first_arg = method.args_annotations[0]
+
+        # Resolve the annotation into a Z3 type
         resolved_type = solver.annotation_resolver.resolve(first_arg, solver, {})
 
         # Making result type to be none to prevent it from satisfying user-defined call axioms
