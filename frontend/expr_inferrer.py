@@ -384,8 +384,24 @@ def _infer_annotated_function_call(args_types, solver, annotations):
 
 def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
-    instance = None
     result_type = solver.new_z3_const("call")
+
+    # Check if it's direct class instantiation
+    if isinstance(node.func, ast.Name):
+        called = context.get_type(node.func.id)
+        # check if the type has the manually added flag for class-types
+        if hasattr(called, "init_args_count"):
+            args_types = _get_args_types(node.args, context, None, solver)
+            init_args_count = called.init_args_count
+            solver.add(axioms.one_type_instantiation(node.func.id,
+                                                     init_args_count,
+                                                     args_types,
+                                                     result_type,
+                                                     solver.z3_types),
+                       fail_message="Class instantiation in line {}.".format(node.lineno))
+            return result_type
+
+    instance = None
     if isinstance(node.func, ast.Attribute):
         called, instance = infer(node.func, context, solver, True)
         args_types = _get_args_types(node.args, context, instance, solver)

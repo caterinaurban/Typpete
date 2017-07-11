@@ -272,7 +272,6 @@ def multiple_assignment(target, value, position, types):
     # Assert with tuples of different lengths, maintaining the correct position of the target in the tuple.
     t = []
     for cur_len in range(position + 1, len(types.tuples)):
-
         before_target = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(value)
                          for i in range(position)]  # The tuple elements before the target
         after_target = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(value)
@@ -359,6 +358,32 @@ def try_except(then, orelse, final, result, types):
     ]
 
 
+def one_type_instantiation(class_name, init_args_count, args, result, types):
+    """Constraints for class instantiation, if the class name is known
+    
+    :param class_name: The class to be instantiated
+    :param init_args_count: the number of arguments in the classes __init__ method
+    :param args: the types of the arguments passed to the class instantiation
+    :param result: The resulting instance from instantiation
+    :param types: Z3Types object for this inference program
+    """
+    # Get the instance accessor from the type_sort data type.
+    instance = getattr(types.type_sort, "instance")(types.all_types[class_name])
+
+    # Get the __init__ function of the this class
+    init_func = types.instance_attributes[class_name]["__init__"]
+
+    defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(init_args_count))
+
+    # TODO default args in __init__ function
+
+    # Assert that it's a call to this __init__ function
+    return And(
+        result == instance,
+        init_func == types.funcs[init_args_count]((defaults_accessor(init_func),) +
+                                                  (instance,) + args + (types.none,)))
+
+
 def instance_axioms(called, args, result, types):
     """Constraints for class instantiation
     
@@ -375,22 +400,8 @@ def instance_axioms(called, args, result, types):
     # Assert with __init__ function of all classes in the program
     axioms = []
     for t in types.all_types:
-        # Get the instance accessor from the type_sort data type.
-        instance = getattr(types.type_sort, "instance")(types.all_types[t])
-
-        # Get the __init__ function of the current class
-        init_func = types.instance_attributes[t]["__init__"]
-
-        # Assert that it's a call to this __init__ function
-
-        defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(len(args) + 1))
-
-        # TODO default args in __init__ function
-        axioms.append(
-            And(called == types.all_types[t],
-                result == instance,
-                init_func == types.funcs[len(args) + 1]((defaults_accessor(init_func),) +
-                                                        (instance,) + args + (types.none,))))
+        axioms.append(And(one_type_instantiation(t, len(args) + 1, args, result, types),
+                          called == types.all_types[t]))
 
     return axioms
 
@@ -423,8 +434,9 @@ def function_call_axioms(called, args, result, types):
         defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(i))
 
         # Add the axioms for function call, default args count, and arguments subtyping.
-        axioms.append(And(called == types.funcs[i]((defaults_accessor(called),) + tuple(z3_args) + rem_args_types + (result,)),
-                          defaults_accessor(called) >= rem_args, *subtype_axioms))
+        axioms.append(
+            And(called == types.funcs[i]((defaults_accessor(called),) + tuple(z3_args) + rem_args_types + (result,)),
+                defaults_accessor(called) >= rem_args, *subtype_axioms))
 
     return axioms
 
@@ -438,7 +450,7 @@ def call(called, args, result, types):
     """
     return [
         Or(
-           function_call_axioms(called, args, result, types) + instance_axioms(called, args, result, types)
+            function_call_axioms(called, args, result, types) + instance_axioms(called, args, result, types)
         )
     ]
 
