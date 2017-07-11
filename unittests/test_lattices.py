@@ -12,7 +12,6 @@ class ExpressionLattice(BoundedLattice):
     def __init__(self):
         self._expr = None
         super().__init__()
-        self.bottom()
 
     def __repr__(self):
         return str(self._expr)

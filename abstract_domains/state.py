@@ -5,6 +5,7 @@ from core.expressions import Expression, VariableIdentifier
 from typing import Set
 
 
+# TODO make inherit from Lattice
 class State(BoundedLattice, metaclass=ABCMeta):
     def __init__(self):
         """Analysis state representation. 

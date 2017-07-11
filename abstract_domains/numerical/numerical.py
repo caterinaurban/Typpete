@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 from core.expressions import VariableIdentifier, Expression, UnaryArithmeticOperation
 
 
-# rename (without lattice) e.g. IntegerOperations
+# TODO rename (without lattice) e.g. IntegerOperations or Values or do not provide interface
 class NumericalLattice(metaclass=ABCMeta):
     @abstractmethod
     def add(self, other):
@@ -26,20 +26,12 @@ class NumericalLattice(metaclass=ABCMeta):
         raise NotImplementedError()
 
 
+# rename NumericalMixin
 class NumericalDomain(metaclass=ABCMeta):
+    # TODO maybe remove it from interface completely
     @abstractmethod
     def forget(self, var: VariableIdentifier):
         """Forget all constraints about a variable."""
-
-    # TODO assume
-
-    # TODO assign
-
-    # TODO substitute
-
-    # TODO create_variable (also in state interface)
-
-    # TODO remove_variable (also in state interface)
 
     @abstractmethod
     def set_bounds(self, var: VariableIdentifier, lower: int, upper: int):

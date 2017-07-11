@@ -9,11 +9,11 @@ import tokenize
 import unittest
 from abc import abstractmethod
 
-from abstract_domains.dummies import ExpressionStore
 from core.expressions import VariableIdentifier
 from engine.forward import ForwardInterpreter
 from frontend.cfg_generator import ast_to_cfg
 from semantics.forward import DefaultForwardSemantics
+from unittests.test_lattices import ExpressionStore
 from visualization.graph_renderer import CfgRenderer, AnalysisResultRenderer
 
 
