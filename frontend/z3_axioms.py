@@ -373,15 +373,27 @@ def one_type_instantiation(class_name, init_args_count, args, result, types):
     # Get the __init__ function of the this class
     init_func = types.instance_attributes[class_name]["__init__"]
 
+    # Assert that it's a call to this __init__ function, and the call args are subtypes of those of __init__
+    subtype_axioms = []
+    z3_args = []
+    for j, arg in enumerate(args):
+        z3_arg = getattr(types.type_sort, "func_{}_arg_{}".format(init_args_count, j + 2))(init_func)
+        z3_args.append(z3_arg)
+        subtype_axioms.append(types.subtype(arg, z3_arg))
+
+    # Get the default args count
     defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(init_args_count))
+    default_count = defaults_accessor(init_func)
+
+    all_args = (instance,) + tuple(z3_args) + (types.none,)  # The return type of __init__ is None
+    z3_func_args = (default_count,) + all_args
 
     # TODO default args in __init__ function
 
     # Assert that it's a call to this __init__ function
     return And(
         result == instance,
-        init_func == types.funcs[init_args_count]((defaults_accessor(init_func),) +
-                                                  (instance,) + args + (types.none,)))
+        init_func == types.funcs[init_args_count](z3_func_args), *subtype_axioms)
 
 
 def instance_axioms(called, args, result, types):
@@ -402,7 +414,6 @@ def instance_axioms(called, args, result, types):
     for t in types.all_types:
         axioms.append(And(one_type_instantiation(t, len(args) + 1, args, result, types),
                           called == types.all_types[t]))
-
     return axioms
 
 
