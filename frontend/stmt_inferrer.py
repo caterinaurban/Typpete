@@ -401,7 +401,8 @@ def _infer_func_def(node, context, solver):
         args_annotations = []
         for arg in node.args.args:
             args_annotations.append(arg.annotation)
-        context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation))
+        defaults_count = len(node.args.defaults)
+        context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count))
         return
 
     func_context, args_types = _init_func_context(node.args.args, context, solver)

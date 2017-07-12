@@ -160,13 +160,15 @@ class AnnotationResolver:
         """
         args_annotations = annotated_function.args_annotations
         result_annotation = annotated_function.return_annotation
-
-        if len(args_types) != len(args_annotations):
+        defaults_count = annotated_function.defaults_count
+        min_args = len(args_annotations) - defaults_count
+        max_args = len(args_annotations)
+        if len(args_types) < min_args or len(args_types) > max_args:
             raise TypeError("The function expects {} arguments. {} were given.".format(len(args_annotations),
                                                                                        len(args_types)))
         generics_map = {}
 
-        for i, annotation in enumerate(args_annotations):
+        for i, annotation in enumerate(args_annotations[:len(args_types)]):
             arg_type = self.resolve(annotation, solver, generics_map)
             solver.add(solver.z3_types.subtype(args_types[i], arg_type),
                        fail_message="Generic parameter type in line {}".format(annotation.lineno))
