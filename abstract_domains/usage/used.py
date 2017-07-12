@@ -1,4 +1,4 @@
-from abstract_domains.lattice import Lattice
+from abstract_domains.lattice import Lattice, BottomMixin
 from enum import Flag
 
 
@@ -17,7 +17,7 @@ O = Used.O
 N = Used.N
 
 
-class UsedLattice(Lattice):
+class UsedLattice(BottomMixin):
     """Used variable analysis core abstract domain representation."""
 
     DESCEND = {
@@ -68,16 +68,9 @@ class UsedLattice(Lattice):
     def __repr__(self):
         return self.used.name
 
-    def bottom(self):
-        self._used = N
-        return self
-
     def top(self):
         self._used = U
         return self
-
-    def is_bottom(self) -> bool:
-        return self.used == N
 
     def is_top(self) -> bool:
         return self.used == U

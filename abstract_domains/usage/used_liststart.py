@@ -1,11 +1,11 @@
-from abstract_domains.lattice import Lattice
+from abstract_domains.lattice import Lattice, BottomMixin
 
 from abstract_domains.usage.used import U, S, O, N, UsedLattice, Used
 from collections import OrderedDict
 from math import inf
 
 
-class UsedListStartLattice(Lattice):
+class UsedListStartLattice(BottomMixin):
     """Used list start analysis abstract domain representation.
     
     This uses the Used lattice as base and uses it to store the usage of the start of list, each Used element covers 
@@ -61,14 +61,6 @@ class UsedListStartLattice(Lattice):
                 non_zero_uppers.append(f"{el.name}@0:{self.suo[el]}")
         return f"({', '.join(non_zero_uppers)})"
 
-    def bottom(self):
-        self._suo = OrderedDict([
-            (S, 0),
-            (U, 0),
-            (O, 0)
-        ])
-        return self
-
     def top(self):
         self._suo = OrderedDict([
             (S, 0),
@@ -76,9 +68,6 @@ class UsedListStartLattice(Lattice):
             (O, 0)
         ])
         return self
-
-    def is_bottom(self) -> bool:
-        return all(upper == 0 for upper in self.suo.values())
 
     def is_top(self) -> bool:
         return all(upper == inf for upper in self.suo.values())

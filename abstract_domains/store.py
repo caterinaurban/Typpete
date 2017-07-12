@@ -47,8 +47,7 @@ class Store(Lattice):
         return self
 
     def is_bottom(self) -> bool:
-        # TODO: replace `all` with `any`
-        return all(element.is_bottom() for element in self.store.values())
+        return any(element.is_bottom() for element in self.store.values())
 
     def is_top(self) -> bool:
         return all(element.is_top() for element in self.store.values())
