@@ -13,7 +13,7 @@ from core.expressions import VariableIdentifier
 from engine.forward import ForwardInterpreter
 from frontend.cfg_generator import ast_to_cfg
 from semantics.forward import DefaultForwardSemantics
-from unittests.test_lattices import ExpressionStore
+from unittests.dummies import ExpressionStore
 from visualization.graph_renderer import CfgRenderer, AnalysisResultRenderer
 
 

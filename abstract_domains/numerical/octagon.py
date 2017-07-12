@@ -1,10 +1,10 @@
 from copy import deepcopy
 from functools import reduce
 
-from abstract_domains.lattice import BoundedLattice
+from abstract_domains.lattice import BoundedLattice, BottomMixin
 from abstract_domains.numerical.dbm import IntegerCDBM
-from abstract_domains.numerical.interval import IntervalLattice, IntervalStore, IntervalDomain
-from abstract_domains.numerical.numerical import NumericalDomain
+from abstract_domains.numerical.interval import IntervalLattice, IntervalDomain
+from abstract_domains.numerical.numerical import NumericalMixin
 from abstract_domains.state import State
 from core.expressions import *
 from typing import List, Set, Tuple, Union
@@ -24,7 +24,7 @@ def _index_shift(sign: Sign):
     return 1 if sign == MINUS else 0
 
 
-class OctagonLattice(BoundedLattice, NumericalDomain):
+class OctagonLattice(BottomMixin, NumericalMixin):
     def __init__(self, variables: List[VariableIdentifier]):
         """Create an Octagon Lattice for given variables.
         
@@ -131,6 +131,14 @@ class OctagonLattice(BoundedLattice, NumericalDomain):
         if not consistent:
             self.bottom()
         return consistent
+
+    def top(self):
+        for key in self.dbm.keys():
+            self.dbm[key] = inf
+        return self
+
+    def is_top(self) -> bool:
+        return all([isinf(b) for k, b in self.dbm.items() if k[0] != k[1]])  # check all inf, ignore diagonal for check
 
     def _less_equal(self, other: 'OctagonLattice') -> bool:
         if self.dbm.size != other.dbm.size:
@@ -412,7 +420,7 @@ class OctagonDomain(OctagonLattice, State):
             interval_store.set_interval(var, self.get_interval(var))
         return interval_store
 
-    def from_interval_domain(self, interval_domain: IntervalStore):
+    def from_interval_domain(self, interval_domain: IntervalDomain):
         assert interval_domain.variables == self.variables
 
         for var in self.variables:

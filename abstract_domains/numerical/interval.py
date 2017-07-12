@@ -1,6 +1,6 @@
 from abstract_domains.store import Store
-from abstract_domains.lattice import BoundedLattice
-from abstract_domains.numerical.numerical import NumericalDomain, NumericalLattice
+from abstract_domains.lattice import BoundedLattice, BottomMixin
+from abstract_domains.numerical.numerical import NumericalMixin
 from abstract_domains.state import State
 from core.expressions import *
 from typing import List, Set, Tuple, Union
@@ -9,7 +9,7 @@ from math import inf, isinf
 from core.expressions_tools import ExpressionVisitor
 
 
-class IntervalLattice(BoundedLattice, NumericalLattice):
+class Interval:
     def __init__(self, lower=-inf, upper=inf):
         """Create an Interval Lattice for a single variable.
         """
@@ -49,33 +49,30 @@ class IntervalLattice(BoundedLattice, NumericalLattice):
 
     @property
     def lower(self):
-        if self.is_bottom():
-            raise ValueError("This interval is BOTTOM and has no lower element!")
         return self._lower
 
     @lower.setter
     def lower(self, b):
-        if self.is_bottom():
-            raise ValueError("This interval is BOTTOM and has no lower element!")
         self._lower = b
 
     @property
     def upper(self):
-        if self.is_bottom():
-            raise ValueError("This interval is BOTTOM and has no upper element!")
         return self._upper
 
     @upper.setter
     def upper(self, b):
-        if self.is_bottom():
-            raise ValueError("This interval is BOTTOM and has no upper element!")
         self._upper = b
 
+    def __repr__(self):
+        return f"[{self.lower},{self.upper}]"
+
+
+class IntervalLattice(Interval, BottomMixin):
     def __repr__(self):
         if self.is_bottom():
             return "BOTTOM"
         else:
-            return f"[{self.lower},{self.upper}]"
+            return super().__repr__()
 
     def top(self):
         self.lower = -inf
@@ -109,6 +106,9 @@ class IntervalLattice(BoundedLattice, NumericalLattice):
 
     @classmethod
     def evaluate(cls, expr: Expression):
+        """Evaluates an expression without variables, interpreting constants in the interval domain.
+        
+        If this method encounters any variables, it raises a ``ValueError``."""
         return cls._visitor.visit(expr)
 
     class Visitor(ExpressionVisitor):
@@ -152,10 +152,10 @@ class IntervalLattice(BoundedLattice, NumericalLattice):
     _visitor = Visitor()  # static class member shared between all instances
 
 
-class IntervalStore(Store, NumericalDomain):
+class IntervalDomain(Store, NumericalMixin, State):
     def __init__(self, variables: List[VariableIdentifier]):
         super().__init__(variables, {int: IntervalLattice})
-        self._visitor = IntervalStore.Visitor(self)
+        self._visitor = IntervalDomain.Visitor(self)
 
     def forget(self, var: VariableIdentifier):
         self.store[var].top()
@@ -196,15 +196,6 @@ class IntervalStore(Store, NumericalDomain):
                 return self.store.store[expr]
             else:
                 raise ValueError(f"Variable type {expr.typ} is not supported!")
-
-
-class IntervalDomain(IntervalStore, State):
-    def __init__(self, variables: List[VariableIdentifier]):
-        """Create an Interval Domain (State) for given variables.
-
-        :param variables: list of program variables
-        """
-        super().__init__(variables)
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return {variable}

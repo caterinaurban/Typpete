@@ -2,33 +2,7 @@ from abc import ABCMeta, abstractmethod
 from core.expressions import VariableIdentifier, Expression, UnaryArithmeticOperation
 
 
-# TODO rename (without lattice) e.g. IntegerOperations or Values or do not provide interface
-class NumericalLattice(metaclass=ABCMeta):
-    @abstractmethod
-    def add(self, other):
-        pass
-
-    @abstractmethod
-    def sub(self, other):
-        pass
-
-    @abstractmethod
-    def mult(self, other):
-        pass
-
-    @abstractmethod
-    def negate(self):
-        pass
-
-    @classmethod
-    def evaluate(cls, expr: Expression):
-        """Evaluates the expression within this abstract domain."""
-        raise NotImplementedError()
-
-
-# rename NumericalMixin
-class NumericalDomain(metaclass=ABCMeta):
-    # TODO maybe remove it from interface completely
+class NumericalMixin(metaclass=ABCMeta):
     @abstractmethod
     def forget(self, var: VariableIdentifier):
         """Forget all constraints about a variable."""
