@@ -304,7 +304,10 @@ def infer_name(node, context):
         node: the variable node whose type is to be inferred
         context: The context to look in for the variable type
     """
-    return context.get_type(node.id)
+    try:
+        return context.get_type(node.id)
+    except NameError:
+        raise NameError("Name {} in line {} is not defined".format(node.id, node.lineno))
 
 
 def infer_generators(generators, local_context, lineno, solver):

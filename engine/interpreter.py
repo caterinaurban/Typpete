@@ -7,7 +7,7 @@ from semantics.semantics import Semantics
 
 class Interpreter(metaclass=ABCMeta):
     def __init__(self, cfg: ControlFlowGraph, semantics: Semantics, widening: int):
-        """Analysis runner.
+        """Control flow graph interpreter.
         
         :param cfg: control flow graph to analyze
         :param widening: number of iterations before widening 
