@@ -2,6 +2,8 @@ import builtins
 import glob
 import os
 import unittest
+
+import time
 from frontend.stmt_inferrer import *
 
 
@@ -64,6 +66,7 @@ class TestInference(unittest.TestCase):
 
     def runTest(self):
         """Test for expressions inference"""
+        start_time = time.time()
         r = open(self.file_path)
         expected_result = self.parse_results(r)
         r.close()
@@ -94,7 +97,8 @@ class TestInference(unittest.TestCase):
             self.assertEqual(model[z3_type], expected,
                              "Test file {}. Expected variable '{}' to have type '{}', but found '{}'"
                              .format(self.file_name, v, expected, model[z3_type]))
-
+        end_time = time.time()
+        print("Tested {} in {:.2f} seconds.".format(self.file_name, end_time - start_time))
 
 def suite():
     s = unittest.TestSuite()
@@ -103,7 +107,7 @@ def suite():
         if os.path.basename(path) != "__init__.py":
             name = path.split("/")[-1]
             s.addTest(TestInference(path, name))
-    runner = unittest.TextTestRunner()
+    runner = unittest.TextTestRunner(verbosity=0)
     runner.run(s)
 
 
