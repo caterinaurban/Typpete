@@ -84,6 +84,11 @@ class CDBM(metaclass=ABCMeta):
         else:
             return row, col
 
+    @staticmethod
+    def _col_index_limit(row):
+        """Returns the column index limit (exclusive) for a given row."""
+        return row // 2 * 2 + 1
+
     def keys(self):
         row = 0
         col = 0
@@ -91,7 +96,7 @@ class CDBM(metaclass=ABCMeta):
             current_index = row, col  # make a copy (as a index tuple)
 
             col += 1
-            if row // 2 * 2 + 1 < col:
+            if col > self._col_index_limit(row):
                 # wrap line
                 col = 0
                 row += 1
@@ -113,20 +118,13 @@ class CDBM(metaclass=ABCMeta):
 
     def _shortest_path_closure(self):
         """Uses Floyd-Warshall Algorithm to calculate shortest-path closure.
-        
-        :return: True, if there where negative diagonal elements before they where set to 0, False otherwise.
         """
-        copy = deepcopy(self)
-        for k in range(self.size):
-            for i in range(self.size):
-                for j in range(self.size):  # TODO optimize to not set upper right diagonal entries
-                    self[i, j] = min(copy[i, j], copy[i, k] + copy[k, j])
-
-        negative_diagonal_elements = any([self[i, i] < 0 for i in range(self.size)])
 
         self._set_diagonal_zero()
-
-        return negative_diagonal_elements
+        for k in range(self.size):
+            for i in range(self.size):
+                for j in range(self._col_index_limit(i)):  # optimized to not set upper right diagonal entries
+                    self[i, j] = min(self[i, j], self[i, k] + self[k, j])
 
     @abstractmethod
     def close(self):
@@ -172,7 +170,6 @@ class IntegerCDBM(CDBM):
         Algorithm from paper: An Improved Tight Closure Algorithm for Integer Octagonal Constraints - Roberto 
         Bagnara, Patricia M. Hill, Enea Zaffanella 
         """
-        self._set_diagonal_zero()
         self._shortest_path_closure()
 
         # check for Q-consistency
