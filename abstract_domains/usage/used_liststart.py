@@ -1,4 +1,4 @@
-from abstract_domains.lattice import Lattice, BottomMixin
+from abstract_domains.lattice import BottomMixin
 
 from abstract_domains.usage.used import U, S, O, N, UsedLattice, Used
 from collections import OrderedDict

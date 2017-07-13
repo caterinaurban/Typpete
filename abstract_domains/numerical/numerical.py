@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from core.expressions import VariableIdentifier, Expression, UnaryArithmeticOperation
+from core.expressions import VariableIdentifier, Expression
 
 
 class NumericalMixin(metaclass=ABCMeta):

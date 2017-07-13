@@ -5,7 +5,6 @@ from engine.backward import BackwardInterpreter
 from semantics.usage.usage_semantics import UsageSemantics
 from unittests.generic_tests import ResultCommentsFileTestCase
 import unittest
-import ast
 import os
 import logging
 

@@ -1,10 +1,10 @@
 from abstract_domains.store import Store
-from abstract_domains.lattice import BoundedLattice, BottomMixin
+from abstract_domains.lattice import BottomMixin
 from abstract_domains.numerical.numerical import NumericalMixin
 from abstract_domains.state import State
 from core.expressions import *
-from typing import List, Set, Tuple, Union
-from math import inf, isinf
+from typing import List, Set
+from math import inf
 
 from core.expressions_tools import ExpressionVisitor
 
@@ -114,10 +114,13 @@ class IntervalLattice(Interval, BottomMixin):
     class Visitor(ExpressionVisitor):
         """A visitor to abstractly evaluate an expression (without variables) in the interval domain."""
 
+        # noinspection PyMethodOverriding
         def generic_visit(self, expr):
             raise ValueError(
-                f"{type(self)} does not support generic visit of expressions! Define handling for expression {type(expr)} explicitly!")
+                f"{type(self)} does not support generic visit of expressions! "
+                f"Define handling for expression {type(expr)} explicitly!")
 
+        # noinspection PyMethodMayBeStatic,PyUnusedLocal
         def visit_Input(self, expr: Input):
             return IntervalLattice().top()
 
@@ -142,6 +145,7 @@ class IntervalLattice(Interval, BottomMixin):
             else:
                 raise ValueError(f"Unary Operator {expr.operator} is not supported!")
 
+        # noinspection PyMethodMayBeStatic
         def visit_Literal(self, expr: Literal):
             if expr.typ == int:
                 c = int(expr.val)

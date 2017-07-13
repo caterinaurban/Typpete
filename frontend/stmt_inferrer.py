@@ -315,7 +315,6 @@ def _init_func_context(args, context, solver):
     return local_context, args_types
 
 
-
 def _infer_args_defaults(args_types, defaults, context, solver):
     """Infer the default values of function arguments (if any)
     

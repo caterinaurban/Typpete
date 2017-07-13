@@ -1,6 +1,5 @@
 import unittest
 
-from abstract_domains.numerical.linear_forms import SingleVarLinearForm
 from core.expressions_tools import simplify
 from unittests.generic_tests import ExpressionTreeTestCase
 

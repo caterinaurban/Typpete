@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from abstract_domains.lattice import BoundedLattice, Lattice
+from abstract_domains.lattice import Lattice
 from copy import deepcopy
 from core.expressions import Expression, VariableIdentifier
 from typing import Set

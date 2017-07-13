@@ -1,6 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from copy import deepcopy
-from math import inf, nan, isinf, isnan
+from math import inf, isinf, isnan
 from typing import Tuple
 
 
@@ -185,7 +184,6 @@ class IntegerCDBM(CDBM):
         # check for Z-consistency
         for i in range(self.size):
             for j in range(self.size):
-                # print(f"check {i},{j^1} + {i^1},{j} = {self[i, j ^ 1]} + {self[i ^ 1, j]} = {self[i, j ^ 1] + self[i ^ 1, j]}")
                 if self[i, j ^ 1] + self[i ^ 1, j] < 0:
                     return False
 

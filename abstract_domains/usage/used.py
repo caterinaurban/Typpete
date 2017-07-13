@@ -1,4 +1,4 @@
-from abstract_domains.lattice import Lattice, BottomMixin
+from abstract_domains.lattice import BottomMixin
 from enum import Flag
 
 

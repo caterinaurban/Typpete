@@ -6,7 +6,6 @@ from engine.forward import ForwardInterpreter
 from semantics.forward import DefaultForwardSemantics
 from unittests.generic_tests import ResultCommentsFileTestCase
 import unittest
-import ast
 import os
 import logging
 

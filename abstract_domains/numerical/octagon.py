@@ -1,7 +1,8 @@
 from copy import deepcopy
+from enum import Enum
 from functools import reduce
 
-from abstract_domains.lattice import BoundedLattice, BottomMixin
+from abstract_domains.lattice import BottomMixin
 from abstract_domains.numerical.dbm import IntegerCDBM
 from abstract_domains.numerical.interval import IntervalLattice, IntervalDomain
 from abstract_domains.numerical.numerical import NumericalMixin
@@ -12,7 +13,7 @@ from math import inf, isinf
 
 from abstract_domains.numerical.linear_forms import SingleVarLinearForm, LinearForm, InvalidFormError
 
-from core.expressions_tools import ExpressionVisitor, ExpressionTransformer, NotFreeConditionTransformer, \
+from core.expressions_tools import ExpressionVisitor, ExpressionTransformer, \
     make_condition_not_free, simplify
 
 Sign = UnaryArithmeticOperation.Operator
@@ -300,9 +301,10 @@ class OctagonDomain(OctagonLattice, State):
                 if not isinstance(cond.right, Literal) or not cond.right.val == '0':
                     # move right side to left
                     updated_conditions.append(
-                        BinaryComparisonOperation(cond.typ, BinaryArithmeticOperation(cond.typ, cond.left,
-                                                                                      BinaryArithmeticOperation.Operator.Sub,
-                                                                                      cond.right), cond.operator,
+                        BinaryComparisonOperation(cond.typ, \
+                                                  BinaryArithmeticOperation(cond.typ, cond.left,
+                                                                            BinaryArithmeticOperation.Operator.Sub,
+                                                                            cond.right), cond.operator,
                                                   Literal(int, '0')))
             condition_set.conditions = updated_conditions
 
@@ -310,9 +312,11 @@ class OctagonDomain(OctagonLattice, State):
 
         def generic_visit(self, expr, *args, **kwargs):
             raise ValueError(
-                f"{type(self)} does not support generic visit of expressions! Define handling for expression {type(expr)} explicitly!")
+                f"{type(self)} does not support generic visit of expressions! "
+                f"Define handling for expression {type(expr)} explicitly!")
 
         def _to_LtE_operator(self, expr: BinaryComparisonOperation):
+            # noinspection PyPep8Naming
             ConditionSet = OctagonDomain.SmallerEqualConditionTransformer.ConditionSet
 
             if expr.operator == BinaryComparisonOperation.Operator.LtE:
@@ -324,33 +328,36 @@ class OctagonDomain(OctagonLattice, State):
                                               expr.left))
             elif expr.operator == BinaryComparisonOperation.Operator.Lt:
                 return ConditionSet(
-                    BinaryComparisonOperation(expr.typ, BinaryArithmeticOperation(expr.typ, expr.left,
-                                                                                  BinaryArithmeticOperation.Operator.Add,
-                                                                                  Literal(int, '1')),
+                    BinaryComparisonOperation(expr.typ, \
+                                              BinaryArithmeticOperation(expr.typ, expr.left,
+                                                                        BinaryArithmeticOperation.Operator.Add,
+                                                                        Literal(int, '1')),
                                               BinaryComparisonOperation.Operator.LtE, expr.right))
             elif expr.operator == BinaryComparisonOperation.Operator.Gt:
                 return self._to_LtE_operator(
                     BinaryComparisonOperation(expr.typ, expr.right, BinaryComparisonOperation.Operator.Lt, expr.left))
             elif expr.operator == BinaryComparisonOperation.Operator.Eq:
                 cs1 = self._to_LtE_operator(
-                    BinaryComparisonOperation(expr.typ, expr.left, BinaryComparisonOperation.Operator.LtE))
+                    BinaryComparisonOperation(expr.typ, expr.left, BinaryComparisonOperation.Operator.LtE, expr.right))
                 cs2 = self._to_LtE_operator(
-                    BinaryComparisonOperation(expr.typ, expr.left, BinaryComparisonOperation.Operator.GtE))
+                    BinaryComparisonOperation(expr.typ, expr.left, BinaryComparisonOperation.Operator.GtE, expr.right))
                 return ConditionSet([cs1.conditions[0], cs2.conditions[0]], ConditionSet.Operator.MEET)
 
             elif expr.operator == BinaryComparisonOperation.Operator.Eq:
                 cs1 = self._to_LtE_operator(
-                    BinaryComparisonOperation(expr.typ, expr.left, BinaryComparisonOperation.Operator.Lt))
+                    BinaryComparisonOperation(expr.typ, expr.left, BinaryComparisonOperation.Operator.Lt, expr.right))
                 cs2 = self._to_LtE_operator(
-                    BinaryComparisonOperation(expr.typ, expr.left, BinaryComparisonOperation.Operator.Gt))
+                    BinaryComparisonOperation(expr.typ, expr.left, BinaryComparisonOperation.Operator.Gt, expr.right))
                 return ConditionSet([cs1.conditions[0], cs2.conditions[0]], ConditionSet.Operator.JOIN)
 
     class AssumeVisitor(ExpressionVisitor):
         """Visits an expression and recursively 'assumes' the condition tree."""
 
+        # noinspection PyMethodOverriding
         def visit(self, expr, state):
             return super().visit(expr, state)
 
+        # noinspection PyMethodMayBeStatic
         def visit_UnaryBooleanOperation(self, expr: UnaryBooleanOperation, state):
             raise ValueError("The expression should not contain any unary boolean operations like negation (Neg)!")
 
@@ -362,6 +369,7 @@ class OctagonDomain(OctagonLattice, State):
             else:
                 raise ValueError()
 
+        # noinspection PyMethodMayBeStatic
         def visit_BinaryComparisonOperation(self, expr: BinaryComparisonOperation, state):
             # we want the following format: e <= 0
             # if not in that format, bring it to this and use a correcting +/-1 and join/meet of multiple inequalities
@@ -417,7 +425,8 @@ class OctagonDomain(OctagonLattice, State):
 
         def generic_visit(self, expr, *args, **kwargs):
             raise ValueError(
-                f"{type(self)} does not support generic visit of expressions! Define handling for expression {type(expr)} explicitly!")
+                f"{type(self)} does not support generic visit of expressions! "
+                f"Define handling for expression {type(expr)} explicitly!")
 
     def __init__(self, variables: List[VariableIdentifier]):
         """Create an Octagon Lattice for given variables.

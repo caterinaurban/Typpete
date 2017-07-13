@@ -1,5 +1,3 @@
-from collections import namedtuple
-
 from abstract_domains.numerical.interval import IntervalLattice
 from core.expressions import *
 
@@ -63,6 +61,7 @@ class LinearForm(ExpressionVisitor):
     def visit_VariableIdentifier(self, expr: VariableIdentifier, invert=False):
         self._encounter_new_var(expr, sign=MINUS if invert else PLUS)
 
+    # noinspection PyUnusedLocal
     def visit_Input(self, expr: Input, invert=False):
         self.interval = IntervalLattice().top()
         if invert:
@@ -103,7 +102,8 @@ class LinearForm(ExpressionVisitor):
 
     def generic_visit(self, expr, *args, **kwargs):
         raise InvalidFormError(
-            f"{type(self)} does not support generic visit of expressions! Define handling for expression {type(expr)} explicitly!")
+            f"{type(self)} does not support generic visit of expressions! "
+            f"Define handling for expression {type(expr)} explicitly!")
 
 
 class SingleVarLinearForm(LinearForm):

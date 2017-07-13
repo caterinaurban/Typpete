@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from enum import Enum, IntEnum
+from enum import IntEnum
 from typing import Set, Sequence
 
 """

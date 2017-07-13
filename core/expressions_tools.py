@@ -169,7 +169,8 @@ class SimplifierDetector(ExpressionVisitor):
 
                 if self.constant != 0:
                     literal_expr = Literal(int, str(abs(self.constant)))
-                    op = BinaryArithmeticOperation.Operator.Sub if self.constant < 0 else BinaryArithmeticOperation.Operator.Add
+                    op = BinaryArithmeticOperation.Operator.Sub \
+                        if self.constant < 0 else BinaryArithmeticOperation.Operator.Add
                     expr = BinaryArithmeticOperation(int, expr, op, literal_expr)
             elif self.constant != 0:
                 expr = Literal(int, str(abs(self.constant)))
@@ -179,6 +180,7 @@ class SimplifierDetector(ExpressionVisitor):
                 raise ValueError("Neither summands nor constant present: can not create expression!")
             return expr
 
+    # noinspection PyMethodMayBeStatic
     def visit_Literal(self, expr: Literal, invert=False):
         s = SimplifierDetector.Summands()
         s.constant = int(expr.val)
@@ -186,6 +188,7 @@ class SimplifierDetector(ExpressionVisitor):
             s.constant = - s.constant
         return s
 
+    # noinspection PyMethodMayBeStatic
     def visit_VariableIdentifier(self, expr: VariableIdentifier, invert=False):
         s = SimplifierDetector.Summands()
         if invert:
@@ -214,6 +217,7 @@ class SimplifierDetector(ExpressionVisitor):
         else:
             return None
 
+    # noinspection PyMethodOverriding
     def generic_visit(self, expr, invert=False):
         super().generic_visit(expr, invert)
         return None  # default case is not returning a Summands instance, signaling that this expr can not be simplified
