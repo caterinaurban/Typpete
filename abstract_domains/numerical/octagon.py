@@ -363,7 +363,7 @@ class OctagonDomain(OctagonLattice, State):
                     # simplify implementation by always having a valid interval part
                     interval = form.interval or IntervalLattice(0, 0)
 
-                    if not form.var_summands:  # TODO double check since this case is not handled in paper mine-HOSC06
+                    if not form.var_summands:  # IMPROVEMENT: this check is not handled in paper mine-HOSC06
                         # [a,b] <= 0
                         if interval.lower > 0:
                             state_copy.bottom()
