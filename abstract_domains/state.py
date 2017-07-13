@@ -1,12 +1,11 @@
 from abc import ABCMeta, abstractmethod
-from abstract_domains.lattice import BoundedLattice
+from abstract_domains.lattice import BoundedLattice, Lattice
 from copy import deepcopy
 from core.expressions import Expression, VariableIdentifier
 from typing import Set
 
 
-# TODO make inherit from Lattice
-class State(BoundedLattice, metaclass=ABCMeta):
+class State(Lattice, metaclass=ABCMeta):
     def __init__(self):
         """Analysis state representation. 
         Account for lattice operations and statement effects by modifying the current state.
