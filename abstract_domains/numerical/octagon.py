@@ -228,8 +228,20 @@ class OctagonLattice(BottomMixin, NumericalMixin):
         self[index1] = self[index2]
         self[index2] = temp
 
+    def to_interval_domain(self):
+        interval_store = IntervalDomain(self.variables)
+        for var in self.variables:
+            interval_store.set_interval(var, self.get_interval(var))
+        return interval_store
+
+    def from_interval_domain(self, interval_domain: IntervalDomain):
+        assert interval_domain.variables == self.variables
+
+        for var in self.variables:
+            self.set_interval(var, interval_domain.store[var])
+
     def evaluate(self, expr: Expression):
-        raise NotImplementedError()
+        return self.to_interval_domain().evaluate(expr)
 
 
 class OctagonDomain(OctagonLattice, State):
@@ -413,18 +425,6 @@ class OctagonDomain(OctagonLattice, State):
         :param variables: list of program variables
         """
         super().__init__(variables)
-
-    def to_interval_domain(self):
-        interval_store = IntervalDomain(self.variables)
-        for var in self.variables:
-            interval_store.set_interval(var, self.get_interval(var))
-        return interval_store
-
-    def from_interval_domain(self, interval_domain: IntervalDomain):
-        assert interval_domain.variables == self.variables
-
-        for var in self.variables:
-            self.set_interval(var, interval_domain.store[var])
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'OctagonDomain':
         raise NotImplementedError()
