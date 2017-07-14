@@ -3,6 +3,7 @@ from functools import reduce
 
 from core.expressions import Expression, UnaryBooleanOperation, BinaryBooleanOperation, BinaryComparisonOperation, \
     BinaryArithmeticOperation, Literal, VariableIdentifier, UnaryArithmeticOperation
+from core.special_expressions import VariadicArithmeticOperation
 
 
 def iter_fields(expr: Expression):
@@ -303,3 +304,50 @@ class NotFreeConditionTransformer(ExpressionTransformer):
 
 def make_condition_not_free(expr: Expression):
     return NotFreeConditionTransformer().visit(expr)
+
+
+class Expander(ExpressionVisitor):
+    """Expands an expression into a variadic arithmetic operation with operator ``Add``.
+     
+     Also known as **multiply out** an expression.
+     """
+
+    # noinspection PyMethodOverriding
+    def generic_visit(self, expr, invert=False):
+        if invert:
+            expr = UnaryArithmeticOperation(expr.typ, UnaryArithmeticOperation.Operator.Sub, expr)
+        return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add, [expr])
+
+    def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation, invert=False):
+        if expr.operator == BinaryArithmeticOperation.Operator.Add:
+            l = self.visit(expr.left, invert=invert)
+            r = self.visit(expr.right, invert=invert)
+            l.expressions += r.expressions
+            return l
+        elif expr.operator == BinaryArithmeticOperation.Operator.Sub:
+            l = self.visit(expr.left, invert=invert)
+            r = self.visit(expr.right, invert=not invert)
+            l.expressions += r.expressions
+            return l
+        elif expr.operator == BinaryArithmeticOperation.Operator.Mult:
+            l = self.visit(expr.left)
+            r = self.visit(expr.right)
+            summands = []
+            for e1 in l.expressions:
+                for e2 in r.expressions:
+                    combined = BinaryArithmeticOperation(expr.typ, e1, BinaryArithmeticOperation.Operator.Mult, e2)
+                    if invert:
+                        combined = UnaryArithmeticOperation(expr.typ, UnaryArithmeticOperation.Operator.Sub, combined)
+                    summands.append(combined)
+            l.expressions = summands
+            return l
+        else:
+            raise NotImplementedError("Division not yet supported")
+
+    def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation, invert=False):
+        return self.visit(expr.expression,
+                          invert=(expr.operator == UnaryArithmeticOperation.Operator.Sub) != invert)
+
+
+def expand(expr: Expression):
+    return Expander().visit(expr)
