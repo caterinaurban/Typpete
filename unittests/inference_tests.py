@@ -1,13 +1,20 @@
+import builtins
 import glob
 import os
 import unittest
+
+import time
 from frontend.stmt_inferrer import *
 
 
 class TestInference(unittest.TestCase):
-    def __init__(self, file_path):
+    def __init__(self, file_path, file_name):
         super().__init__()
         self.file_path = file_path
+        self.file_name = file_name
+        self.sat = True
+        self.throws = None
+        self.ignore = False
 
     @staticmethod
     def parse_comment(comment):
@@ -15,19 +22,26 @@ class TestInference(unittest.TestCase):
         variable, type_annotation = assignment_text.split(" := ")
         return variable, type_annotation
 
-    @classmethod
-    def parse_results(cls, source, solver):
+    def parse_results(self, source):
         result = {}
         for line in source:
             line = line.strip()
             if not line.startswith("#"):
                 continue
-            variable, t = cls.parse_comment(line)
-            result[variable] = solver.resolve_annotation(ast.parse(t).body[0].value)
+            if line[2:] == "unsat":
+                self.sat = False
+                continue
+            if line[2:] == "ignore":
+                self.ignore = True
+                continue
+            if line[2:8] == "throws":
+                self.throws = line[9:]
+                continue
+            variable, t = self.parse_comment(line)
+            result[variable] = t
         return result
 
-    @classmethod
-    def infer_file(cls, path):
+    def infer_file(self, path):
         """Infer a single python program
 
         :param path: file system path of the program to infer 
@@ -48,39 +62,54 @@ class TestInference(unittest.TestCase):
 
         solver.push()
 
-        r = open(path)
-        expected_result = cls.parse_results(r, solver)
-        r.close()
-
-        return solver, context, expected_result
+        return solver, context
 
     def runTest(self):
         """Test for expressions inference"""
-        solver, context, expected_result = self.infer_file(self.file_path)
+        start_time = time.time()
+        r = open(self.file_path)
+        expected_result = self.parse_results(r)
+        r.close()
+
+        if self.ignore:
+            return
+
+        if self.throws:
+            self.assertRaises(getattr(builtins, self.throws), self.infer_file, self.file_path)
+            return
+
+        solver, context = self.infer_file(self.file_path)
 
         check = solver.optimize.check()
-        self.assertNotEqual(check, z3_types.unsat)
+        if self.sat:
+            self.assertNotEqual(check, z3_types.unsat)
+        else:
+            self.assertEqual(check, z3_types.unsat)
+            return
 
         model = solver.optimize.model()
         for v in expected_result:
             self.assertTrue(context.has_var_in_children(v),
-                            "Expected to have variable '{}' in the program".format(v))
+                            "Test file {}. Expected to have variable '{}' in the program".format(self.file_name, v))
 
             z3_type = context.get_var_from_children(v)
-            self.assertEqual(model[z3_type], expected_result[v],
-                             "Expected variable '{}' to have type '{}', but found '{}'".format(v,
-                                                                                               expected_result[v],
-                                                                                               model[z3_type]))
-
+            expected = solver.annotation_resolver.resolve(ast.parse(expected_result[v]).body[0].value, solver)
+            self.assertEqual(model[z3_type], expected,
+                             "Test file {}. Expected variable '{}' to have type '{}', but found '{}'"
+                             .format(self.file_name, v, expected, model[z3_type]))
+        end_time = time.time()
+        print("Tested {} in {:.2f} seconds.".format(self.file_name, end_time - start_time))
 
 def suite():
     s = unittest.TestSuite()
     g = os.getcwd() + '/unittests/inference/**.py'
     for path in glob.iglob(g):
         if os.path.basename(path) != "__init__.py":
-            s.addTest(TestInference(path))
-    runner = unittest.TextTestRunner()
+            name = path.split("/")[-1]
+            s.addTest(TestInference(path, name))
+    runner = unittest.TextTestRunner(verbosity=0)
     runner.run(s)
+
 
 if __name__ == '__main__':
     suite()
