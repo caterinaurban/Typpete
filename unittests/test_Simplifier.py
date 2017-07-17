@@ -22,10 +22,10 @@ class TestSimplifier(ExpressionTreeTestCase):
 
 def suite():
     s = unittest.TestSuite()
-    s.addTest(TestSimplifier("simple", """a = b + 2 + 3""", "(b + 5)"))
-    s.addTest(TestSimplifier("simple", """a = c - 4 - b + 2 + 3""", "((c + -(b)) + 1)"))
-    s.addTest(TestSimplifier("simple", """a = c - 10 - b + 2 + 3""", "((c + -(b)) - 5)"))
-    s.addTest(TestSimplifier("simple", """a = -(c - 3) - b""", "((-(c) + -(b)) + 3)"))
+    s.addTest(TestSimplifier("simple", """a = b + 2 + 3""", "b + 5"))
+    s.addTest(TestSimplifier("simple", """a = c - 4 - b + 2 + 3""", "(c + (-b)) + 1"))
+    s.addTest(TestSimplifier("simple", """a = c - 10 - b + 2 + 3""", "(c + (-b)) - 5"))
+    s.addTest(TestSimplifier("simple", """a = -(c - 3) - b""", "((-c) + (-b)) + 3"))
     runner = unittest.TextTestRunner()
     runner.run(s)
 

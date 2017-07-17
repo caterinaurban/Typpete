@@ -1,9 +1,9 @@
 from typing import List
 
-from core.expressions import Expression, BinaryArithmeticOperation
+from core.expressions import Expression, BinaryArithmeticOperation, Operation
 
 
-class VariadicArithmeticOperation(Expression):
+class VariadicArithmeticOperation(Operation):
     def __init__(self, typ, operator: BinaryArithmeticOperation.Operator, operands: List[Expression] = None):
         """Variadic arithmetic operation.
         
@@ -36,4 +36,6 @@ class VariadicArithmeticOperation(Expression):
         return hash((self.typ, self.operator, self.operands))
 
     def __str__(self):
-        return str(f" {str(self.operator)} ").join(map(str, self.operands))
+        string_list = [f"({str(operand)})" if isinstance(operand, Operation) else str(operand) for operand in
+                       self.operands]
+        return str(f" {str(self.operator)} ").join(string_list)

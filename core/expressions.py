@@ -300,11 +300,20 @@ class Index(Expression):
 
 
 """
+Generic Operation Expressions
+"""
+
+
+class Operation(Expression, metaclass=ABCMeta):
+    pass
+
+
+"""
 Unary Operation Expressions
 """
 
 
-class UnaryOperation(Expression):
+class UnaryOperation(Operation):
     class Operator(IntEnum):
         """Unary operator representation."""
 
@@ -341,7 +350,10 @@ class UnaryOperation(Expression):
         return hash((self.typ, self.operator, self.expression))
 
     def __str__(self):
-        return f"{str(self.operator)}({self.expression})"
+        expr_string = str(self.expression)
+        if isinstance(self.expression, Operation):
+            expr_string = f"({expr_string})"
+        return f"{str(self.operator)}{expr_string}"
 
 
 class UnaryArithmeticOperation(UnaryOperation):
@@ -400,7 +412,7 @@ Binary Operation Expressions
 """
 
 
-class BinaryOperation(Expression):
+class BinaryOperation(Operation):
     class Operator(IntEnum):
         """Binary operator representation."""
 
@@ -443,7 +455,13 @@ class BinaryOperation(Expression):
         return hash((self.typ, self.left, self.operator, self.right))
 
     def __str__(self):
-        return f"({self.left} {str(self.operator)} {self.right})"
+        left_string = str(self.left)
+        right_string = str(self.right)
+        if isinstance(self.left, Operation):
+            left_string = f"({left_string})"
+        if isinstance(self.right, Operation):
+            right_string = f"({right_string})"
+        return f"{left_string} {str(self.operator)} {right_string}"
 
 
 class BinaryArithmeticOperation(BinaryOperation):

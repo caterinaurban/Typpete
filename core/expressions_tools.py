@@ -355,7 +355,8 @@ class Expander(ExpressionVisitor):
                 summands = []
                 for e1 in l.operands:
                     for e2 in r.operands:
-                        combined = BinaryArithmeticOperation(expr.typ, e1, BinaryArithmeticOperation.Operator.Mult, e2)
+                        combined = VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Mult,
+                                                               [e1, e2])
                         if invert:
                             combined = UnaryArithmeticOperation(expr.typ, UnaryArithmeticOperation.Operator.Sub,
                                                                 combined)
@@ -379,7 +380,6 @@ class ExpanderCleanup(ExpressionTransformer):
     Removes singleton variadic expressions and joining ancestors with same operator.
      """
 
-    # noinspection PyMethodMayBeStatic
     def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation):
         self.generic_visit(expr)  # transform children first
         if len(expr.operands) == 1:

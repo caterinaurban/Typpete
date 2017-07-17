@@ -23,13 +23,13 @@ class TestExpander(ExpressionTreeTestCase):
 def suite():
     s = unittest.TestSuite()
     s.addTest(TestExpander("simple", """a = b + 2 + 3""", "b + 2 + 3"))
-    s.addTest(TestExpander("simple", """a = c - 4 - b + 2 + 3""", "c + -(4) + -(b) + 2 + 3"))
-    s.addTest(TestExpander("simple", """a = c - 10 - b + 2 + 3""", "c + -(10) + -(b) + 2 + 3"))
-    s.addTest(TestExpander("simple", """a = -(c - 3) - b""", "-(c) + 3 + -(b)"))
-    s.addTest(TestExpander("nested", """a = -(c - 3) * (d + 5)""", "(-(c) * d) + (-(c) * 5) + (3 * d) + (3 * 5)"))
+    s.addTest(TestExpander("simple", """a = c - 4 - b + 2 + 3""", "c + (-4) + (-b) + 2 + 3"))
+    s.addTest(TestExpander("simple", """a = c - 10 - b + 2 + 3""", "c + (-10) + (-b) + 2 + 3"))
+    s.addTest(TestExpander("simple", """a = -(c - 3) - b""", "(-c) + 3 + (-b)"))
+    s.addTest(TestExpander("nested", """a = -(c - 3) * (d + 5)""", "((-c) * d) + ((-c) * 5) + (3 * d) + (3 * 5)"))
     s.addTest(
         TestExpander("nested", """a = ((c - 3) * (d + 5))*(c)""",
-                     "((c * d) * c) + ((c * 5) * c) + ((-(3) * d) * c) + ((-(3) * 5) * c)"))
+                     "(c * d * c) + (c * 5 * c) + ((-3) * d * c) + ((-3) * 5 * c)"))
     runner = unittest.TextTestRunner()
     runner.run(s)
 
