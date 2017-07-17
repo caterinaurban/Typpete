@@ -321,7 +321,6 @@ def _init_func_context(args, context, solver):
     return local_context, args_types
 
 
-
 def _infer_args_defaults(args_types, defaults, context, solver):
     """Infer the default values of function arguments (if any)
     
@@ -407,7 +406,13 @@ def _infer_func_def(node, context, solver):
         args_annotations = []
         for arg in node.args.args:
             args_annotations.append(arg.annotation)
-        context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation))
+        if hasattr(node, "method_type"):  # check if the node contains the manually added method flag
+            if node.method_type not in context.builtin_methods:
+                context.builtin_methods[node.method_type] = {}
+            context.builtin_methods[node.method_type][node.name] = AnnotatedFunction(args_annotations,
+                                                                                     return_annotation)
+        else:
+            context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation))
         return
 
     func_context, args_types = _init_func_context(node.args.args, context, solver)

@@ -68,6 +68,7 @@ class PreAnalyzer:
         """Get all used variable names and used-defined classes names"""
         names = [node.id for node in self.all_nodes if isinstance(node, ast.Name)]
         names += [node.name for node in self.all_nodes if isinstance(node, ast.ClassDef)]
+        names += [node.attr for node in self.all_nodes if isinstance(node, ast.Attribute)]
         return names
 
     def analyze_classes(self):
