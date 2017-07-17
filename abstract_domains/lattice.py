@@ -164,25 +164,24 @@ class Lattice(metaclass=ABCMeta):
         return self
 
 
-class Kind(Enum):
-    TOP = 3
-    DEFAULT = 2
-    BOTTOM = 1
-
-
 class KindMixin(Lattice, metaclass=ABCMeta):
     """A Mixin to add a capability to distinguish between user-defined and special elements like TOP/BOTTOM."""
 
+    class Kind(Enum):
+        TOP = 3
+        DEFAULT = 2
+        BOTTOM = 1
+
     def __init__(self):
         """Create a default lattice element."""
-        self._kind = Kind.DEFAULT
+        self._kind = KindMixin.Kind.DEFAULT
 
     @property
     def kind(self):
         return self._kind
 
     @kind.setter
-    def kind(self, kind: 'Kind'):
+    def kind(self, kind: 'KindMixin.Kind'):
         self._kind = kind
 
 
@@ -190,22 +189,22 @@ class TopMixin(KindMixin, metaclass=ABCMeta):
     """A mixin that adds a TOP element to another lattice."""
 
     def top(self):
-        self._kind = Kind.TOP
+        self._kind = KindMixin.Kind.TOP
         return self
 
     def is_top(self) -> bool:
-        return self._kind == Kind.TOP
+        return self._kind == KindMixin.Kind.TOP
 
 
 class BottomMixin(KindMixin, metaclass=ABCMeta):
     """A mixin that adds a BOTTOM element to another lattice."""
 
     def bottom(self):
-        self._kind = Kind.BOTTOM
+        self._kind = KindMixin.Kind.BOTTOM
         return self
 
     def is_bottom(self) -> bool:
-        return self._kind == Kind.BOTTOM
+        return self._kind == KindMixin.Kind.BOTTOM
 
 
 class BoundedLattice(TopMixin, BottomMixin, metaclass=ABCMeta):
@@ -213,18 +212,18 @@ class BoundedLattice(TopMixin, BottomMixin, metaclass=ABCMeta):
 
     def __init__(self):
         super().__init__()
-        self._kind = Kind.DEFAULT
+        self._kind = KindMixin.Kind.DEFAULT
 
     def bottom(self) -> 'BoundedLattice':
-        self.kind = Kind.BOTTOM
+        self.kind = KindMixin.Kind.BOTTOM
         return self
 
     def top(self) -> 'BoundedLattice':
-        self.kind = Kind.TOP
+        self.kind = KindMixin.Kind.TOP
         return self
 
     def is_bottom(self) -> bool:
-        return self.kind == Kind.BOTTOM
+        return self.kind == KindMixin.Kind.BOTTOM
 
     def is_top(self) -> bool:
-        return self.kind == Kind.TOP
+        return self.kind == KindMixin.Kind.TOP
