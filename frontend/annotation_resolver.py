@@ -172,8 +172,7 @@ class AnnotationResolver:
 
         for i, annotation in enumerate(args_annotations):
             arg_type = self.resolve(annotation, solver, generics_map)
-            axioms.append(solver.z3_types.subtype(args_types[i], arg_type))
-            solver.optimize.add_soft(args_types[i] == arg_type)
+            axioms.append(args_types[i] == arg_type)
         axioms.append(result_type == self.resolve(result_annotation, solver, generics_map))
         return And(axioms)
 

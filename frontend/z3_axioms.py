@@ -48,10 +48,16 @@ def mult(left, right, result, types):
     """
     return [
         Or(
-            And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
-            And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
-            And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+            # multiplication of two booleans is an integer. Handle it separately
+            And(left == types.bool, right == types.bool, result == types.int),
+            And(Or(left != types.bool, right != types.bool),
+                Or(
+                    And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
+                    And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
+                    And(types.subtype(left, types.num), types.subtype(right, left), result == left),
+                    And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+                    )
+                )
         )
     ]
 
@@ -320,7 +326,7 @@ def body(result, new, types):
     The body type is the super-type of all its statements, or none if no statement returns type.
     """
     return [
-        Implies(new != types.none, types.subtype(new, result))
+        Implies(new != types.none, result == new)
     ]
 
 
@@ -373,27 +379,26 @@ def one_type_instantiation(class_name, init_args_count, args, result, types):
     # Get the __init__ function of the this class
     init_func = types.instance_attributes[class_name]["__init__"]
 
-    # Assert that it's a call to this __init__ function, and the call args are subtypes of those of __init__
-    subtype_axioms = []
-    z3_args = []
-    for j, arg in enumerate(args):
-        z3_arg = getattr(types.type_sort, "func_{}_arg_{}".format(init_args_count, j + 2))(init_func)
-        z3_args.append(z3_arg)
-        subtype_axioms.append(types.subtype(arg, z3_arg))
+    # Assert that it's a call to this __init__ function
 
     # Get the default args count
     defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(init_args_count))
     default_count = defaults_accessor(init_func)
 
-    all_args = (instance,) + tuple(z3_args) + (types.none,)  # The return type of __init__ is None
+    rem_args_count = init_args_count - len(args) - 1
+    rem_args = []
+    for i in range(rem_args_count):
+        arg_idx = len(args) + i + 2
+        # Get the default arg type
+        arg_accessor = getattr(types.type_sort, "func_{}_arg_{}".format(init_args_count, arg_idx))
+        rem_args.append(arg_accessor(init_func))
+
+    all_args = (instance,) + args + tuple(rem_args) + (types.none,)  # The return type of __init__ is None
     z3_func_args = (default_count,) + all_args
-
-    # TODO default args in __init__ function
-
     # Assert that it's a call to this __init__ function
     return And(
         result == instance,
-        init_func == types.funcs[init_args_count](z3_func_args), *subtype_axioms)
+        init_func == types.funcs[len(args) + len(rem_args) + 1](z3_func_args), default_count >= rem_args_count)
 
 
 def instance_axioms(called, args, result, types):
@@ -432,23 +437,12 @@ def function_call_axioms(called, args, result, types):
             arg_accessor = getattr(types.type_sort, "func_{}_arg_{}".format(i, arg_idx))  # Get the default arg type
             rem_args_types += (arg_accessor(called),)
 
-        # The function call args should be covariant with function definition args
-        subtype_axioms = []
-        z3_args = []
-        for j in range(len(args)):
-            z3_arg = getattr(types.type_sort, "func_{}_arg_{}".format(i, j + 1))(called)
-            z3_args.append(z3_arg)
-            arg = args[j]
-            subtype_axioms.append(types.subtype(arg, z3_arg))
-
         # Get the default args count accessor
         defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(i))
 
         # Add the axioms for function call, default args count, and arguments subtyping.
-        axioms.append(
-            And(called == types.funcs[i]((defaults_accessor(called),) + tuple(z3_args) + rem_args_types + (result,)),
-                defaults_accessor(called) >= rem_args, *subtype_axioms))
-
+        axioms.append(And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
+                          defaults_accessor(called) >= rem_args))
     return axioms
 
 

@@ -375,7 +375,14 @@ def _get_args_types(args, context, instance, solver):
 
     args_types = () if instance is None else (instance,)
     for arg in args:
-        args_types = args_types + (infer(arg, context, solver),)
+        arg_type = solver.new_z3_const("call_arg")
+        call_type = infer(arg, context, solver)
+
+        # The call arguments should be subtype of the corresponding function arguments
+        solver.add(solver.z3_types.subtype(call_type, arg_type),
+                   fail_message="Call argument subtyping in line {}".format(arg.lineno))
+        solver.optimize.add_soft(call_type == arg_type)
+        args_types += (arg_type,)
     return args_types
 
 

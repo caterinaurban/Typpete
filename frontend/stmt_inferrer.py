@@ -26,6 +26,7 @@ import frontend.z3_axioms as axioms
 import frontend.z3_types as z3_types
 import sys
 
+from frontend.config import config as inference_config
 from frontend.context import Context, AnnotatedFunction
 from frontend.import_handler import ImportHandler
 
@@ -166,7 +167,6 @@ def _infer_body(body, context, lineno, solver):
         stmts_types.append(stmt_type)
         solver.add(axioms.body(body_type, stmt_type, solver.z3_types),
                    fail_message="Body type in line {}".format(lineno))
-        solver.optimize.add_soft(body_type == stmt_type)
     # The body type should be none if all statements have none type.
     solver.add(z3_types.Implies(z3_types.And([x == solver.z3_types.none for x in stmts_types]),
                                 body_type == solver.z3_types.none),
@@ -219,10 +219,15 @@ def _infer_control_flow(node, context, solver):
             var_type = solver.new_z3_const("branching_var")
             t1 = body_context.types_map[v]
             t2 = else_context.types_map[v]
-            solver.add(solver.z3_types.subtype(t1, var_type),
+
+            if inference_config["enforce_same_type_in_branches"]:
+                branch_axioms = [t1 == var_type, t2 == var_type]
+            else:
+                branch_axioms = [solver.z3_types.subtype(t1, var_type), solver.z3_types.subtype(t2, var_type)]
+
+            solver.add(branch_axioms,
                        fail_message="subtyping in flow branching in line {}".format(node.lineno))
-            solver.add(solver.z3_types.subtype(t2, var_type),
-                       fail_message="subtyping in flow branching in line {}".format(node.lineno))
+
             solver.optimize.add_soft(t1 == var_type)
             solver.optimize.add_soft(t2 == var_type)
             context.set_type(v, var_type)
@@ -423,14 +428,12 @@ def _infer_func_def(node, context, solver):
 
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
-        if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
-                or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
-            # Stub function
+        if inference_config["ignore_fully_annotated_function"] and is_annotated(node):
             body_type = return_type
         else:
             body_type = _infer_body(node.body, func_context, node.lineno, solver)
-            solver.add(body_type == return_type,
-                       fail_message="Return type annotation in line {}".format(node.lineno))
+        solver.add(body_type == return_type,
+                   fail_message="Return type annotation in line {}".format(node.lineno))
     else:
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
 
@@ -532,6 +535,8 @@ def infer(node, context, solver):
     elif isinstance(node, ast.AugAssign):
         return _infer_augmented_assign(node, context, solver)
     elif isinstance(node, ast.Return):
+        if not node.value:
+            return solver.z3_types.none
         return expr.infer(node.value, context, solver)
     elif isinstance(node, ast.Delete):
         return _infer_delete(node, context, solver)
