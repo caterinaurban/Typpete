@@ -307,7 +307,7 @@ def make_condition_not_free(expr: Expression):
 
 
 class Expander(ExpressionVisitor):
-    """Expands an expression into a variadic arithmetic operation with operator ``Add``.
+    """Expands an expression into a variadic arithmetic operation with outermost operator equals ``Add``.
      
      Also known as **multiply out** an expression.
      """
@@ -319,28 +319,52 @@ class Expander(ExpressionVisitor):
         return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add, [expr])
 
     def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation, invert=False):
+        def equal_operators(operator: BinaryArithmeticOperation.Operator, *operators):
+            """Return True if all operators of the variadic operations with at least 2 operands are equals to given 
+            operator. """
+            operators = (arg.operator for arg in operators if
+                         len(arg.expressions) >= 2)
+            return reduce(lambda x, y: x == y, operators, operator)
+
         if expr.operator == BinaryArithmeticOperation.Operator.Add:
             l = self.visit(expr.left, invert=invert)
             r = self.visit(expr.right, invert=invert)
-            l.expressions += r.expressions
-            return l
+            if equal_operators(BinaryArithmeticOperation.Operator.Add, l, r):
+                return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add,
+                                                   l.expressions + r.expressions)
+            else:
+                # we can not combine the two sides into single variadic operator
+                return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add, [expr])
         elif expr.operator == BinaryArithmeticOperation.Operator.Sub:
             l = self.visit(expr.left, invert=invert)
             r = self.visit(expr.right, invert=not invert)
-            l.expressions += r.expressions
-            return l
+            if equal_operators(BinaryArithmeticOperation.Operator.Add, l, r):
+                return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add,
+                                                   l.expressions + r.expressions)
+            else:
+                # we can not combine the two sides into single variadic operator
+                return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add, [expr])
         elif expr.operator == BinaryArithmeticOperation.Operator.Mult:
             l = self.visit(expr.left)
             r = self.visit(expr.right)
-            summands = []
-            for e1 in l.expressions:
-                for e2 in r.expressions:
-                    combined = BinaryArithmeticOperation(expr.typ, e1, BinaryArithmeticOperation.Operator.Mult, e2)
-                    if invert:
-                        combined = UnaryArithmeticOperation(expr.typ, UnaryArithmeticOperation.Operator.Sub, combined)
-                    summands.append(combined)
-            l.expressions = summands
-            return l
+            if equal_operators(expr.operator, l, r):
+                l.expressions += r.expressions
+                return l
+            elif equal_operators(BinaryArithmeticOperation.Operator.Add, l, r):
+                # This is the case where we actually expand!
+                summands = []
+                for e1 in l.expressions:
+                    for e2 in r.expressions:
+                        combined = BinaryArithmeticOperation(expr.typ, e1, BinaryArithmeticOperation.Operator.Mult, e2)
+                        if invert:
+                            combined = UnaryArithmeticOperation(expr.typ, UnaryArithmeticOperation.Operator.Sub,
+                                                                combined)
+                        summands.append(combined)
+                l.expressions = summands
+                return l
+            else:
+                # we can not combine the two sides into single variadic operator
+                return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add, [expr])
         else:
             raise NotImplementedError("Division not yet supported")
 
@@ -349,5 +373,28 @@ class Expander(ExpressionVisitor):
                           invert=(expr.operator == UnaryArithmeticOperation.Operator.Sub) != invert)
 
 
+class ExpanderCleanup(ExpressionTransformer):
+    """Cleans up an expanded expression.
+    
+    Removes singleton variadic expressions and joining ancestors with same operator.
+     """
+
+    # noinspection PyMethodMayBeStatic
+    def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation):
+        self.generic_visit(expr)  # transform children first
+        if len(expr.expressions) == 1:
+            return expr.expressions[0]
+        else:
+            operands = []
+            for e in expr.expressions:
+                if isinstance(e, VariadicArithmeticOperation) and e.operator == expr.operator:
+                    # combine child with current variadic expression
+                    operands += e.expressions
+                else:
+                    operands.append(e)
+            expr.expressions = operands
+            return expr
+
+
 def expand(expr: Expression):
-    return Expander().visit(expr)
+    return ExpanderCleanup().visit(Expander().visit(expr))
