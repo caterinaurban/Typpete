@@ -323,7 +323,7 @@ class Expander(ExpressionVisitor):
             """Return True if all operators of the variadic operations with at least 2 operands are equals to given 
             operator. """
             operators = (arg.operator for arg in operators if
-                         len(arg.expressions) >= 2)
+                         len(arg.operands) >= 2)
             return reduce(lambda x, y: x == y, operators, operator)
 
         if expr.operator == BinaryArithmeticOperation.Operator.Add:
@@ -331,7 +331,7 @@ class Expander(ExpressionVisitor):
             r = self.visit(expr.right, invert=invert)
             if equal_operators(BinaryArithmeticOperation.Operator.Add, l, r):
                 return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add,
-                                                   l.expressions + r.expressions)
+                                                   l.operands + r.operands)
             else:
                 # we can not combine the two sides into single variadic operator
                 return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add, [expr])
@@ -340,7 +340,7 @@ class Expander(ExpressionVisitor):
             r = self.visit(expr.right, invert=not invert)
             if equal_operators(BinaryArithmeticOperation.Operator.Add, l, r):
                 return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add,
-                                                   l.expressions + r.expressions)
+                                                   l.operands + r.operands)
             else:
                 # we can not combine the two sides into single variadic operator
                 return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add, [expr])
@@ -348,19 +348,19 @@ class Expander(ExpressionVisitor):
             l = self.visit(expr.left)
             r = self.visit(expr.right)
             if equal_operators(expr.operator, l, r):
-                l.expressions += r.expressions
+                l.operands += r.operands
                 return l
             elif equal_operators(BinaryArithmeticOperation.Operator.Add, l, r):
                 # This is the case where we actually expand!
                 summands = []
-                for e1 in l.expressions:
-                    for e2 in r.expressions:
+                for e1 in l.operands:
+                    for e2 in r.operands:
                         combined = BinaryArithmeticOperation(expr.typ, e1, BinaryArithmeticOperation.Operator.Mult, e2)
                         if invert:
                             combined = UnaryArithmeticOperation(expr.typ, UnaryArithmeticOperation.Operator.Sub,
                                                                 combined)
                         summands.append(combined)
-                l.expressions = summands
+                l.operands = summands
                 return l
             else:
                 # we can not combine the two sides into single variadic operator
@@ -382,17 +382,17 @@ class ExpanderCleanup(ExpressionTransformer):
     # noinspection PyMethodMayBeStatic
     def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation):
         self.generic_visit(expr)  # transform children first
-        if len(expr.expressions) == 1:
-            return expr.expressions[0]
+        if len(expr.operands) == 1:
+            return expr.operands[0]
         else:
             operands = []
-            for e in expr.expressions:
+            for e in expr.operands:
                 if isinstance(e, VariadicArithmeticOperation) and e.operator == expr.operator:
                     # combine child with current variadic expression
-                    operands += e.expressions
+                    operands += e.operands
                 else:
                     operands.append(e)
-            expr.expressions = operands
+            expr.operands = operands
             return expr
 
 

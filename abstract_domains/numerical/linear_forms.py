@@ -103,7 +103,7 @@ class LinearForm(ExpressionVisitor):
 
     def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation, invert=False):
         if expr.operator == BinaryArithmeticOperation.Operator.Add:
-            for e in expr.expressions:
+            for e in expr.operands:
                 self.visit(e, invert=invert)
         else:
             raise ValueError("Unsupported operator")
