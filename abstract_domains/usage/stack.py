@@ -1,13 +1,13 @@
 from copy import deepcopy
 from typing import List, Set
 
-from abstract_domains.generic_lattices import StackLattice
+from abstract_domains.stack import Stack
 from abstract_domains.state import State
 from abstract_domains.usage.store import UsedStore
 from core.expressions import Expression, VariableIdentifier
 
 
-class UsedStack(StackLattice, State):
+class UsedStack(Stack, State):
     def __init__(self, variables: List[VariableIdentifier]):
         """Usage-analysis state representation.
 
