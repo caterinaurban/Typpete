@@ -2,6 +2,7 @@ from abstract_domains.numerical.interval import IntervalLattice
 from core.expressions import *
 
 from core.expressions_tools import ExpressionVisitor
+from core.special_expressions import VariadicArithmeticOperation
 
 Sign = UnaryArithmeticOperation.Operator
 PLUS = Sign.Add
@@ -99,6 +100,13 @@ class LinearForm(ExpressionVisitor):
             self.visit(expr.expression, invert=not invert)
         else:
             raise ValueError("Unknown operator")
+
+    def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation, invert=False):
+        if expr.operator == BinaryArithmeticOperation.Operator.Add:
+            for e in expr.expressions:
+                self.visit(e, invert=invert)
+        else:
+            raise ValueError("Unsupported operator")
 
     def generic_visit(self, expr, *args, **kwargs):
         raise InvalidFormError(
