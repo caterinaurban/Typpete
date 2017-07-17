@@ -166,7 +166,6 @@ def _infer_body(body, context, lineno, solver):
         stmts_types.append(stmt_type)
         solver.add(axioms.body(body_type, stmt_type, solver.z3_types),
                    fail_message="Body type in line {}".format(lineno))
-        solver.optimize.add_soft(body_type == stmt_type)
     # The body type should be none if all statements have none type.
     solver.add(z3_types.Implies(z3_types.And([x == solver.z3_types.none for x in stmts_types]),
                                 body_type == solver.z3_types.none),
@@ -529,6 +528,8 @@ def infer(node, context, solver):
     elif isinstance(node, ast.AugAssign):
         return _infer_augmented_assign(node, context, solver)
     elif isinstance(node, ast.Return):
+        if not node.value:
+            return solver.z3_types.none
         return expr.infer(node.value, context, solver)
     elif isinstance(node, ast.Delete):
         return _infer_delete(node, context, solver)

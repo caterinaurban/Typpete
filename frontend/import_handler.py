@@ -15,8 +15,9 @@ class ImportHandler:
             r = open("{}/{}.py".format(base_folder, module_name))
         except FileNotFoundError:
             raise ImportError("No module named {}.".format(module_name))
-
-        return ast.parse(r.read())
+        tree = ast.parse(r.read())
+        r.close()
+        return tree
 
     @staticmethod
     def infer_import(module_name, base_folder, infer_func, solver):
