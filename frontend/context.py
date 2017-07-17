@@ -7,6 +7,7 @@ class Context:
 
     def __init__(self, parent_context=None):
         self.types_map = {}
+        self.builtin_methods = {}
         self.parent_context = parent_context
         self.children_contexts = []
 
@@ -61,6 +62,16 @@ class Context:
             except NameError:
                 continue
         raise NameError("Name {} is not defined".format(var_name))
+
+    def get_matching_methods(self, method_name):
+        """Return the built-in methods in this context (or a parent context) which match the given method name"""
+        methods = []
+        for t in self.builtin_methods:
+            if method_name in self.builtin_methods[t]:
+                methods.append(self.builtin_methods[t][method_name])
+        if self.parent_context is None:
+            return methods
+        return methods + self.parent_context.get_matching_methods(method_name)
 
 
 class AnnotatedFunction:

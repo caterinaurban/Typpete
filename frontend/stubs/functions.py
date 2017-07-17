@@ -3,6 +3,7 @@ from typing import TypeVar, List, Tuple, Dict
 
 T = TypeVar("T")
 U = TypeVar("U")
+
 Num = TypeVar("Num", bound=complex)
 Str = TypeVar("Str", str, bytes)
 Seq = TypeVar("Seq", Str, List[T])
@@ -172,6 +173,11 @@ def oct(_: int) -> str:
 def pow(x, y):
     """Equivalent to x**y"""
     return x ** y
+
+
+def range(x: int) -> List[int]:
+    """Return a list of int from 0 (inclusive) to `x` (exclusive)"""
+    pass
 
 
 def repr(_: object) -> str:
