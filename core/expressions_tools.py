@@ -2,7 +2,7 @@ from copy import deepcopy
 from functools import reduce
 
 from core.expressions import Expression, UnaryBooleanOperation, BinaryBooleanOperation, BinaryComparisonOperation, \
-    BinaryArithmeticOperation, Literal, VariableIdentifier, UnaryArithmeticOperation
+    BinaryArithmeticOperation, Literal, UnaryArithmeticOperation
 from core.special_expressions import VariadicArithmeticOperation
 
 
@@ -83,6 +83,20 @@ class ExpressionVisitor:
                         last_result = self.visit(item, *args, **kwargs)
         return last_result
 
+    def run(self, expr, *args, **kwargs):
+        """A extended visitor entrance method.
+        
+        It allows to modify the final result (returned by the call to ``visit( expr,...)`` before returning it to the 
+        caller. Provide your custom finalization routine by overwriting :meth:`finalize_result`. """
+        result = self.visit(expr, *args, **kwargs)
+        return self.finalize_result(result)
+
+    def finalize_result(self, result):
+        """Custom finalization routine.
+        
+        Provide your custom finalization routine by overwriting this method."""
+        return result
+
 
 class ExpressionTransformer(ExpressionVisitor):
     """
@@ -149,99 +163,103 @@ PLUS = Sign.Add
 MINUS = Sign.Sub
 
 
-class SimplifierDetector(ExpressionVisitor):
-    class Summands:
-        def __init__(self):
-            self.vars = []  # VariableIdentifier OR -VariableIdentifier
-            self.constant = 0
+class Simplifier(ExpressionVisitor):
+    @staticmethod
+    def _ensure_expr(constant):
+        if isinstance(constant, int):
+            const_expr = Literal(int, str(abs(constant)))
+            if constant < 0:
+                const_expr = UnaryArithmeticOperation(int, MINUS, const_expr)
+            return const_expr
+        else:
+            return constant
 
-        def combine(self, other):
-            self.vars += other.vars
-            self.constant += other.constant
+    def generic_visit(self, expr):
+        return expr
 
-        def to_expression(self):
-            """Ejects this summands as valid expression tree."""
-
-            def build_var_tree(x, y):
-                return BinaryArithmeticOperation(int, x, BinaryArithmeticOperation.Operator.Add, y)
-
-            if self.vars:
-                expr = reduce(build_var_tree, self.vars)
-
-                if self.constant != 0:
-                    literal_expr = Literal(int, str(abs(self.constant)))
-                    op = BinaryArithmeticOperation.Operator.Sub \
-                        if self.constant < 0 else BinaryArithmeticOperation.Operator.Add
-                    expr = BinaryArithmeticOperation(int, expr, op, literal_expr)
-            elif self.constant != 0:
-                expr = Literal(int, str(abs(self.constant)))
-                if self.constant < 0:
-                    expr = UnaryArithmeticOperation(int, UnaryArithmeticOperation.Operator.Sub, expr)
-            else:
-                raise ValueError("Neither summands nor constant present: can not create expression!")
+    def visit_Literal(self, expr: Literal):
+        if expr.typ == int:
+            return int(expr.val)
+        else:
             return expr
 
-    # noinspection PyMethodMayBeStatic
-    def visit_Literal(self, expr: Literal, invert=False):
-        s = SimplifierDetector.Summands()
-        s.constant = int(expr.val)
-        if invert:
-            s.constant = - s.constant
-        return s
+    def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation):
+        if expr.operator == MINUS:
+            res = self.visit(expr.expression)
+            if isinstance(res, int):
+                return -res
 
-    # noinspection PyMethodMayBeStatic
-    def visit_VariableIdentifier(self, expr: VariableIdentifier, invert=False):
-        s = SimplifierDetector.Summands()
-        if invert:
-            s.vars.append(UnaryArithmeticOperation(int, UnaryArithmeticOperation.Operator.Sub, expr))
-        else:
-            s.vars.append(expr)
-        return s
+        return expr
 
-    def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation, invert=False):
-        s = self.visit(expr.expression, invert=(expr.operator == UnaryArithmeticOperation.Operator.Sub) != invert)
-        if s:
-            expr.summands = s
-        return s
+    def _collect_constants(self, operator, operands):
+        if operator == BinaryArithmeticOperation.Operator.Add:
+            constant = 0
+            variable_operands = []
+            for operand in operands:
+                res = self.visit(operand)
+                if isinstance(res, int):
+                    constant += int(res)
+                else:
+                    variable_operands.append(res)
 
-    def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation, invert=False):
-        if expr.operator in [BinaryArithmeticOperation.Operator.Add, BinaryArithmeticOperation.Operator.Sub]:
-            left_summands = self.visit(expr.left, invert=invert)
-            right_summands = self.visit(expr.right,
-                                        invert=(expr.operator == BinaryArithmeticOperation.Operator.Sub) != invert)
-            if left_summands and right_summands:
-                left_summands.combine(right_summands)
-                expr.summands = left_summands
-                return left_summands
-            else:
-                return None
+            return variable_operands, constant
+        elif operator == BinaryArithmeticOperation.Operator.Sub:
+            constant = 0
+            variable_operands = []
+            for i, operand in enumerate(operands):
+                res = self.visit(operand)
+                if isinstance(res, int):
+                    if i == 0:
+                        constant += int(res)
+                    else:
+                        constant -= int(res)
+                else:
+                    variable_operands.append(res)
+
+                return variable_operands, constant
+        elif operator == BinaryArithmeticOperation.Operator.Mult:
+            constant = 1
+            variable_operands = []
+            for operand in operands:
+                res = self.visit(operand)
+                if isinstance(res, int):
+                    constant *= int(res)
+                else:
+                    variable_operands.append(res)
+
+            return variable_operands, constant
         else:
             return None
 
-    # noinspection PyMethodOverriding
-    def generic_visit(self, expr, invert=False):
-        super().generic_visit(expr, invert)
-        return None  # default case is not returning a Summands instance, signaling that this expr can not be simplified
-
-
-class SimplifierTransformer(ExpressionTransformer):
-    def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation):
-        if hasattr(expr, 'summands'):
-            return expr.summands.to_expression()
+    def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation):
+        res = self._collect_constants(expr.operator, expr.operands)
+        if res:
+            variable_operands, constant = res
+            if not variable_operands:
+                return constant
+            else:
+                return VariadicArithmeticOperation(expr.typ, expr.operator,
+                                                   variable_operands + [self._ensure_expr(constant)])
         else:
-            self.visit(expr.expression)
+            return expr
 
     def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation):
-        if hasattr(expr, 'summands'):
-            return expr.summands.to_expression()
+        res = self._collect_constants(expr.operator, [expr.left, expr.right])
+        if res:
+            variable_operands, constant = res
+            return VariadicArithmeticOperation(expr.typ, expr.operator,
+                                               variable_operands + [self._ensure_expr(constant)])
         else:
-            self.visit(expr.left)
-            self.visit(expr.right)
+            return expr
+
+    def finalize_result(self, result):
+        return self._ensure_expr(result)
 
 
 def simplify(expr: Expression):
-    SimplifierDetector().visit(expr)
-    return SimplifierTransformer().visit(expr)
+    expr = expand(expr)
+    expr = Simplifier().run(expr)
+    return expr
 
 
 class NotFreeConditionTransformer(ExpressionTransformer):
@@ -315,7 +333,7 @@ class Expander(ExpressionVisitor):
     # noinspection PyMethodOverriding
     def generic_visit(self, expr, invert=False):
         if invert:
-            expr = UnaryArithmeticOperation(expr.typ, UnaryArithmeticOperation.Operator.Sub, expr)
+            expr = UnaryArithmeticOperation(expr.typ, MINUS, expr)
         return VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Add, [expr])
 
     def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation, invert=False):
@@ -358,7 +376,7 @@ class Expander(ExpressionVisitor):
                         combined = VariadicArithmeticOperation(expr.typ, BinaryArithmeticOperation.Operator.Mult,
                                                                [e1, e2])
                         if invert:
-                            combined = UnaryArithmeticOperation(expr.typ, UnaryArithmeticOperation.Operator.Sub,
+                            combined = UnaryArithmeticOperation(expr.typ, MINUS,
                                                                 combined)
                         summands.append(combined)
                 l.operands = summands
@@ -371,14 +389,14 @@ class Expander(ExpressionVisitor):
 
     def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation, invert=False):
         return self.visit(expr.expression,
-                          invert=(expr.operator == UnaryArithmeticOperation.Operator.Sub) != invert)
+                          invert=(expr.operator == MINUS) != invert)
 
 
 class ExpanderCleanup(ExpressionTransformer):
     """Cleans up an expanded expression.
     
     Removes singleton variadic expressions and joining ancestors with same operator.
-     """
+    """
 
     def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation):
         self.generic_visit(expr)  # transform children first

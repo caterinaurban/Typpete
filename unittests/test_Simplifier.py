@@ -6,7 +6,7 @@ from unittests.generic_tests import ExpressionTreeTestCase
 
 class TestSimplifier(ExpressionTreeTestCase):
     def __init__(self, name, source, expected_result):
-        super().__init__(source, f"SingleVarLinearForm - {name}")
+        super().__init__(source, f"Simplifier - {name}")
         self._expected_result = expected_result
 
     def runTest(self):
@@ -23,9 +23,10 @@ class TestSimplifier(ExpressionTreeTestCase):
 def suite():
     s = unittest.TestSuite()
     s.addTest(TestSimplifier("simple", """a = b + 2 + 3""", "b + 5"))
-    s.addTest(TestSimplifier("simple", """a = c - 4 - b + 2 + 3""", "(c + (-b)) + 1"))
-    s.addTest(TestSimplifier("simple", """a = c - 10 - b + 2 + 3""", "(c + (-b)) - 5"))
-    s.addTest(TestSimplifier("simple", """a = -(c - 3) - b""", "((-c) + (-b)) + 3"))
+    s.addTest(TestSimplifier("simple", """a = c - 4 - b + 2 + 3""", "c + (-b) + 1"))
+    s.addTest(TestSimplifier("simple", """a = c - 10 - b + 2 + 3""", "c + (-b) + (-5)"))
+    s.addTest(TestSimplifier("simple", """a = -(c - 3) - b""", "(-c) + (-b) + 3"))
+    s.addTest(TestSimplifier("simple", """a = -(c - 3) * (3 + 4)""", "((-c) * 3) + ((-c) * 4) + 21"))
     runner = unittest.TextTestRunner()
     runner.run(s)
 
