@@ -4,7 +4,7 @@ from functools import reduce
 
 from abstract_domains.lattice import BottomMixin
 from abstract_domains.numerical.dbm import IntegerCDBM
-from abstract_domains.numerical.interval import IntervalLattice, IntervalDomain
+from abstract_domains.numerical.interval_domain import IntervalLattice, IntervalDomain
 from abstract_domains.numerical.numerical import NumericalMixin
 from abstract_domains.state import State
 from core.expressions import *
@@ -32,6 +32,7 @@ class OctagonLattice(BottomMixin, NumericalMixin):
         
         :param variables: list of program variables
         """
+        super().__init__()
         self._variables = variables
         self._var_to_index = {}
         self._index_to_var = {}
@@ -42,10 +43,6 @@ class OctagonLattice(BottomMixin, NumericalMixin):
             self._index_to_var[index + 1] = var
             index += 2
         self._dbm = IntegerCDBM(len(variables) * 2)
-        super().__init__()
-
-        for key in self.dbm.keys():
-            self.dbm[key] = inf
 
     @property
     def variables(self):
@@ -144,19 +141,19 @@ class OctagonLattice(BottomMixin, NumericalMixin):
 
     def _less_equal(self, other: 'OctagonLattice') -> bool:
         if self.dbm.size != other.dbm.size:
-            raise ValueError("Can not compare octagons with unequal sizes!")
+            raise ValueError("Cannot compare octagons with unequal sizes!")
         return all([x <= y for x, y in zip(self.dbm.values(), other.dbm.values())])
 
     def _meet(self, other: 'OctagonLattice'):
         if self.dbm.size != other.dbm.size:
-            raise ValueError("Can not meet octagons with unequal sizes!")
+            raise ValueError("Cannot meet octagons with unequal sizes!")
         # closure is not required for meet
         self.dbm.intersection(other.dbm)
         return self
 
     def _join(self, other: 'OctagonLattice') -> 'OctagonLattice':
         if self.dbm.size != other.dbm.size:
-            raise ValueError("Can not join octagons with unequal sizes!")
+            raise ValueError("Cannot join octagons with unequal sizes!")
         # closure is required to get best abstraction of join
         self.close()
         other.close()
@@ -168,7 +165,7 @@ class OctagonLattice(BottomMixin, NumericalMixin):
         return self
 
     def forget(self, var: VariableIdentifier):
-        # close first to not loose implicit constraints about other variables
+        # close first to not lose implicit constraints about other variables
         self.close()
 
         # forget binary constraints

@@ -1,4 +1,4 @@
-from abstract_domains.numerical.interval import IntervalLattice
+from abstract_domains.numerical.interval_domain import IntervalLattice
 from core.expressions import *
 
 from core.expressions_tools import ExpressionVisitor

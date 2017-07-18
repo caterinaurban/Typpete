@@ -1,6 +1,6 @@
 import glob
 
-from abstract_domains.numerical.octagon import OctagonDomain
+from abstract_domains.numerical.octagon_domain import OctagonDomain
 from core.expressions import VariableIdentifier
 from engine.forward import ForwardInterpreter
 from semantics.forward import DefaultForwardSemantics

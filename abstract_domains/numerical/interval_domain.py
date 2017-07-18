@@ -236,7 +236,7 @@ class IntervalDomain(Store, NumericalMixin, State):
             if left.typ == int:
                 self.store[left] = self._visitor.visit(right)
         else:
-            raise NotImplementedError("")
+            raise NotImplementedError("Interval Domain does only support assignments to variables so far.")
         return self
 
     def _assume(self, condition: Expression) -> 'IntervalDomain':
@@ -262,4 +262,4 @@ class IntervalDomain(Store, NumericalMixin, State):
         return self  # nothing to be done
 
     def _substitute_variable(self, left: Expression, right: Expression):
-        raise NotImplementedError("")
+        raise NotImplementedError("Interval Domain does not yet support variable substitution.")
