@@ -62,8 +62,7 @@ class LinearForm(ExpressionVisitor):
     def visit_VariableIdentifier(self, expr: VariableIdentifier, invert=False):
         self._encounter_new_var(expr, sign=MINUS if invert else PLUS)
 
-    # noinspection PyUnusedLocal
-    def visit_Input(self, expr: Input, invert=False):
+    def visit_Input(self, _: Input, invert=False):
         self.interval = IntervalLattice().top()
         if invert:
             self.interval.negate()

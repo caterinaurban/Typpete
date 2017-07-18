@@ -16,6 +16,7 @@ from abstract_domains.numerical.linear_forms import SingleVarLinearForm, LinearF
 from core.expressions_tools import ExpressionVisitor, ExpressionTransformer, \
     make_condition_not_free, simplify
 
+# Shorthands
 Sign = UnaryArithmeticOperation.Operator
 PLUS = Sign.Add
 MINUS = Sign.Sub
@@ -89,9 +90,9 @@ class OctagonLattice(BottomMixin, NumericalMixin):
 
     def __repr__(self):
         if self.is_bottom():
-            return "BOTTOM"
+            return "⊥"
         elif self.is_top():
-            return "TOP"
+            return "⊤"
         else:
             res = []
             # represent unary constraints first
@@ -125,8 +126,8 @@ class OctagonLattice(BottomMixin, NumericalMixin):
     def close(self):
         """Closes this octagon.
         
-        Closes the underlying CDBM, if possible, otherwise sets this octagon to BOTTOM.
-        :return: True, if this octagon is consistent <=> this octagon is not BOTTOM.
+        Closes the underlying CDBM, if possible, otherwise sets this octagon to bottom.
+        :return: True, if this octagon is consistent <=> this octagon is not bottom.
         """
         consistent = self.dbm.close()
         if not consistent:
@@ -292,7 +293,7 @@ class OctagonDomain(OctagonLattice, State):
 
                 return reduce(apply, self.octagons)
 
-        def visit_BinaryComparisonOperation(self, cond: BinaryComparisonOperation):
+        def visit_BinaryComparisonOperation(self, cond: BinaryComparisonOperation, *args, **kwargs):
             condition_set = self._to_LtE_operator(cond)
 
             # transform conditions
@@ -352,10 +353,6 @@ class OctagonDomain(OctagonLattice, State):
 
     class AssumeVisitor(ExpressionVisitor):
         """Visits an expression and recursively 'assumes' the condition tree."""
-
-        # noinspection PyMethodOverriding
-        def visit(self, expr, state):
-            return super().visit(expr, state)
 
         # noinspection PyMethodMayBeStatic
         def visit_UnaryBooleanOperation(self, expr: UnaryBooleanOperation, state):
@@ -423,7 +420,7 @@ class OctagonDomain(OctagonLattice, State):
 
             return condition_set.combine_conditions()
 
-        def generic_visit(self, expr, *args, **kwargs):
+        def generic_visit(self, expr, state):
             raise ValueError(
                 f"{type(self)} does not support generic visit of expressions! "
                 f"Define handling for expression {type(expr)} explicitly!")

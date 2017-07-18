@@ -165,7 +165,7 @@ class Lattice(metaclass=ABCMeta):
 
 
 class KindMixin(Lattice, metaclass=ABCMeta):
-    """A Mixin to add a capability to distinguish between user-defined and special elements like TOP/BOTTOM."""
+    """A mixin that adds an explicit distinction between default and special lattice elements like top/bottom."""
 
     class Kind(Enum):
         TOP = 3
@@ -185,19 +185,8 @@ class KindMixin(Lattice, metaclass=ABCMeta):
         self._kind = kind
 
 
-class TopMixin(KindMixin, metaclass=ABCMeta):
-    """A mixin that adds a TOP element to another lattice."""
-
-    def top(self):
-        self._kind = KindMixin.Kind.TOP
-        return self
-
-    def is_top(self) -> bool:
-        return self._kind == KindMixin.Kind.TOP
-
-
 class BottomMixin(KindMixin, metaclass=ABCMeta):
-    """A mixin that adds a BOTTOM element to another lattice."""
+    """A mixin that adds a bottom element to another lattice."""
 
     def bottom(self):
         self._kind = KindMixin.Kind.BOTTOM
@@ -207,12 +196,19 @@ class BottomMixin(KindMixin, metaclass=ABCMeta):
         return self._kind == KindMixin.Kind.BOTTOM
 
 
+class TopMixin(KindMixin, metaclass=ABCMeta):
+    """A mixin that adds a top element to another lattice."""
+
+    def top(self):
+        self._kind = KindMixin.Kind.TOP
+        return self
+
+    def is_top(self) -> bool:
+        return self._kind == KindMixin.Kind.TOP
+
+
 class BoundedLattice(TopMixin, BottomMixin, metaclass=ABCMeta):
     """A mutable lattice element, with default bottom and top elements."""
-
-    def __init__(self):
-        super().__init__()
-        self._kind = KindMixin.Kind.DEFAULT
 
     def bottom(self) -> 'BoundedLattice':
         self.kind = KindMixin.Kind.BOTTOM

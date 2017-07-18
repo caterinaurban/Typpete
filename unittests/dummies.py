@@ -7,7 +7,7 @@ from core.expressions import Expression, VariableIdentifier
 
 
 class ExpressionLattice(BoundedLattice):
-    """A Lattice representing an expression or TOP if expression is ambiguous, BOTTOM if not yet set."""
+    """A Lattice representing an expression or top if expression is ambiguous, bottom if not yet set."""
 
     def __init__(self):
         self._expr = None

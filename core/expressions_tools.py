@@ -174,7 +174,7 @@ class Simplifier(ExpressionVisitor):
         else:
             return constant
 
-    def generic_visit(self, expr):
+    def generic_visit(self, expr, *args, **kwargs):
         return expr
 
     def visit_Literal(self, expr: Literal):
@@ -183,20 +183,20 @@ class Simplifier(ExpressionVisitor):
         else:
             return expr
 
-    def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation):
+    def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation, *args, **kwargs):
         if expr.operator == MINUS:
-            res = self.visit(expr.expression)
+            res = self.visit(expr.expression, *args, **kwargs)
             if isinstance(res, int):
                 return -res
 
         return expr
 
-    def _collect_constants(self, operator, operands):
+    def _collect_constants(self, operator, operands, *args, **kwargs):
         if operator == BinaryArithmeticOperation.Operator.Add:
             constant = 0
             variable_operands = []
             for operand in operands:
-                res = self.visit(operand)
+                res = self.visit(operand, *args, **kwargs)
                 if isinstance(res, int):
                     constant += int(res)
                 else:
@@ -207,7 +207,7 @@ class Simplifier(ExpressionVisitor):
             constant = 0
             variable_operands = []
             for i, operand in enumerate(operands):
-                res = self.visit(operand)
+                res = self.visit(operand, *args, **kwargs)
                 if isinstance(res, int):
                     if i == 0:
                         constant += int(res)
@@ -221,7 +221,7 @@ class Simplifier(ExpressionVisitor):
             constant = 1
             variable_operands = []
             for operand in operands:
-                res = self.visit(operand)
+                res = self.visit(operand, *args, **kwargs)
                 if isinstance(res, int):
                     constant *= int(res)
                 else:
@@ -231,8 +231,8 @@ class Simplifier(ExpressionVisitor):
         else:
             return None
 
-    def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation):
-        res = self._collect_constants(expr.operator, expr.operands)
+    def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation, *args, **kwargs):
+        res = self._collect_constants(expr.operator, expr.operands, *args, **kwargs)
         if res:
             variable_operands, constant = res
             if not variable_operands:
@@ -243,8 +243,8 @@ class Simplifier(ExpressionVisitor):
         else:
             return expr
 
-    def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation):
-        res = self._collect_constants(expr.operator, [expr.left, expr.right])
+    def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation, *args, **kwargs):
+        res = self._collect_constants(expr.operator, [expr.left, expr.right], *args, **kwargs)
         if res:
             variable_operands, constant = res
             return VariadicArithmeticOperation(expr.typ, expr.operator,
@@ -398,8 +398,8 @@ class ExpanderCleanup(ExpressionTransformer):
     Removes singleton variadic expressions and joining ancestors with same operator.
     """
 
-    def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation):
-        self.generic_visit(expr)  # transform children first
+    def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation, *args, **kwargs):
+        self.generic_visit(expr, *args, **kwargs)  # transform children first
         if len(expr.operands) == 1:
             return expr.operands[0]
         else:
