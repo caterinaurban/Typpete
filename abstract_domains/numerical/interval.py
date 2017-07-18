@@ -15,14 +15,16 @@ class Interval:
     def __init__(self, lower=-inf, upper=inf):
         """Create an Interval Lattice for a single variable.
         """
-        assert lower <= upper
         super().__init__()
         self._lower = lower
         self._upper = upper
 
     @property
     def lower(self):
-        return self._lower
+        if self.empty():
+            return None
+        else:
+            return self._lower
 
     @lower.setter
     def lower(self, b):
@@ -30,7 +32,10 @@ class Interval:
 
     @property
     def upper(self):
-        return self._upper
+        if self.empty():
+            return None
+        else:
+            return self._upper
 
     @upper.setter
     def upper(self, b):
@@ -38,7 +43,10 @@ class Interval:
 
     @property
     def interval(self):
-        return self.lower, self.upper
+        if self.empty():
+            return None
+        else:
+            return self.lower, self.upper
 
     @interval.setter
     def interval(self, bounds):
@@ -46,25 +54,48 @@ class Interval:
         self.lower = lower
         self.upper = upper
 
+    def empty(self) -> bool:
+        return self._lower > self._upper
+
+    def set_empty(self) -> 'Interval':
+        self.interval = (1, 0)
+        return self
+
     def __repr__(self):
-        return f"[{self.lower},{self.upper}]"
+        if self.empty():
+            return "∅"
+        else:
+            return f"[{self.lower},{self.upper}]"
 
-    def add(self, other):
-        self.interval = (self.lower + other.lower, self.upper + other.upper)
-        return self
+    def add(self, other) -> 'Interval':
+        if self.empty() or other.empty():
+            return self.set_empty()
+        else:
+            self.interval = (self.lower + other.lower, self.upper + other.upper)
+            return self
 
-    def sub(self, other):
-        self.interval = (self.lower - other.upper, self.upper - other.lower)
-        return self
+    def sub(self, other) -> 'Interval':
+        if self.empty() or other.empty():
+            return self.set_empty()
+        else:
+            self.interval = (self.lower - other.upper, self.upper - other.lower)
+            return self
 
-    def mult(self, other):
-        comb = [self.lower * other.lower, self.lower * other.upper, self.upper * other.lower, self.upper * other.upper]
-        self.interval = (min(comb), max(comb))
-        return self
+    def mult(self, other) -> 'Interval':
+        if self.empty() or other.empty():
+            return self.set_empty()
+        else:
+            comb = [self.lower * other.lower, self.lower * other.upper, self.upper * other.lower,
+                    self.upper * other.upper]
+            self.interval = (min(comb), max(comb))
+            return self
 
-    def negate(self):
-        self.interval = (-self.upper, -self.lower)
-        return self
+    def negate(self) -> 'Interval':
+        if self.empty():
+            return self
+        else:
+            self.interval = (-self.upper, -self.lower)
+            return self
 
 
 class IntervalLattice(Interval, BottomMixin):
@@ -74,7 +105,7 @@ class IntervalLattice(Interval, BottomMixin):
         else:
             return super().__repr__()
 
-    def top(self):
+    def top(self) -> 'IntervalLattice':
         self.lower = -inf
         self.upper = inf
         return self
@@ -82,14 +113,18 @@ class IntervalLattice(Interval, BottomMixin):
     def is_top(self) -> bool:
         return self._lower == -inf and self._upper == inf
 
+    def is_bottom(self) -> bool:
+        # we have to check if interval is empty, or got empty by an operation on this interval
+        if self.empty():
+            self.bottom()
+        return super().is_bottom()
+
     def _less_equal(self, other: 'IntervalLattice') -> bool:
         return other.lower <= self.lower and self.upper <= other.upper
 
     def _meet(self, other: 'IntervalLattice'):
         self.lower = max(self.lower, other.lower)
         self.upper = min(self.upper, other.upper)
-        if self.lower > self.upper:
-            self.bottom()
         return self
 
     def _join(self, other: 'IntervalLattice') -> 'IntervalLattice':
