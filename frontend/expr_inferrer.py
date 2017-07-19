@@ -36,6 +36,7 @@ import frontend.z3_axioms as axioms
 import sys
 import z3
 
+from z3 import Or, And
 from frontend.context import Context, AnnotatedFunction
 
 
@@ -374,35 +375,93 @@ def _get_args_types(args, context, instance, solver):
 
     args_types = () if instance is None else (instance,)
     for arg in args:
-        args_types = args_types + (infer(arg, context, solver),)
+        arg_type = solver.new_z3_const("call_arg")
+        call_type = infer(arg, context, solver)
+
+        # The call arguments should be subtype of the corresponding function arguments
+        solver.add(solver.z3_types.subtype(call_type, arg_type),
+                   fail_message="Call argument subtyping in line {}".format(arg.lineno))
+        solver.optimize.add_soft(call_type == arg_type)
+        args_types += (arg_type,)
     return args_types
 
 
-def _infer_annotated_function_call(args_types, solver, annotations):
-    result_type = solver.new_z3_const("call")
-    solver.annotation_resolver.add_annotated_function_axioms(args_types, solver, annotations, result_type)
+def _infer_annotated_function_call(args_types, solver, annotations, result_type):
+    return solver.annotation_resolver.get_annotated_function_axioms(args_types, solver, annotations, result_type)
 
-    return result_type
+
+def _get_builtin_method_call_axioms(args_types, solver, context, result_type, method_name):
+    """Get the axioms of built-in method calls"""
+    possible_methods = context.get_matching_methods(method_name)
+    method_axioms = []
+    for method in possible_methods:
+        cur_method_axioms = _infer_annotated_function_call(args_types, solver, method, result_type)
+        if cur_method_axioms is not None:
+            method_axioms.append(cur_method_axioms)
+    return method_axioms
 
 
 def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
+    # instance represents the receiver in case of method calls.
+    # It's none in all cases except method calls
     instance = None
     result_type = solver.new_z3_const("call")
+    call_axioms = []
     if isinstance(node.func, ast.Attribute):
-        called, instance = infer(node.func, context, solver, True)
-        args_types = _get_args_types(node.args, context, instance, solver)
-    else:
-        args_types = _get_args_types(node.args, context, instance, solver)
-        called = infer(node.func, context, solver)
-    if isinstance(called, AnnotatedFunction):
-        solver.annotation_resolver.add_annotated_function_axioms(args_types, solver, called, result_type)
-        return result_type
+        instance = infer(node.func.value, context, solver)
+        if isinstance(instance, Context):
+            # Module access; instance is a module, so don't add it as a receiver to `arg_types`
+            instance = None
 
-    solver.add(axioms.call(called, args_types, result_type, solver.z3_types),
+    args_types = _get_args_types(node.args, context, instance, solver)
+
+    if isinstance(node.func, ast.Attribute):
+        # Add axioms for built-in methods
+        call_axioms += _get_builtin_method_call_axioms(args_types, solver, context, result_type, node.func.attr)
+
+    called = infer(node.func, context, solver)
+    if isinstance(called, AnnotatedFunction):
+        func_axioms = solver.annotation_resolver.get_annotated_function_axioms(args_types, solver, called, result_type)
+        if func_axioms is not None:
+            call_axioms.append(func_axioms)
+    else:
+        call_axioms += axioms.call(called, args_types, result_type, solver.z3_types)
+
+    solver.add(Or(call_axioms),
                fail_message="Call in line {}".format(node.lineno))
 
     return result_type
+
+
+def _get_builtin_attr_access_axioms(instance_type, attr, result_type, context, solver):
+    """Return axioms for built-in attribute access
+    
+    Return disjunctions of equalities with all possible built-in types that have a method matching
+    the attribute we are trying to access.
+    
+    Example:
+        x = [1, 2, 3]
+        x.append
+    """
+
+    # get the built-in methods matching the attribute
+    possible_methods = context.get_matching_methods(attr)
+
+    attr_axioms = []
+    for method in possible_methods:
+        # The first argument in the method annotation will always be an annotation for the receiver
+        # (i.e. the built-in type whose attributes we are trying to access)
+        first_arg = method.args_annotations[0]
+
+        # Resolve the annotation into a Z3 type
+        resolved_type = solver.annotation_resolver.resolve(first_arg, solver, {})
+
+        # Making result type to be none to prevent it from satisfying user-defined call axioms
+        # in function call inference. Because built-ins are not handled with Z3.
+        attr_axioms.append(And(resolved_type == instance_type, result_type == solver.z3_types.none))
+
+    return attr_axioms
 
 
 def infer_attribute(node, context, from_call, solver):
@@ -420,7 +479,6 @@ def infer_attribute(node, context, from_call, solver):
     """
     # Check if it's a module access
     instance = infer(node.value, context, solver)
-
     if isinstance(instance, Context):
         # module import
         if from_call:
@@ -430,8 +488,15 @@ def infer_attribute(node, context, from_call, solver):
 
     result_type = solver.new_z3_const("attribute")
 
-    solver.add(axioms.attribute(instance, node.attr, result_type, solver.z3_types),
+    # get axioms for built-in attribute access. Ex: x.append(sth)
+    builtin_axioms = _get_builtin_attr_access_axioms(instance, node.attr, result_type, context, solver)
+
+    # get axioms for user-defined attribute acces. Ex: A().sth
+    user_defined_attribute_axioms = axioms.attribute(instance, node.attr, result_type, solver.z3_types)
+
+    solver.add(Or([user_defined_attribute_axioms] + builtin_axioms),
                fail_message="Attribute access in line {}".format(node.lineno))
+
     if from_call:
         return result_type, instance
     return result_type

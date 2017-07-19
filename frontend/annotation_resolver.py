@@ -1,4 +1,4 @@
-from z3 import Or
+from z3 import Or, And
 import ast
 
 
@@ -14,7 +14,6 @@ class AnnotationResolver:
             "complex": z3_types.complex,
             "str": z3_types.string,
             "bytes": z3_types.bytes,
-            "None": z3_types.none,
             "number": z3_types.num,
             "sequence": z3_types.seq
         }
@@ -36,6 +35,8 @@ class AnnotationResolver:
             | Tuple[t*]
             | Callable[[t*], t]
         """
+        if isinstance(annotation, ast.NameConstant) and annotation.value is None:
+            return solver.z3_types.none
         if isinstance(annotation, ast.Name):
             if annotation.id in self.primitives:
                 return self.primitives[annotation.id]
@@ -152,7 +153,8 @@ class AnnotationResolver:
 
         raise ValueError("Invalid type annotation in line {}".format(annotation.lineno))
 
-    def add_annotated_function_axioms(self, args_types, solver, annotated_function, result_type):
+    def get_annotated_function_axioms(self, args_types, solver, annotated_function, result_type):
+
         """Add axioms for a function call to an annotated function
         
         Reprocess the type annotations for every function call to prevent binding a certain type
@@ -161,19 +163,18 @@ class AnnotationResolver:
         args_annotations = annotated_function.args_annotations
         result_annotation = annotated_function.return_annotation
 
+        axioms = []
+
         if len(args_types) != len(args_annotations):
-            raise TypeError("The function expects {} arguments. {} were given.".format(len(args_annotations),
-                                                                                       len(args_types)))
+            return None
+
         generics_map = {}
 
         for i, annotation in enumerate(args_annotations):
             arg_type = self.resolve(annotation, solver, generics_map)
-            solver.add(solver.z3_types.subtype(args_types[i], arg_type),
-                       fail_message="Generic parameter type in line {}".format(annotation.lineno))
-            solver.optimize.add_soft(args_types[i] == arg_type)
-
-        solver.add(result_type == self.resolve(result_annotation, solver, generics_map),
-                   fail_message="Generic return type in line {}".format(result_annotation.lineno))
+            axioms.append(args_types[i] == arg_type)
+        axioms.append(result_type == self.resolve(result_annotation, solver, generics_map))
+        return And(axioms)
 
     def add_type_var(self, target, type_var_node):
         if not isinstance(target, ast.Name):
