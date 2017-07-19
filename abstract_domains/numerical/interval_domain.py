@@ -13,7 +13,7 @@ from core.expressions_tools import ExpressionVisitor
 
 class Interval:
     def __init__(self, lower=-inf, upper=inf):
-        """Create an Interval Lattice for a single variable.
+        """Create an interval lattice for a single variable.
         """
         super().__init__()
         self._lower = lower
@@ -154,7 +154,8 @@ class IntervalLattice(Interval, BottomMixin):
                 f"{type(self)} does not support generic visit of expressions! "
                 f"Define handling for expression {type(expr)} explicitly!")
 
-        def visit_Input(self, _: Input, *args, **kwargs):
+        # noinspection PyMethodMayBeStatic
+        def visit_Input(self, _: Input):
             return IntervalLattice().top()
 
         def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation, *args, **kwargs):
@@ -167,7 +168,7 @@ class IntervalLattice(Interval, BottomMixin):
             elif expr.operator == BinaryArithmeticOperation.Operator.Mult:
                 return l.mult(r)
             else:
-                raise ValueError(f"Binary Operator '{str(expr.operator)}' is not supported!")
+                raise ValueError(f"Binary operator '{str(expr.operator)}' is not supported!")
 
         def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation, *args, **kwargs):
             r = self.visit(expr.expression, *args, **kwargs)
@@ -178,7 +179,7 @@ class IntervalLattice(Interval, BottomMixin):
             else:
                 raise ValueError(f"Unary Operator {expr.operator} is not supported!")
 
-        # noinspection PyMethodMayBeStatic
+        # noinspection PyMethodMayBeStatic,PyUnusedLocal
         def visit_Literal(self, expr: Literal, *args, **kwargs):
             if expr.typ == int:
                 c = int(expr.val)
@@ -221,6 +222,7 @@ class IntervalDomain(Store, NumericalMixin, State):
     class Visitor(IntervalLattice.Visitor):
         """A visitor to abstractly evaluate an expression (with variables) in the interval domain."""
 
+        # noinspection PyMethodMayBeStatic
         def visit_VariableIdentifier(self, expr: VariableIdentifier, interval_store):
             if expr.typ == int:
                 # copy the lattice element, since evaluation should not modify elements
@@ -236,7 +238,7 @@ class IntervalDomain(Store, NumericalMixin, State):
             if left.typ == int:
                 self.store[left] = self._visitor.visit(right)
         else:
-            raise NotImplementedError("Interval Domain does only support assignments to variables so far.")
+            raise NotImplementedError("Interval domain does only support assignments to variables so far.")
         return self
 
     def _assume(self, condition: Expression) -> 'IntervalDomain':
@@ -262,4 +264,4 @@ class IntervalDomain(Store, NumericalMixin, State):
         return self  # nothing to be done
 
     def _substitute_variable(self, left: Expression, right: Expression):
-        raise NotImplementedError("Interval Domain does not yet support variable substitution.")
+        raise NotImplementedError("Interval domain does not yet support variable substitution.")

@@ -177,6 +177,7 @@ class Simplifier(ExpressionVisitor):
     def generic_visit(self, expr, *args, **kwargs):
         return expr
 
+    # noinspection PyMethodMayBeStatic
     def visit_Literal(self, expr: Literal):
         if expr.typ == int:
             return int(expr.val)

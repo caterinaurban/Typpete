@@ -1,6 +1,6 @@
 import unittest
 
-from abstract_domains.numerical.interval import IntervalDomain
+from abstract_domains.numerical.interval_domain import IntervalDomain
 from unittests.generic_tests import ExpressionTreeTestCase
 
 

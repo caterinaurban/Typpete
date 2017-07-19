@@ -290,7 +290,7 @@ class OctagonDomain(OctagonLattice, State):
 
                 return reduce(apply, self.octagons)
 
-        def visit_BinaryComparisonOperation(self, cond: BinaryComparisonOperation, *args, **kwargs):
+        def visit_BinaryComparisonOperation(self, cond: BinaryComparisonOperation):
             condition_set = self._to_LtE_operator(cond)
 
             # transform conditions
@@ -299,7 +299,7 @@ class OctagonDomain(OctagonLattice, State):
                 if not isinstance(cond.right, Literal) or not cond.right.val == '0':
                     # move right side to left
                     updated_conditions.append(
-                        BinaryComparisonOperation(cond.typ, \
+                        BinaryComparisonOperation(cond.typ,
                                                   BinaryArithmeticOperation(cond.typ, cond.left,
                                                                             BinaryArithmeticOperation.Operator.Sub,
                                                                             cond.right), cond.operator,
@@ -326,7 +326,7 @@ class OctagonDomain(OctagonLattice, State):
                                               expr.left))
             elif expr.operator == BinaryComparisonOperation.Operator.Lt:
                 return ConditionSet(
-                    BinaryComparisonOperation(expr.typ, \
+                    BinaryComparisonOperation(expr.typ,
                                               BinaryArithmeticOperation(expr.typ, expr.left,
                                                                         BinaryArithmeticOperation.Operator.Add,
                                                                         Literal(int, '1')),
@@ -416,6 +416,7 @@ class OctagonDomain(OctagonLattice, State):
 
             return condition_set.combine_conditions()
 
+        # noinspection PyMethodOverriding
         def generic_visit(self, expr, state):
             raise ValueError(
                 f"{type(self)} does not support generic visit of expressions! "
@@ -429,7 +430,7 @@ class OctagonDomain(OctagonLattice, State):
         super().__init__(variables)
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'OctagonDomain':
-        raise NotImplementedError()
+        raise NotImplementedError("Octagon domain does not yet support variable substitution.")
 
     def _assume(self, condition: Expression) -> 'OctagonDomain':
         not_free_condition = make_condition_not_free(condition)
@@ -542,7 +543,7 @@ class OctagonDomain(OctagonLattice, State):
                                 # x = - x + [a,b]
                                 self._assign_negated_same_var_plus_constant(form.var, form.interval)
                             else:
-                                raise ValueError()
+                                raise ValueError("Unknown variable sign")
                         else:
                             if form.var_sign == PLUS:
                                 # x = y + [a,b]
@@ -556,12 +557,12 @@ class OctagonDomain(OctagonLattice, State):
                                 # x = - x
                                 self._assign_negated_same_var(form.var)
                             else:
-                                raise ValueError()
+                                raise ValueError("Unknown variable sign")
                         else:
                             # x = - y
                             self._assign_negated_other_var(left, form.var)
                     else:
-                        raise ValueError()
+                        raise ValueError("Invalid case: Implementation bug!")
                 except InvalidFormError:
                     # right is not in single variable linear form, use interval abstraction fallback
                     interval_domain = self.to_interval_domain()
