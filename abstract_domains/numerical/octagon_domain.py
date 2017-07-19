@@ -26,9 +26,33 @@ def _index_shift(sign: Sign):
     return 1 if sign == MINUS else 0
 
 
+# TODO more documentation
 class OctagonLattice(BottomMixin, NumericalMixin):
+    """Octagon lattice.
+
+    One lattice element is represented by a DBM-matrix internally. This matrix has a special index structure. We show 
+    an example for 3 variables `v1`, `v2` and `v3`. Every variable contributes two indices, one for the positive and 
+    one for the negative variant of a variable.
+
+    ::
+    
+            v1+  v1-  v2+  v2-  v3+  v3-
+        v1+  D    B
+        v1-  A    D 
+        v2+  s    A    D    B
+        v2-  s    s    A    D
+        v3+  s    s    s    A    D    B
+        v3-  s    s    s    s    A    D
+        
+    NOTE: Since the matrix is a special kind of symmetric, we only show lower left diagonal matrix. See 
+    :class:`abstract_domains.numerical.dbm.DBM`.
+    
+    The actual constraint, e.g. at matrix entry (``v1+``, v2+``) is: ``- v1 + v2 <= c`` (**Note the minus before 
+    first term**). 
+    """
+
     def __init__(self, variables: List[VariableIdentifier]):
-        """Create an Octagon Lattice for given variables.
+        """Create an Octagon Lattice for the given variables.
         
         :param variables: list of program variables
         """
@@ -53,6 +77,10 @@ class OctagonLattice(BottomMixin, NumericalMixin):
         return self._dbm
 
     def __getitem__(self, index_tuple: Tuple[Sign, VariableIdentifier, Sign, VariableIdentifier]):
+        """Retrieve the bound `c` at an index given as the quadruple ``(sign1, var1, sign2, var2)``.
+        
+        The actual octagonal constraint of this index is ``(-1) * sign1 * var1 + sign2 * var2 <= c``.
+        """
         if len(index_tuple) == 4:
             sign1, var1, sign2, var2 = index_tuple
             return self.dbm[
@@ -62,6 +90,10 @@ class OctagonLattice(BottomMixin, NumericalMixin):
             raise ValueError("Index into octagon has invalid format.")
 
     def __setitem__(self, index_tuple: Tuple[Sign, VariableIdentifier, Sign, VariableIdentifier], value):
+        """Set the bound `c` at an index given as the quadruple ``(sign1, var1, sign2, var2)``.
+        
+        The actual octagonal constraint of this index is ``(-1) * sign1 * var1 + sign2 * var2 <= c``.
+        """
         if len(index_tuple) == 4:
             sign1, var1, sign2, var2 = index_tuple
             i, j = self._var_to_index[var1] + _index_shift(sign1), self._var_to_index[var2] + _index_shift(sign2)
@@ -72,6 +104,13 @@ class OctagonLattice(BottomMixin, NumericalMixin):
 
     def binary_constraints_indices(self, sign1: Sign = None, var1: VariableIdentifier = None,
                                    sign2: Sign = None, var2: VariableIdentifier = None):
+        """Generate the indices of all binary octagonal constraints (of distinct variables ``var1``, ``var2``).
+        
+        :param sign1: positive/negative variant of ``var1`` or ``None`` to generate indices for both
+        :param var1: first variable or ``None`` to generate indices for whole row
+        :param sign2: positive/negative variant of ``var2`` or ``None`` to generate indices both
+        :param var2: second variable or ``None`` to generate indices for whole column
+        """
         signs1 = [sign1] if sign1 else [PLUS, MINUS]
         signs2 = [sign2] if sign2 else [PLUS, MINUS]
         vars1 = [var1] if var1 else self.variables
@@ -228,12 +267,17 @@ class OctagonLattice(BottomMixin, NumericalMixin):
         self[index2] = temp
 
     def to_interval_domain(self):
+        """Translate this octagonal store into an interval store."""
         interval_store = IntervalDomain(self.variables)
         for var in self.variables:
             interval_store.set_interval(var, self.get_interval(var))
         return interval_store
 
     def from_interval_domain(self, interval_domain: IntervalDomain):
+        """Translate the interval constraints from interval domain to this octagonal store.
+        
+        **NOTE**: This does not reset relational constraints in this octagon!
+        """
         assert interval_domain.variables == self.variables
 
         for var in self.variables:
@@ -243,7 +287,11 @@ class OctagonLattice(BottomMixin, NumericalMixin):
         return self.to_interval_domain().evaluate(expr)
 
 
+# TODO more documentation
 class OctagonDomain(OctagonLattice, State):
+    """Octagon domain. Extends the octagon lattice with state interface.
+    """
+
     class SmallerEqualConditionTransformer(ExpressionTransformer):
         """Transforms all conditions inside expression to format ``e <= 0``.
         """

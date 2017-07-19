@@ -17,8 +17,8 @@ class CDBM(metaclass=ABCMeta):
     **NOTE:** we use 0-based indices instead.
     
     This implies that the matrix as a special kind of symmetric. It is enough to store the lower left diagonal matrix 
-    (s plus A), the diagonal (D) **plus** parts of one more adjacent diagonal `B` to the right, which contains unary 
-    conditions that may be different from the already included diagonal `A`. 
+    (``s`` plus ``A``), the diagonal (``D``) **plus** parts of one more adjacent diagonal ``B`` to the right, 
+    which contains unary conditions that may be different from the already included diagonal ``A``. 
      
     ::
     
