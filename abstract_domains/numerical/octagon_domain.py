@@ -340,8 +340,7 @@ class OctagonDomain(OctagonLattice, State):
                 cs2 = self._to_LtE_operator(
                     BinaryComparisonOperation(expr.typ, expr.left, BinaryComparisonOperation.Operator.GtE, expr.right))
                 return ConditionSet([cs1.conditions[0], cs2.conditions[0]], ConditionSet.Operator.MEET)
-
-            elif expr.operator == BinaryComparisonOperation.Operator.Eq:
+            elif expr.operator == BinaryComparisonOperation.Operator.NotEq:
                 cs1 = self._to_LtE_operator(
                     BinaryComparisonOperation(expr.typ, expr.left, BinaryComparisonOperation.Operator.Lt, expr.right))
                 cs2 = self._to_LtE_operator(
