@@ -54,6 +54,11 @@ class PreAnalyzer:
 
         return max(user_func_max, stub_func_max)
 
+    def max_default_args(self):
+        """Get the maximum number of default arguments appearing in all function definitions"""
+        func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
+        return max([len(node.args.defaults) for node in func_defs] + [0])
+
     def maximum_tuple_length(self):
         """Get the maximum length of tuples appearing in the AST"""
         user_tuples = [node for node in self.all_nodes if isinstance(node, ast.Tuple)]
@@ -149,6 +154,7 @@ class PreAnalyzer:
         config.base_folder = self.base_folder
         config.classes_to_instance_attrs, config.classes_to_class_attrs, config.class_to_base = self.analyze_classes()
         config.used_names = self.get_all_used_names()
+        config.max_default_args = self.max_default_args()
 
         return config
 
@@ -162,6 +168,7 @@ class Configuration:
         self.class_to_base = OrderedDict()
         self.base_folder = ""
         self.used_names = []
+        self.max_default_args = 0
 
 
 def propagate_attributes_to_subclasses(class_defs):

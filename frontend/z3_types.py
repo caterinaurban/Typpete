@@ -14,6 +14,7 @@ from z3 import *
 
 class Z3Types:
     def __init__(self, config):
+        self.config = config
         self.all_types = OrderedDict()
         self.instance_attributes = OrderedDict()
         self.class_attributes = OrderedDict()
