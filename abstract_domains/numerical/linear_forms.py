@@ -13,7 +13,7 @@ class InvalidFormError(ValueError):
     pass
 
 
-class LinearForm(ExpressionVisitor):
+class LinearForm:
     """Holds an expression in linear form with one or several variables: `+/- var1 +/- var2 + ... + interval`."""
 
     def __init__(self, expr: Expression):
@@ -25,7 +25,7 @@ class LinearForm(ExpressionVisitor):
         self._var_summands = {}  # dictionary holding {var: sign}
         self._interval = None
 
-        self.visit(expr)
+        LinearForm._visitor.visit(expr, self)
 
     @property
     def var_summands(self):
@@ -50,67 +50,73 @@ class LinearForm(ExpressionVisitor):
         vars_string = ' '.join([f"{str(sign)} {var}" for var, sign in self.var_summands.items()])
         return vars_string + (f" + {self._interval}" if self._interval else "")
 
-    # the visit methods should either set parts of the linear form or call visit method on children, propagating if
-    # the sub-expressions is negated. They can also fallback on other visitors like the interval visitor via
-    # IntervalLattice.evaluate(expr)
+    class Visitor(ExpressionVisitor):
+        """A visitor to generate a single variable linear form."""
 
-    def visit_Literal(self, expr: Literal, invert=False):
-        self.interval = IntervalLattice.evaluate(expr)
-        if invert:
-            self.interval.negate()
+        # the visit methods should either set parts of the linear form or call visit method on children, propagating if
+        # the sub-expressions is negated. They can also fallback on other visitors like the interval visitor via
+        # IntervalLattice.evaluate(expr)
 
-    def visit_VariableIdentifier(self, expr: VariableIdentifier, invert=False):
-        self._encounter_new_var(expr, sign=MINUS if invert else PLUS)
-
-    def visit_Input(self, _: Input, invert=False):
-        self.interval = IntervalLattice().top()
-        if invert:
-            self.interval.negate()
-
-    def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation, invert=False):
-        # we have to check if binary operation can be reordered to correspond to valid formats:
-        # +/- var + interval
-        # OR
-        # +/- var1 +/- var2
-
-        try:
-            # just try if interval lattice is capable of reducing to single interval (if no vars inside expr)
-            self.interval = IntervalLattice.evaluate(expr.left)
+        def visit_Literal(self, expr: Literal, linear_form, invert=False):
+            linear_form.interval = IntervalLattice.evaluate(expr)
             if invert:
-                self.interval.negate()
-        except ValueError:
-            self.visit(expr.left, invert=invert)
+                linear_form.interval.negate()
 
-        if expr.operator not in [BinaryArithmeticOperation.Operator.Add, BinaryArithmeticOperation.Operator.Sub]:
-            raise InvalidFormError("Unsupported binary arithmetic operator")
+        def visit_VariableIdentifier(self, expr: VariableIdentifier, linear_form, invert=False):
+            linear_form._encounter_new_var(expr, sign=MINUS if invert else PLUS)
 
-        try:
-            # just try if interval lattice is capable of reducing to single interval (if no vars inside expr)
-            self.interval = IntervalLattice.evaluate(expr.right)
-            if (expr.operator == BinaryArithmeticOperation.Operator.Sub) != invert:
-                self.interval.negate()
-        except ValueError:
-            self.visit(expr.right, invert=(expr.operator == BinaryArithmeticOperation.Operator.Sub) != invert)
+        def visit_Input(self, _: Input, linear_form, invert=False):
+            linear_form.interval = IntervalLattice().top()
+            if invert:
+                linear_form.interval.negate()
 
-    def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation, invert=False):
-        if expr.operator == UnaryArithmeticOperation.Operator.Add:
-            self.visit(expr.expression, invert=invert)
-        elif expr.operator == UnaryArithmeticOperation.Operator.Sub:
-            self.visit(expr.expression, invert=not invert)
-        else:
-            raise ValueError("Unknown operator")
+        def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation, linear_form, invert=False):
+            # we have to check if binary operation can be reordered to correspond to valid formats:
+            # +/- var + interval
+            # OR
+            # +/- var1 +/- var2
 
-    def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation, invert=False):
-        if expr.operator == BinaryArithmeticOperation.Operator.Add:
-            for e in expr.operands:
-                self.visit(e, invert=invert)
-        else:
-            raise ValueError("Unsupported operator")
+            try:
+                # just try if interval lattice is capable of reducing to single interval (if no vars inside expr)
+                linear_form.interval = IntervalLattice.evaluate(expr.left)
+                if invert:
+                    linear_form.interval.negate()
+            except ValueError:
+                self.visit(expr.left, linear_form, invert=invert)
 
-    def generic_visit(self, expr, *args, **kwargs):
-        raise InvalidFormError(
-            f"{type(self)} does not support generic visit of expressions! "
-            f"Define handling for expression {type(expr)} explicitly!")
+            if expr.operator not in [BinaryArithmeticOperation.Operator.Add, BinaryArithmeticOperation.Operator.Sub]:
+                raise InvalidFormError("Unsupported binary arithmetic operator")
+
+            try:
+                # just try if interval lattice is capable of reducing to single interval (if no vars inside expr)
+                linear_form.interval = IntervalLattice.evaluate(expr.right)
+                if (expr.operator == BinaryArithmeticOperation.Operator.Sub) != invert:
+                    linear_form.interval.negate()
+            except ValueError:
+                self.visit(expr.right, linear_form,
+                           invert=(expr.operator == BinaryArithmeticOperation.Operator.Sub) != invert)
+
+        def visit_UnaryArithmeticOperation(self, expr: UnaryArithmeticOperation, linear_form, invert=False):
+            if expr.operator == UnaryArithmeticOperation.Operator.Add:
+                self.visit(expr.expression, linear_form, invert=invert)
+            elif expr.operator == UnaryArithmeticOperation.Operator.Sub:
+                self.visit(expr.expression, linear_form, invert=not invert)
+            else:
+                raise ValueError("Unknown operator")
+
+        def visit_VariadicArithmeticOperation(self, expr: VariadicArithmeticOperation, linear_form, invert=False):
+            if expr.operator == BinaryArithmeticOperation.Operator.Add:
+                for e in expr.operands:
+                    self.visit(e, linear_form, invert=invert)
+            else:
+                raise ValueError("Unsupported operator")
+
+        def generic_visit(self, expr, *args, **kwargs):
+            raise InvalidFormError(
+                f"{type(self)} does not support generic visit of expressions! "
+                f"Define handling for expression {type(expr)} explicitly!")
+
+    _visitor = Visitor()  # static class member shared between all instances
 
 
 class SingleVarLinearForm(LinearForm):
