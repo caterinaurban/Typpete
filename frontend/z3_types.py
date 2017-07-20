@@ -289,9 +289,21 @@ def invert_dict(d):
 
     return result
 
-
 set_param("auto-config", False)
 set_param("smt.mbqi", False)
+set_param("model.v2", True)
+set_param("smt.phase_selection", 0)
+set_param("smt.restart_strategy", 0)
+set_param("smt.restart_factor", 1.5)
+set_param("smt.arith.random_initial_value", True)
+set_param("smt.case_split", 3)
+set_param("smt.delay_units", True)
+set_param("smt.delay_units_threshold", 16)
+set_param("nnf.sk_hack", True)
+set_param("smt.qi.eager_threshold", 100)
+set_param("smt.qi.cost",  "(+ weight generation)")
+set_param("type_check", True)
+set_param("smt.bv.reflect", True)
 
 
 class TypesSolver(Solver):

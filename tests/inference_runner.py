@@ -2,7 +2,7 @@ from frontend.stmt_inferrer import *
 import ast
 import sys
 import time
-import astunparse
+import typed_astunparse as astunparse
 
 r = open("tests/inference/test.py")
 t = ast.parse(r.read())
@@ -48,7 +48,7 @@ else:
             continue
 
         print("{}: {}".format(v, model[z3_t]))
-    context.add_annotations_to_funcs(model, solver)
+    #context.generate_typed_ast(model, solver)
 
     print(astunparse.unparse(t))
 

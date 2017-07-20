@@ -18,8 +18,6 @@ class C:
     x = 1
 
 c = C()
-c.x += True
-d = [1, 2, 3][c.x]
 
 
 class D:

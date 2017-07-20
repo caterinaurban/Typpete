@@ -10,9 +10,11 @@ class Context:
 
     def __init__(self, parent_context=None):
         self.types_map = {}
+        self.builtin_methods = {}
         self.parent_context = parent_context
         self.children_contexts = []
         self.func_to_ast = {}
+        self.assignments = []
 
         if parent_context:
             parent_context.children_contexts.append(self)
@@ -66,6 +68,11 @@ class Context:
                 continue
         raise NameError("Name {} is not defined".format(var_name))
 
+    def generate_typed_ast(self, model, solver):
+        """Add type annotations for all functions and assignments statements"""
+        self.add_annotations_to_funcs(model, solver)
+        self.add_annotation_to_assignments(model, solver)
+
     def add_func_ast(self, func_name, ast_node):
         """Map a function with name `func_name` fo its corresponding AST node"""
         self.func_to_ast[func_name] = ast_node
@@ -98,6 +105,33 @@ class Context:
         # Add the type annotations for functions in children contexts
         for child in self.children_contexts:
             child.add_annotations_to_funcs(model, solver)
+
+    def add_assignment(self, z3_value_type, ast_node):
+        """Add assignment statement node along with its z3 type to the context
+
+        At the end of the inference, add the type comment to every assignment node.
+        """
+        self.assignments.append((ast_node, z3_value_type))
+
+    def add_annotation_to_assignments(self, model, solver):
+        """Add a type comment for every assignment statement in the context"""
+        for node, z3_t in self.assignments:
+            inferred_type = model[z3_t]
+            node.type_comment = solver.annotation_resolver.unparse_annotation(inferred_type)
+
+        # Add the type comment for assignments in children contexts
+        for child in self.children_contexts:
+            child.add_annotation_to_assinments(model, solver)
+
+    def get_matching_methods(self, method_name):
+        """Return the built-in methods in this context (or a parent context) which match the given method name"""
+        methods = []
+        for t in self.builtin_methods:
+            if method_name in self.builtin_methods[t]:
+                methods.append(self.builtin_methods[t][method_name])
+        if self.parent_context is None:
+            return methods
+        return methods + self.parent_context.get_matching_methods(method_name)
 
 
 class AnnotatedFunction:
