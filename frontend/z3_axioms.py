@@ -431,6 +431,8 @@ def function_call_axioms(called, args, result, types):
     axioms = []
     for i in range(len(args), len(types.funcs)):  # Only assert with functions with length >= call arguments length
         rem_args = i - len(args)  # The remaining arguments are expected to have default value in the func definition.
+        if rem_args > types.config.max_default_args:
+            break
         rem_args_types = ()
         for j in range(rem_args):
             arg_idx = len(args) + j + 1
@@ -439,10 +441,12 @@ def function_call_axioms(called, args, result, types):
 
         # Get the default args count accessor
         defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(i))
-
+        defaults_count = defaults_accessor(called)
         # Add the axioms for function call, default args count, and arguments subtyping.
         axioms.append(And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
-                          defaults_accessor(called) >= rem_args))
+
+                          defaults_count >= rem_args,
+                          defaults_count <= types.config.max_default_args))
     return axioms
 
 
