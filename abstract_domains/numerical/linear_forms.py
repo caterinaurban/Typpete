@@ -46,6 +46,45 @@ class LinearForm:
             raise InvalidFormError("interval set twice (is immutable)!")
         self._interval = value
 
+    def __eq__(self, other: 'LinearForm'):
+        return isinstance(other, self.__class__) \
+               and set(self.var_summands.keys()) == set(other.var_summands.keys()) \
+               and self.interval == other.interval
+
+    def __ne__(self, other: 'LinearForm'):
+        return not (self == other)
+
+    def __lt__(self, other):
+        """Syntactic comparision of this linear form."""
+        if not isinstance(other, self.__class__):
+            raise NotImplementedError("Incomparable types!")
+        return self.var_summands == other.var_summands \
+               and self.interval < other.interval
+
+    def __le__(self, other):
+        """Syntactic comparision of this linear form."""
+        if not isinstance(other, self.__class__):
+            raise NotImplementedError("Incomparable types!")
+        return self.var_summands == other.var_summands \
+               and self.interval <= other.interval
+
+    def __gt__(self, other):
+        """Syntactic comparision of this linear form."""
+        if not isinstance(other, self.__class__):
+            raise NotImplementedError("Incomparable types!")
+        return self.var_summands == other.var_summands \
+               and self.interval > other.interval
+
+    def __ge__(self, other):
+        """Syntactic comparision of this linear form."""
+        if not isinstance(other, self.__class__):
+            raise NotImplementedError("Incomparable types!")
+        return self.var_summands == other.var_summands \
+               and self.interval >= other.interval
+
+    def __hash__(self):
+        return hash(repr(self))
+
     def __str__(self):
         vars_string = ' '.join([f"{str(sign)} {var}" for var, sign in self.var_summands.items()])
         return vars_string + (f" + {self._interval}" if self._interval else "")

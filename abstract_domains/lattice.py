@@ -13,13 +13,13 @@ class Lattice(metaclass=ABCMeta):
     """
 
     def __eq__(self, other: 'Lattice'):
-        isinstance(other, self.__class__) and repr(self) == repr(other)
-
-    def __hash__(self):
-        return hash(repr(self))
+        return isinstance(other, self.__class__) and repr(self) == repr(other)
 
     def __ne__(self, other: 'Lattice'):
         return not (self == other)
+
+    def __hash__(self):
+        return hash(repr(self))
 
     @abstractmethod
     def __repr__(self):

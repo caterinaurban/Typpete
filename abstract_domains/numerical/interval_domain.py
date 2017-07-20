@@ -61,6 +61,43 @@ class Interval:
         self.interval = (1, 0)
         return self
 
+    def __eq__(self, other: 'Interval'):
+        return isinstance(other, self.__class__) and repr(self) == repr(other)
+
+    def __ne__(self, other: 'Interval'):
+        return not (self == other)
+
+    def __lt__(self, other):
+        if not isinstance(other, self.__class__):
+            raise NotImplementedError("Incomparable types!")
+        if self.empty() or other.empty():
+            raise NotImplementedError("Empty intervals are not comparable!")
+        return self.upper < other.lower
+
+    def __le__(self, other):
+        if not isinstance(other, self.__class__):
+            raise NotImplementedError("Incomparable types!")
+        if self.empty() or other.empty():
+            raise NotImplementedError("Empty intervals are not comparable!")
+        return self.upper <= other.lower
+
+    def __gt__(self, other):
+        if not isinstance(other, self.__class__):
+            raise NotImplementedError("Incomparable types!")
+        if self.empty() or other.empty():
+            raise NotImplementedError("Empty intervals are not comparable!")
+        return self.lower > other.upper
+
+    def __ge__(self, other):
+        if not isinstance(other, self.__class__):
+            raise NotImplementedError("Incomparable types!")
+        if self.empty() or other.empty():
+            raise NotImplementedError("Empty intervals are not comparable!")
+        return self.lower >= other.upper
+
+    def __hash__(self):
+        return hash(repr(self))
+
     def __repr__(self):
         if self.empty():
             return "∅"
@@ -120,6 +157,8 @@ class IntervalLattice(Interval, BottomMixin):
         return super().is_bottom()
 
     def _less_equal(self, other: 'IntervalLattice') -> bool:
+        # NOTE: do not use less equal operator of plain interval since that has different semantics (every value in
+        # interval is less equal than any value in other interval)
         return other.lower <= self.lower and self.upper <= other.upper
 
     def _meet(self, other: 'IntervalLattice'):
@@ -154,8 +193,8 @@ class IntervalLattice(Interval, BottomMixin):
                 f"{type(self)} does not support generic visit of expressions! "
                 f"Define handling for expression {type(expr)} explicitly!")
 
-        # noinspection PyMethodMayBeStatic
-        def visit_Input(self, _: Input):
+        # noinspection PyMethodMayBeStatic, PyUnusedLocal
+        def visit_Input(self, _: Input, *args, **kwargs):
             return IntervalLattice().top()
 
         def visit_BinaryArithmeticOperation(self, expr: BinaryArithmeticOperation, *args, **kwargs):
@@ -179,7 +218,7 @@ class IntervalLattice(Interval, BottomMixin):
             else:
                 raise ValueError(f"Unary Operator {expr.operator} is not supported!")
 
-        # noinspection PyMethodMayBeStatic,PyUnusedLocal
+        # noinspection PyMethodMayBeStatic, PyUnusedLocal
         def visit_Literal(self, expr: Literal, *args, **kwargs):
             if expr.typ == int:
                 c = int(expr.val)
@@ -193,7 +232,6 @@ class IntervalLattice(Interval, BottomMixin):
 class IntervalDomain(Store, NumericalMixin, State):
     def __init__(self, variables: List[VariableIdentifier]):
         super().__init__(variables, {int: IntervalLattice})
-        self._visitor = IntervalDomain.Visitor()
 
     def forget(self, var: VariableIdentifier):
         self.store[var].top()
@@ -216,19 +254,8 @@ class IntervalDomain(Store, NumericalMixin, State):
         self.store[var].upper = constant
 
     def evaluate(self, expr: Expression):
-        interval = self._visitor.visit(expr, self)
+        interval = IntervalDomain._visitor.visit(expr, self)
         return interval
-
-    class Visitor(IntervalLattice.Visitor):
-        """A visitor to abstractly evaluate an expression (with variables) in the interval domain."""
-
-        # noinspection PyMethodMayBeStatic
-        def visit_VariableIdentifier(self, expr: VariableIdentifier, interval_store):
-            if expr.typ == int:
-                # copy the lattice element, since evaluation should not modify elements
-                return deepcopy(interval_store.store[expr])
-            else:
-                raise ValueError(f"Variable type {expr.typ} is not supported!")
 
     def _access_variable(self, variable: VariableIdentifier) -> Set[Expression]:
         return {variable}
@@ -236,7 +263,7 @@ class IntervalDomain(Store, NumericalMixin, State):
     def _assign_variable(self, left: Expression, right: Expression) -> 'IntervalDomain':
         if isinstance(left, VariableIdentifier):
             if left.typ == int:
-                self.store[left] = self._visitor.visit(right)
+                self.store[left] = IntervalDomain._visitor.visit(right, self)
         else:
             raise NotImplementedError("Interval domain does only support assignments to variables so far.")
         return self
@@ -265,3 +292,16 @@ class IntervalDomain(Store, NumericalMixin, State):
 
     def _substitute_variable(self, left: Expression, right: Expression):
         raise NotImplementedError("Interval domain does not yet support variable substitution.")
+
+    class Visitor(IntervalLattice.Visitor):
+        """A visitor to abstractly evaluate an expression (with variables) in the interval domain."""
+
+        # noinspection PyMethodMayBeStatic
+        def visit_VariableIdentifier(self, expr: VariableIdentifier, interval_store, *args, **kwargs):
+            if expr.typ == int:
+                # copy the lattice element, since evaluation should not modify elements
+                return deepcopy(interval_store.store[expr])
+            else:
+                raise ValueError(f"Variable type {expr.typ} is not supported!")
+
+    _visitor = Visitor()  # static class member shared between all instances

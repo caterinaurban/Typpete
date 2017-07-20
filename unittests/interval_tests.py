@@ -1,6 +1,6 @@
 import glob
 
-from abstract_domains.numerical.interval import IntervalDomain
+from abstract_domains.numerical.interval_domain import IntervalDomain
 from core.expressions import VariableIdentifier
 from engine.forward import ForwardInterpreter
 from semantics.forward import DefaultForwardSemantics
