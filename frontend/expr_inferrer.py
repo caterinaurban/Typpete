@@ -409,11 +409,9 @@ def infer_func_call(node, context, solver):
     if isinstance(node.func, ast.Name):
         called = context.get_type(node.func.id)
         # check if the type has the manually added flag for class-types
-        if hasattr(called, "init_args_count"):
+        if hasattr(called, "is_class"):
             args_types = _get_args_types(node.args, context, None, solver)
-            init_args_count = called.init_args_count
             solver.add(axioms.one_type_instantiation(node.func.id,
-                                                     init_args_count,
                                                      args_types,
                                                      result_type,
                                                      solver.z3_types),

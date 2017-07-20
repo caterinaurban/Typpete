@@ -458,8 +458,9 @@ def _infer_class_def(node, context, solver):
                    fail_message="Class attribute in {}".format(node.lineno))
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
+    init_args_count = class_context.get_type("__init__").args_count
     # Add this flag to recognize class types in class instantiation
-    result_type.init_args_count = class_context.get_type("__init__").args_count
+    result_type.is_class = True
     context.set_type(node.name, result_type)
 
 

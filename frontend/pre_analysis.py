@@ -94,8 +94,10 @@ class PreAnalyzer:
         class_to_instance_attributes = OrderedDict()
         class_to_class_attributes = OrderedDict()
         class_to_base = OrderedDict()
+        class_to_init_count = OrderedDict()
 
         for cls in class_defs:
+            init_args_count = 1
             if len(cls.bases) > 1:
                 raise NotImplementedError("Multiple inheritance is not supported yet.")
             elif cls.bases:
@@ -138,21 +140,31 @@ class PreAnalyzer:
                             if (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and
                                     target.value.id == first_arg):
                                 instance_attributes.add(target.attr)
+
+                    if cls_stmt.name == "__init__":
+                        init_args_count = len(cls_stmt.args.args)
                 elif isinstance(cls_stmt, ast.Assign):
                     # Get attributes defined as class-level assignment
                     for target in cls_stmt.targets:
                         if isinstance(target, ast.Name):
                             class_attributes.add(target.id)
                             instance_attributes.add(target.id)
+            class_to_init_count[cls.name] = init_args_count
 
-        return class_to_instance_attributes, class_to_class_attributes, class_to_base
+        return class_to_instance_attributes, class_to_class_attributes, class_to_base, class_to_init_count
 
     def get_all_configurations(self):
         config = Configuration()
         config.max_tuple_length = self.maximum_tuple_length()
         config.max_function_args = self.maximum_function_args()
         config.base_folder = self.base_folder
-        config.classes_to_instance_attrs, config.classes_to_class_attrs, config.class_to_base = self.analyze_classes()
+
+        class_analysis = self.analyze_classes()
+        config.classes_to_instance_attrs = class_analysis[0]
+        config.classes_to_class_attrs = class_analysis[1]
+        config.class_to_base = class_analysis[2]
+        config.class_to_init_count = class_analysis[3]
+
         config.used_names = self.get_all_used_names()
         config.max_default_args = self.max_default_args()
 

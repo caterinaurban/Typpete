@@ -364,15 +364,16 @@ def try_except(then, orelse, final, result, types):
     ]
 
 
-def one_type_instantiation(class_name, init_args_count, args, result, types):
+def one_type_instantiation(class_name, args, result, types):
     """Constraints for class instantiation, if the class name is known
     
     :param class_name: The class to be instantiated
-    :param init_args_count: the number of arguments in the classes __init__ method
     :param args: the types of the arguments passed to the class instantiation
     :param result: The resulting instance from instantiation
     :param types: Z3Types object for this inference program
     """
+    init_args_count = types.class_to_init_count[class_name]
+
     # Get the instance accessor from the type_sort data type.
     instance = getattr(types.type_sort, "instance")(types.all_types[class_name])
 
@@ -417,7 +418,7 @@ def instance_axioms(called, args, result, types):
     # Assert with __init__ function of all classes in the program
     axioms = []
     for t in types.all_types:
-        axioms.append(And(one_type_instantiation(t, len(args) + 1, args, result, types),
+        axioms.append(And(one_type_instantiation(t, args, result, types),
                           called == types.all_types[t]))
     return axioms
 
