@@ -75,6 +75,7 @@ class Context:
 
 
 class AnnotatedFunction:
-    def __init__(self, args_annotations, return_annotation):
+    def __init__(self, args_annotations, return_annotation, defaults_count):
         self.args_annotations = args_annotations
         self.return_annotation = return_annotation
+        self.defaults_count = defaults_count
