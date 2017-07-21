@@ -66,7 +66,6 @@ class Z3Types:
         # Encode subtyping relationships
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
         self.extends = Function("extends", type_sort, type_sort, BoolSort())
-        self.not_subtype = Function("not subtype", type_sort, type_sort, BoolSort())
 
         x = Const("x", type_sort)
         y = Const("y", type_sort)
@@ -79,8 +78,7 @@ class Z3Types:
             ForAll([x, y], Implies(And(self.subtype(x, y), self.subtype(y, x)), x == y)),
             ForAll([x, y, z],
                    Implies(And(self.extends(x, z), self.extends(y, z), x != y),
-                           And(self.not_subtype(x, y), self.not_subtype(y, x)))),
-            ForAll([x, y, z], Implies(And(self.subtype(x, y), self.not_subtype(y, z)), Not(self.subtype(x, z)))),
+                           And(Not(self.subtype(x, y)), Not(self.subtype(y, x))))),
         ]
 
         self.generics_axioms = [
