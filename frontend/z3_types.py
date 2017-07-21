@@ -58,7 +58,6 @@ class Z3Types:
         self.tuple = type_sort.tuple
         self.tuples = get_tuples(type_sort, max_tuple_length)
 
-        self.func = type_sort.func
         self.funcs = get_funcs(type_sort, max_function_args)
 
         self.classes = get_classes(type_sort, classes_to_instance_attrs)
@@ -101,8 +100,6 @@ class Z3Types:
                       self.extends(self.string, self.seq),
                       self.extends(self.bytes, self.seq),
                       self.extends(self.tuple, self.seq),
-
-                      self.extends(self.func, self.object),
 
                       ForAll([x], self.extends(self.type(x), self.object), patterns=[self.type(x)]),
                       ForAll([x], self.extends(self.list(x), self.seq), patterns=[self.list(x)]),
@@ -158,7 +155,7 @@ class Z3Types:
             consts = [defaults_const] + quantifiers_consts[:i + 1]
             inst = funcs[i](consts)
             axioms.append(
-                ForAll(consts, self.extends(inst, type_sort.func), patterns=[inst])
+                ForAll(consts, self.extends(inst, type_sort.object), patterns=[inst])
             )
             axioms.append(ForAll([x] + consts, Implies(self.subtype(x, inst), x == inst)))
         return axioms
@@ -218,8 +215,6 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
         type_sort.declare("tuple_{}".format(cur_len), *accessors)
 
     # Create dynamic function args length constructors, based on the configurations given by the pre-analysis
-    type_sort.declare("func")
-
     # The first accessor of the function is the number of default args it has
     for cur_len in range(max_function_args + 1):
         accessors = [("func_{}_defaults_args".format(cur_len), IntSort())]
