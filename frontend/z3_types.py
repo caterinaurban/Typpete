@@ -26,6 +26,8 @@ set_param("smt.qi.eager_threshold", 100)
 set_param("smt.qi.cost",  "(+ weight generation)")
 set_param("type_check", True)
 set_param("smt.bv.reflect", True)
+# set_option(":smt.qi.profile", True)
+# set_param(verbose=10)
 
 
 class TypesSolver(Solver):
@@ -103,7 +105,7 @@ class Z3Types:
         self.seq = type_sort.sequence
         self.string = type_sort.str
         self.bytes = type_sort.bytes
-        self.tuple = type_sort.tuple    # TODO: remove this
+        self.tuple = type_sort.tuple
         self.tuples = list()
         for cur_len in range(max_tuple_length + 1):
             self.tuples.append(getattr(type_sort, "tuple_{}".format(cur_len)))
@@ -141,7 +143,7 @@ class Z3Types:
 
         self.inheritance = [
             # types
-            ForAll([x], self.extends(self.type(x), self.object), patterns=[self.type(x)]),
+            ForAll([x], self.extends(self.type(x), self.object), patterns=[self.type(x)], qid="type is obj"),
             # none
             self.extends(self.none, self.object),
             # numbers
@@ -155,48 +157,58 @@ class Z3Types:
             self.extends(self.string, self.seq),
             self.extends(self.bytes, self.seq),
             self.extends(self.tuple, self.seq),
-            ForAll([x], self.extends(self.list(x), self.seq), patterns=[self.list(x)]),
+            ForAll([x], self.extends(self.list(x), self.seq), patterns=[self.list(x)], qid="list is seq"),
             # sets
-            ForAll([x], self.extends(self.set(x), self.object), patterns=[self.set(x)]),
+            ForAll([x], self.extends(self.set(x), self.object), patterns=[self.set(x)], qid="set is obj"),
             # dictionaries
-            ForAll([x, y], self.extends(self.dict(x, y), self.object), patterns=[self.dict(x, y)]),
+            ForAll([x, y], self.extends(self.dict(x, y), self.object), patterns=[self.dict(x, y)], qid="dict is obj"),
         ]
 
         self.subtyping = [
             # reflexivity
-            ForAll(x, self.subtype(x, x)),
+            ForAll(x, self.subtype(x, x), patterns=[self.subtype(x, x)], qid="reflex"),
             # antisymmetry
-            ForAll([x, y], Implies(And(self.subtype(x, y), self.subtype(y, x)), x == y)),
+            ForAll([x, y], Implies(And(self.subtype(x, y), self.subtype(y, x)), x == y),
+                   patterns=[MultiPattern(self.subtype(x, y), self.subtype(y, x))], qid="antisym"),
             # transitivity
-            ForAll([x, y, z], Implies(And(self.subtype(x, y), self.subtype(y, z)), self.subtype(x, z))),
+            ForAll([x, y, z], Implies(And(self.subtype(x, y), self.subtype(y, z)), self.subtype(x, z)),
+                   patterns=[MultiPattern(self.subtype(x, y), self.subtype(y, z))], qid="trans"),
 
             # inheritance implies subtyping: if x inherits from y, then x is a subtype of y
             #       y
             #     /
             #   x
-            ForAll([x, y], Implies(self.extends(x, y), self.subtype(x, y))),
+            ForAll([x, y], Implies(self.extends(x, y), self.subtype(x, y)),
+                   patterns=[self.extends(x, y)], qid="extends"),
             # if different types x and y inherit from the same type z, then they cannot be subtypes of each other
             #       z
             #     /   \
             #   x       y
             ForAll([x, y, z], Implies(And(x != y, self.extends(x, z), self.extends(y, z)),
-                                      And(self.not_subtype(x, y), self.not_subtype(y, x)))),
+                                      And(self.not_subtype(x, y), self.not_subtype(y, x))),
+                   patterns=[MultiPattern(self.extends(x, z), self.extends(y, z))], qid="not_subtype"),
             # if x is a subtype of y and y is not a subtype of z, then x cannot be a subtype of z
             #       o
             #     /   \
             #   z       y
             #             \
             #               x
-            ForAll([x, y, z], Implies(And(self.subtype(x, y), self.not_subtype(y, z)), Not(self.subtype(x, z)))),
+            ForAll([x, y, z], Implies(And(self.subtype(x, y), self.not_subtype(y, z)),
+                                      Not(self.subtype(x, z))),
+                   patterns=[MultiPattern(self.subtype(x, y), self.not_subtype(y, z))], qid="not subtype"),
 
             # a generic type is invariant
-            ForAll([x, y], Implies(self.subtype(x, self.type(y)), x == self.type(y))),
+            ForAll([x, y], Implies(self.subtype(x, self.type(y)), x == self.type(y)),
+                   patterns=[self.subtype(x, self.type(y))], qid="generic type"),
             # a generic list type is invariant
-            ForAll([x, y], Implies(self.subtype(x, self.list(y)), x == self.list(y))),
+            ForAll([x, y], Implies(self.subtype(x, self.list(y)), x == self.list(y)),
+                   patterns=[self.subtype(x, self.list(y))], qid="generic list"),
             # a generic set type is invariant
-            ForAll([x, y], Implies(self.subtype(x, self.set(y)), x == self.set(y))),
+            ForAll([x, y], Implies(self.subtype(x, self.set(y)), x == self.set(y)),
+                   patterns=[self.subtype(x, self.set(y))], qid="generic set"),
             # a generic dictionary type is invariant
-            ForAll([x, y, z], Implies(self.subtype(x, self.dict(y, z)), x == self.dict(y, z)))
+            ForAll([x, y, z], Implies(self.subtype(x, self.dict(y, z)), x == self.dict(y, z)),
+                   patterns=[self.subtype(x, self.dict(y, z))], qid="generic dict")
         ] + self.tuples_axioms() + self.functions_axioms() + self.classes_axioms(class_to_base)
 
     def tuples_axioms(self):
@@ -212,18 +224,19 @@ class Z3Types:
 #
         axioms = list()
         # zero-length tuple
-        axioms.append(self.extends(tuples[0], type_sort.tuple))     # TODO: type_sort.tuple -> type_sort.sequence
+        axioms.append(self.extends(tuples[0], type_sort.tuple))
         # a generic zero-length tuple type is invariant
-        axioms.append(ForAll(x, Implies(self.subtype(x, tuples[0]), x == tuples[0])))
+        axioms.append(ForAll(x, Implies(self.subtype(x, tuples[0]), x == tuples[0]),
+                             patterns=[self.subtype(x, tuples[0])]))
         # i-length tuples
         for i in range(1, len(tuples)):
             quantified = consts[:i]         # tuples[i] uses i constants
             inst = tuples[i](quantified)    # type of tuples[i]
             # tuples[i] inherits from sequence
-            # TODO: type_sort.tuple -> type_sort.sequence
             axioms.append(ForAll(quantified, self.extends(inst, type_sort.tuple), patterns=[inst]))
             # a generic tuple type is invariant
-            axioms.append(ForAll([x] + quantified, Implies(self.subtype(x, inst), x == inst)))
+            axioms.append(ForAll([x] + quantified, Implies(self.subtype(x, inst), x == inst),
+                          patterns=[self.subtype(x, inst)]))
         return axioms
 
     def functions_axioms(self):
@@ -245,8 +258,8 @@ class Z3Types:
             # funcs[i] inherits from object
             axioms.append(ForAll(quantified, self.extends(inst, type_sort.object), patterns=[inst]))
             # a generic function type is invariant
-            # TODO: is this correct?!?
-            axioms.append(ForAll([x] + quantified, Implies(self.subtype(x, inst), x == inst)))
+            axioms.append(ForAll([x] + quantified, Implies(self.subtype(x, inst), x == inst),
+                                 patterns=[self.subtype(x, inst)]))
         return axioms
 
     def classes_axioms(self, sub_to_base):
@@ -281,7 +294,7 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
     type_sort.declare("sequence")
     type_sort.declare("str")
     type_sort.declare("bytes")
-    type_sort.declare("tuple")      # TODO: remove this
+    type_sort.declare("tuple")
     for cur_len in range(max_tuple_length + 1):     # declare type constructors for tuples up to max length
         accessors = []
         # create accessors for the tuple
