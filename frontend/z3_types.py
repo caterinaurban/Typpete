@@ -37,8 +37,8 @@ class TypesSolver(Solver):
         self.element_id = 0     # unique id given to newly created Z3 consts
         self.assertions_vars = []
         self.assertions_errors = {}
-        analyzer = PreAnalyzer(tree, "tests/inference")     # TODO: avoid hard-coding
-        self.stubs_handler = StubsHandler(analyzer)
+        self.stubs_handler = StubsHandler()
+        analyzer = PreAnalyzer(tree, "tests/inference", self.stubs_handler)     # TODO: avoid hard-coding
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config)
         self.annotation_resolver = AnnotationResolver(self.z3_types)
