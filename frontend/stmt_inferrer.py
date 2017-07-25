@@ -405,13 +405,15 @@ def _infer_func_def(node, context, solver):
         args_annotations = []
         for arg in node.args.args:
             args_annotations.append(arg.annotation)
+        defaults_count = len(node.args.defaults)
         if hasattr(node, "method_type"):  # check if the node contains the manually added method flag
             if node.method_type not in context.builtin_methods:
                 context.builtin_methods[node.method_type] = {}
             context.builtin_methods[node.method_type][node.name] = AnnotatedFunction(args_annotations,
-                                                                                     return_annotation)
+                                                                                     return_annotation,
+                                                                                     defaults_count)
         else:
-            context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation))
+            context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count))
         return
 
     func_context, args_types = _init_func_context(node.args.args, context, solver)
@@ -458,8 +460,6 @@ def _infer_class_def(node, context, solver):
                    fail_message="Class attribute in {}".format(node.lineno))
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
-    init_args_count = class_context.get_type("__init__").args_count
-    # Add this flag to recognize class types in class instantiation
     result_type.is_class = True
     context.set_type(node.name, result_type)
 
