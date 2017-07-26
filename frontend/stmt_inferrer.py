@@ -464,20 +464,36 @@ def _infer_class_def(node, context, solver):
     for attr in class_context.types_map:
         solver.add(class_attrs[attr] == class_context.types_map[attr],
                    fail_message="Class attribute in {}".format(node.lineno))
-        if attr in base_class_to_funcs:
+
+        if attr != "__init__" and attr in base_class_to_funcs:
+            # attr is an overridden method
             # class_to_funcs[attr] is a tuple of two elements.
-            # The first is the args length, the second is the decorators list
+            # The first is the args length, the second is the decorators list, the third is default args length
             base_args_len = base_class_to_funcs[attr][0]
+            base_defaults_len = base_class_to_funcs[attr][2]
+            base_non_defaults_len = base_args_len - base_defaults_len
             sub_args_len = class_to_funcs[attr][0]
+            sub_defaults_len = class_to_funcs[attr][2]
+            sub_non_defaults_len = sub_args_len - sub_defaults_len
             decorators = base_class_to_funcs[attr][1] + class_to_funcs[attr][1]
 
-            if "staticmethod" not in decorators:
+            if "staticmethod" in decorators:
+                if "staticmethod" not in base_class_to_funcs[attr][1]:
+                    raise TypeError("Static method {} in class {} cannot override non-static method.".format(attr,
+                                                                                                             node.name))
+                if "staticmethod" not in class_to_funcs[attr][1]:
+                    raise TypeError("Non-static method {} in class {} cannot override static method.".format(attr,
+                                                                                                             node.name))
+            else:
                 if not base_args_len:
                     raise TypeError("Instance methods should have at least one argument (the receiver)."
                                     "If you wish to create a static method, please add the appropriate decorator.")
-                if base_args_len != sub_args_len:
-                    raise TypeError("Method {} in subclass {} should have same arguments length as in superclass."
-                                    .format(attr, node.name))
+                if base_args_len > sub_args_len:
+                    raise TypeError("Method {} in subclass {} should have total arguments length more than or equal "
+                                    "that in superclass.".format(attr, node.name))
+                if base_non_defaults_len > sub_non_defaults_len:
+                    raise TypeError("Method {} in subclass {} should have non-default arguments length less than"
+                                    "or equal that in superclass".format(attr, node.name))
 
                 # handle arguments and return contravariance/covariance
                 for i in range(base_args_len):

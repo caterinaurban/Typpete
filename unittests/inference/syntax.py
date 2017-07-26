@@ -1,6 +1,6 @@
 class Aexp:
     def eval(self, env):
-        pass
+        return object()
 
 
 class IntAexp(Aexp):

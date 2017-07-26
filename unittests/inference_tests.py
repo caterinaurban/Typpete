@@ -82,7 +82,8 @@ class TestInference(unittest.TestCase):
 
         check = solver.optimize.check()
         if self.sat:
-            self.assertNotEqual(check, z3_types.unsat)
+            self.assertNotEqual(check, z3_types.unsat,
+                                "Expected file {} to be SAT. Found UNSAT".format(self.file_name))
         else:
             self.assertEqual(check, z3_types.unsat)
             return

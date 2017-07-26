@@ -133,7 +133,8 @@ class PreAnalyzer:
             # Inspect all class-level statements
             for cls_stmt in cls.body:
                 if isinstance(cls_stmt, ast.FunctionDef):
-                    class_funcs[cls_stmt.name] = (len(cls_stmt.args.args), [d.id for d in cls_stmt.decorator_list])
+                    class_funcs[cls_stmt.name] = (len(cls_stmt.args.args), [d.id for d in cls_stmt.decorator_list],
+                                                  len(cls_stmt.args.defaults))
                     # Add function to class attributes and get attributes defined by self.some_attribute = value
                     instance_attributes.add(cls_stmt.name)
                     class_attributes.add(cls_stmt.name)
@@ -258,7 +259,7 @@ def add_init_if_not_existing(class_node):
             return
     class_node.body.append(ast.FunctionDef(
         name="__init__",
-        args=ast.arguments(args=[ast.arg(arg="self", annotation=None)]),
+        args=ast.arguments(args=[ast.arg(arg="self", annotation=None)], defaults=[]),
         body=[ast.Pass()],
         decorator_list=[],
         returns=None,
