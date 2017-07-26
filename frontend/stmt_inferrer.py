@@ -418,6 +418,7 @@ def _infer_func_def(node, context, solver):
 
     func_context, args_types = _init_func_context(node.args.args, context, solver)
     result_type = solver.new_z3_const("func")
+    result_type.args_count = len(node.args.args)
     context.set_type(node.name, result_type)
 
     if hasattr(node.args, "defaults"):
@@ -512,6 +513,7 @@ def _infer_class_def(node, context, solver):
 
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
+    result_type.is_class = True
     context.set_type(node.name, result_type)
 
 
