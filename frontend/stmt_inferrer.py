@@ -458,6 +458,15 @@ def _infer_class_def(node, context, solver):
     for attr in class_context.types_map:
         solver.add(class_attrs[attr] == class_context.types_map[attr],
                    fail_message="Class attribute in {}".format(node.lineno))
+
+    # Set the type of the first arg in the class methods to be instance of this class
+    # TODO check staticmethod decorator
+    for func_name, args_count in solver.config.class_to_funcs[node.name]:
+        func_type = class_context.get_type(func_name)
+        arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_count))
+        solver.add(arg_accessor(func_type) == instance_type,
+                   fail_message="First arg in class methods has class instance type")
+
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
     result_type.is_class = True
