@@ -224,10 +224,9 @@ def infer_unary_operation(node, context, solver):
 
     Examples: -5, not 1, ~2
     """
+    unary_type = infer(node.operand, context, solver)
     if isinstance(node.op, ast.Not):  # (not expr) always gives bool type
         return solver.z3_types.bool
-
-    unary_type = infer(node.operand, context, solver)
 
     if isinstance(node.op, ast.Invert):
         solver.add(axioms.unary_invert(unary_type, solver.z3_types),
@@ -403,11 +402,26 @@ def _get_builtin_method_call_axioms(args_types, solver, context, result_type, me
 
 def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
+    result_type = solver.new_z3_const("call")
+
+    # Check if it's direct class instantiation
+    if isinstance(node.func, ast.Name):
+        called = context.get_type(node.func.id)
+        # check if the type has the manually added flag for class-types
+        if hasattr(called, "is_class"):
+            args_types = _get_args_types(node.args, context, None, solver)
+            solver.add(axioms.one_type_instantiation(node.func.id,
+                                                     args_types,
+                                                     result_type,
+                                                     solver.z3_types),
+                       fail_message="Class instantiation in line {}.".format(node.lineno))
+            return result_type
+
     # instance represents the receiver in case of method calls.
     # It's none in all cases except method calls
     instance = None
-    result_type = solver.new_z3_const("call")
     call_axioms = []
+
     if isinstance(node.func, ast.Attribute):
         instance = infer(node.func.value, context, solver)
         if isinstance(instance, Context):
