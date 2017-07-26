@@ -41,7 +41,8 @@ class TestInference(unittest.TestCase):
             result[variable] = t
         return result
 
-    def infer_file(self, path):
+    @staticmethod
+    def infer_file(path):
         """Infer a single python program
 
         :param path: file system path of the program to infer 
@@ -76,6 +77,8 @@ class TestInference(unittest.TestCase):
 
         if self.throws:
             self.assertRaises(getattr(builtins, self.throws), self.infer_file, self.file_path)
+            end_time = time.time()
+            print(self.test_end_message(end_time - start_time))
             return
 
         solver, context = self.infer_file(self.file_path)
@@ -85,6 +88,8 @@ class TestInference(unittest.TestCase):
             self.assertNotEqual(check, z3_types.unsat)
         else:
             self.assertEqual(check, z3_types.unsat)
+            end_time = time.time()
+            print(self.test_end_message(end_time - start_time))
             return
 
         model = solver.optimize.model()
@@ -98,7 +103,11 @@ class TestInference(unittest.TestCase):
                              "Test file {}. Expected variable '{}' to have type '{}', but found '{}'"
                              .format(self.file_name, v, expected, model[z3_type]))
         end_time = time.time()
-        print("Tested {} in {:.2f} seconds.".format(self.file_name, end_time - start_time))
+        print(self.test_end_message(end_time - start_time))
+
+    def test_end_message(self, duration):
+        return "Tested {} in {:.2f} seconds.".format(self.file_name, duration)
+
 
 def suite():
     s = unittest.TestSuite()
