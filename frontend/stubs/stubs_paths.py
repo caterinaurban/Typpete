@@ -2,6 +2,10 @@ classes_and_functions = [
     "frontend/stubs/functions.py",
 ]
 
+libraries = {
+    "math": "frontend/stubs/libraries/math.py",
+}
+
 methods = [
     {
         "type": "list",
