@@ -4,7 +4,7 @@ from itertools import zip_longest
 from typing import List
 
 
-class AnalysisResult(object):
+class AnalysisResult:
     def __init__(self, cfg: ControlFlowGraph):
         """Analysis result representation.
         

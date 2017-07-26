@@ -26,7 +26,8 @@ import frontend.z3_axioms as axioms
 import frontend.z3_types as z3_types
 import sys
 
-from frontend.context import Context
+from frontend.config import config as inference_config
+from frontend.context import Context, AnnotatedFunction
 from frontend.import_handler import ImportHandler
 
 
@@ -166,7 +167,6 @@ def _infer_body(body, context, lineno, solver):
         stmts_types.append(stmt_type)
         solver.add(axioms.body(body_type, stmt_type, solver.z3_types),
                    fail_message="Body type in line {}".format(lineno))
-        solver.optimize.add_soft(body_type == stmt_type)
     # The body type should be none if all statements have none type.
     solver.add(z3_types.Implies(z3_types.And([x == solver.z3_types.none for x in stmts_types]),
                                 body_type == solver.z3_types.none),
@@ -189,10 +189,48 @@ def _infer_control_flow(node, context, solver):
             ......
             return 2.0
 
-        type: Union{String, Float}
+        type: super{String, Float}
     """
-    body_type = _infer_body(node.body, context, node.lineno, solver)
-    else_type = _infer_body(node.orelse, context, node.lineno, solver)
+    body_context = Context(parent_context=context)
+    else_context = Context(parent_context=context)
+
+    body_type = _infer_body(node.body, body_context, node.lineno, solver)
+    else_type = _infer_body(node.orelse, else_context, node.lineno, solver)
+
+    # Re-assigning variables in the body branch
+    for v in body_context.types_map:
+        if context.has_variable(v):
+            t1 = body_context.types_map[v]
+            t2 = context.get_type(v)
+            solver.add(t1 == t2,
+                       fail_message="re-assigning in flow branching in line {}".format(node.lineno))
+
+    # Re-assigning variables in the else branch
+    for v in else_context.types_map:
+        if context.has_variable(v):
+            t1 = else_context.types_map[v]
+            t2 = context.get_type(v)
+            solver.add(t1 == t2,
+                       fail_message="re-assigning in flow branching in line {}".format(node.lineno))
+
+    # Take intersection of variables in both contexts
+    for v in body_context.types_map:
+        if v in else_context.types_map and not context.has_variable(v):
+            var_type = solver.new_z3_const("branching_var")
+            t1 = body_context.types_map[v]
+            t2 = else_context.types_map[v]
+
+            if inference_config["enforce_same_type_in_branches"]:
+                branch_axioms = [t1 == var_type, t2 == var_type]
+            else:
+                branch_axioms = [solver.z3_types.subtype(t1, var_type), solver.z3_types.subtype(t2, var_type)]
+
+            solver.add(branch_axioms,
+                       fail_message="subtyping in flow branching in line {}".format(node.lineno))
+
+            solver.optimize.add_soft(t1 == var_type)
+            solver.optimize.add_soft(t2 == var_type)
+            context.set_type(v, var_type)
 
     if hasattr(node, "test"):
         expr.infer(node.test, context, solver)
@@ -282,6 +320,25 @@ def _init_func_context(args, context, solver):
     return local_context, args_types
 
 
+def _infer_args_defaults(args_types, defaults, context, solver):
+    """Infer the default values of function arguments (if any)
+    
+    :param args_types: Z3 constants for arguments types
+    :param defaults: AST nodes for default values of arguments
+    :param context: The parent of the function context
+    :param solver: The inference Z3 solver
+    
+    
+    A default array of length `n` represents the default values of the last `n` arguments
+    """
+    for i, default in enumerate(defaults):
+        arg_idx = i + len(args_types) - len(defaults)  # The defaults array correspond to the last arguments
+        default_type = expr.infer(default, context, solver)
+        solver.add(solver.z3_types.subtype(default_type, args_types[arg_idx]),
+                   fail_message="Function default argument in line {}".format(defaults[i].lineno))
+        solver.optimize.add_soft(default_type == args_types[arg_idx])
+
+
 def is_annotated(node):
     """Check the arguments and return are annotated in a function definition"""
     if not node.returns:
@@ -348,28 +405,40 @@ def _infer_func_def(node, context, solver):
         args_annotations = []
         for arg in node.args.args:
             args_annotations.append(arg.annotation)
-        context.annotated_functions[node.name] = (args_annotations, return_annotation)
+        defaults_count = len(node.args.defaults)
+        if hasattr(node, "method_type"):  # check if the node contains the manually added method flag
+            if node.method_type not in context.builtin_methods:
+                context.builtin_methods[node.method_type] = {}
+            context.builtin_methods[node.method_type][node.name] = AnnotatedFunction(args_annotations,
+                                                                                     return_annotation,
+                                                                                     defaults_count)
+        else:
+            context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count))
         return
 
     func_context, args_types = _init_func_context(node.args.args, context, solver)
     result_type = solver.new_z3_const("func")
     context.set_type(node.name, result_type)
 
+    if hasattr(node.args, "defaults"):
+        # Use the default args to infer the function parameters
+        _infer_args_defaults(args_types, node.args.defaults, context, solver)
+        defaults_len = len(node.args.defaults)
+    else:
+        defaults_len = 0
+
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
-        if ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
-            or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass))):
-            # Stub function
+        if inference_config["ignore_fully_annotated_function"] and is_annotated(node):
             body_type = return_type
         else:
             body_type = _infer_body(node.body, func_context, node.lineno, solver)
-            solver.add(body_type == return_type,
-                       fail_message="Return type annotation in line {}".format(node.lineno))
+        solver.add(body_type == return_type,
+                   fail_message="Return type annotation in line {}".format(node.lineno))
     else:
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
 
-    func_type = solver.z3_types.funcs[len(args_types)](args_types + (body_type,))
-
+    func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (body_type,))
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
 
@@ -502,6 +571,8 @@ def infer(node, context, solver):
     elif isinstance(node, ast.AugAssign):
         return _infer_augmented_assign(node, context, solver)
     elif isinstance(node, ast.Return):
+        if not node.value:
+            return solver.z3_types.none
         return expr.infer(node.value, context, solver)
     elif isinstance(node, ast.Delete):
         return _infer_delete(node, context, solver)

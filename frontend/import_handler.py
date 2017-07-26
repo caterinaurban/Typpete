@@ -1,9 +1,11 @@
 import ast
 from frontend.context import Context
+from frontend.stubs.stubs_paths import libraries
 
 
 class ImportHandler:
     """Handler for importing other modules during the type inference"""
+
     @staticmethod
     def get_ast(module_name, base_folder):
         """Get the AST of a python module
@@ -16,25 +18,27 @@ class ImportHandler:
         except FileNotFoundError:
             raise ImportError("No module named {}.".format(module_name))
 
-        return ast.parse(r.read())
+        tree = ast.parse(r.read())
+        r.close()
+        return tree
 
     @staticmethod
     def infer_import(module_name, base_folder, infer_func, solver):
         """Infer the types of a python module"""
-        if ImportHandler.is_builtin(module_name):
-            # TODO import from builtins
-            pass
-
-        t = ImportHandler.get_ast(module_name, base_folder)
         context = Context()
-        solver.infer_stubs(context, infer_func)
-        for stmt in t.body:
-            infer_func(stmt, context, solver)
+
+        if ImportHandler.is_builtin(module_name):
+            solver.stubs_handler.infer_builtin_lib(module_name, context, solver,
+                                                   solver.config.used_names, infer_func)
+        else:
+            t = ImportHandler.get_ast(module_name, base_folder)
+            solver.infer_stubs(context, infer_func)
+            for stmt in t.body:
+                infer_func(stmt, context, solver)
 
         return context
 
     @staticmethod
     def is_builtin(module_name):
         """Check if the imported python module is builtin"""
-        # TODO
-        return False
+        return module_name in libraries

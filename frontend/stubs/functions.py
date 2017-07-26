@@ -7,6 +7,7 @@ Num = TypeVar("Num", bound=complex)
 Str = TypeVar("Str", str, bytes)
 Seq = TypeVar("Seq", Str, List[T])
 NumOrStr = TypeVar("NumOrStr", Num, Str)
+NumOrStrNoComplex = TypeVar("NumOrStr", bool, int, float, Str)
 
 
 def abs(x: Num) -> Num:
@@ -54,12 +55,12 @@ def bin(_: int) -> str:
     pass
 
 
-def bool(_: object) -> bool:
+def bool(_: object = None) -> bool:
     """Convert a value to a Boolean."""
     pass
 
 
-def bytes(_: bytes) -> bytes:
+def bytes(_: bytes = None) -> bytes:
     """Return a new "bytes" object."""
     pass
 
@@ -79,17 +80,19 @@ def chr(_: int) -> str:
     pass
 
 
-def complex() -> complex:
+def complex(_: NumOrStr = None) -> complex:
     """Create a complex number"""
     pass
 
 
-def dict() -> Dict[T, U]:
-    """Create a new dictionary."""
+def dict(_: Dict[T, U] = None) -> Dict[T, U]:
+    """Create a new dictionary.
+    Make argument of type Mappable after implementing interfaces
+    """
     pass
 
 
-def dir() -> List[str]:
+def dir(_: object = None) -> List[str]:
     """Return the list of names in the current local scope."""
     pass
 
@@ -99,7 +102,7 @@ def divmod(_: float, __: float) -> Tuple[int, int]:
     pass
 
 
-def float(_: NumOrStr) -> float:
+def float(_: NumOrStrNoComplex = None) -> float:
     """Convert a string or a number to floating point."""
     pass
 
@@ -128,7 +131,7 @@ def id(_: object) -> int:
     pass
 
 
-def input() -> str:
+def input(_: object = None) -> str:
     """
     Read a string from standard input.  The trailing newline is stripped.
 
@@ -141,13 +144,23 @@ def input() -> str:
     pass
 
 
-def int(_: NumOrStr) -> int:
+def int(_: NumOrStrNoComplex = None, base: int = 10) -> int:
     """Convert a number or string to an integer."""
     pass
 
 
 def len(_: Seq) -> int:
     """ Return the number of items in a container. """
+    pass
+
+
+def max(_: List[T]) -> T:
+    """Return the maximum object from the list any
+    
+    TODO:
+        - Verify that the argument is comparable
+        - Add support for different iterable objects
+    """
     pass
 
 
@@ -171,11 +184,32 @@ def pow(x, y):
     return x ** y
 
 
+def print(_: object) -> None:
+    """Print an object"""
+    pass
+
+
+def range(x: int) -> List[int]:
+    """Return a list of int from 0 (inclusive) to `x` (exclusive)
+    
+    TODO: make it RangeObject after implementing interfaces
+    """
+    pass
+
+
 def repr(_: object) -> str:
     """
     Return the canonical string representation of the object.
 
     For many object types, including most builtins, eval(repr(obj)) == obj.
+    """
+    pass
+
+
+def reversed(_: List[T]) -> List[T]:
+    """Return a reversed version of the input list
+    
+    TODO: make it return reversed object after implementing interfaces
     """
     pass
 
@@ -191,6 +225,22 @@ def round(_: float) -> int:
     pass
 
 
-def str(_: object) -> str:
+def sorted(_: List[T]) -> List[T]:
+    """Return the input list in a sorted order
+
+    TODO: Add support for different iterable objects
+    """
+    pass
+
+
+def str(_: object = None) -> str:
     """Return a str version of object."""
+    pass
+
+
+def sum(_: List[Num]) -> Num:
+    """Return the sum of numbers in a list
+    
+    TODO: Add support for different iterable objects
+    """
     pass

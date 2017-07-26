@@ -10,7 +10,7 @@ from queue import Queue
 
 class BackwardInterpreter(Interpreter):
     def __init__(self, cfg: ControlFlowGraph, semantics: BackwardSemantics, widening: int):
-        """Backward analysis runner.
+        """Backward control flow graph interpreter.
 
         :param cfg: control flow graph to analyze
         :param widening: number of iterations before widening 

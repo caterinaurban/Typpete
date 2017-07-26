@@ -1,6 +1,5 @@
-from z3 import Or
+from z3 import Or, And
 import ast
-
 
 
 class AnnotationResolver:
@@ -15,7 +14,6 @@ class AnnotationResolver:
             "complex": z3_types.complex,
             "str": z3_types.string,
             "bytes": z3_types.bytes,
-            "None": z3_types.none,
             "number": z3_types.num,
             "sequence": z3_types.seq
         }
@@ -37,6 +35,8 @@ class AnnotationResolver:
             | Tuple[t*]
             | Callable[[t*], t]
         """
+        if isinstance(annotation, ast.NameConstant) and annotation.value is None:
+            return solver.z3_types.none
         if isinstance(annotation, ast.Name):
             if annotation.id in self.primitives:
                 return self.primitives[annotation.id]
@@ -63,6 +63,7 @@ class AnnotationResolver:
                 type_var_super = self.resolve(self.type_var_super[annotation.id], solver, generics_map)
                 solver.add(solver.z3_types.subtype(result_type, type_var_super),
                            fail_message="Generic bound in line {}".format(annotation.lineno))
+
             return result_type
 
         if isinstance(annotation, ast.Subscript):
@@ -123,7 +124,7 @@ class AnnotationResolver:
                 args_types = [self.resolve(x, solver, generics_map) for x in args_annotations]
                 return_type = self.resolve(annotation.slice.value.elts[1], solver, generics_map)
 
-                return self.z3_types.funcs[len(args_types)](*(args_types + [return_type]))
+                return self.z3_types.funcs[len(args_types)](*([0] + args_types + [return_type]))
 
             if annotation_val == "Union":
                 # Parse Union type
@@ -152,28 +153,28 @@ class AnnotationResolver:
 
         raise ValueError("Invalid type annotation in line {}".format(annotation.lineno))
 
-    def add_annotated_function_axioms(self, args_types, solver, annotations, result_type):
+    def get_annotated_function_axioms(self, args_types, solver, annotated_function, result_type):
+
         """Add axioms for a function call to an annotated function
         
         Reprocess the type annotations for every function call to prevent binding a certain type
         to the function definition
         """
-        args_annotations = annotations[0]
-        result_annotation = annotations[1]
-
-        if len(args_types) != len(args_annotations):
-            raise TypeError("The function expects {} arguments. {} were given.".format(len(args_annotations),
-                                                                                       len(args_types)))
+        args_annotations = annotated_function.args_annotations
+        result_annotation = annotated_function.return_annotation
+        defaults_count = annotated_function.defaults_count
+        min_args = len(args_annotations) - defaults_count
+        max_args = len(args_annotations)
+        if len(args_types) < min_args or len(args_types) > max_args:
+            return None
+        axioms = []
         generics_map = {}
 
-        for i, annotation in enumerate(args_annotations):
+        for i, annotation in enumerate(args_annotations[:len(args_types)]):
             arg_type = self.resolve(annotation, solver, generics_map)
-            solver.add(solver.z3_types.subtype(args_types[i], arg_type),
-                       fail_message="Generic parameter type in line {}".format(annotation.lineno))
-            solver.optimize.add_soft(args_types[i] == arg_type)
-
-        solver.add(result_type == self.resolve(result_annotation, solver, generics_map),
-                   fail_message="Generic return type in line {}".format(result_annotation.lineno))
+            axioms.append(args_types[i] == arg_type)
+        axioms.append(result_type == self.resolve(result_annotation, solver, generics_map))
+        return And(axioms)
 
     def add_type_var(self, target, type_var_node):
         if not isinstance(target, ast.Name):
