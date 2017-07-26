@@ -466,6 +466,13 @@ def _infer_class_def(node, context, solver):
         solver.add(class_attrs[attr] == class_context.types_map[attr],
                    fail_message="Class attribute in {}".format(node.lineno))
 
+        if attr in class_to_funcs and "staticmethod" not in class_to_funcs[attr][1]:
+            # If the attribute is a non static method, set the type of the first arg to be an instance of this class
+            args_len = class_to_funcs[attr][0]
+            arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_len))
+            solver.add(arg_accessor(class_attrs[attr]) == instance_type,
+                       fail_message="First arg in instance methods has class instance type")
+
         if attr != "__init__" and attr in base_class_to_funcs:
             # attr is an overridden method
             # class_to_funcs[attr] is a tuple of two elements.
@@ -497,15 +504,11 @@ def _infer_class_def(node, context, solver):
                                     "or equal that in superclass".format(attr, node.name))
 
                 # handle arguments and return contravariance/covariance
-                for i in range(base_args_len):
+                for i in range(1, base_args_len):
                     arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}".format(base_args_len, i + 1))
-                    if i == 0:
-                        solver.add(arg_accessor(class_attrs[attr]) == instance_type,
-                                   fail_message="Class method receiver in line {}".format(node.lineno))
-                    else:
-                        solver.add(solver.z3_types.subtype(arg_accessor(base_attrs[attr]),
-                                                           arg_accessor(class_attrs[attr])),
-                                   fail_message="Arguments contravariance in line {}".format(node.lineno))
+                    solver.add(solver.z3_types.subtype(arg_accessor(base_attrs[attr]),
+                                                       arg_accessor(class_attrs[attr])),
+                               fail_message="Arguments contravariance in line {}".format(node.lineno))
                 return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(base_args_len))
                 solver.add(solver.z3_types.subtype(return_accessor(class_attrs[attr]),
                                                    return_accessor(base_attrs[attr])),

@@ -197,7 +197,8 @@ def index(indexed, ind, result, types):
             [indexed == types.dict(ind, result),
              And(types.subtype(ind, types.int), indexed == types.list(result)),
              And(types.subtype(ind, types.int), indexed == types.string, result == types.string),
-             And(types.subtype(ind, types.int), indexed == types.bytes, result == types.bytes)]
+             And(types.subtype(ind, types.int), indexed == types.bytes, result == types.bytes),
+             ]
             + t
         )
     ]
@@ -249,45 +250,6 @@ def assignment(target, value, types):
     return [
         types.subtype(value, target)
     ]
-
-
-def multiple_assignment(target, value, position, types):
-    """Constraints for multiple assignments
-    
-    :param target: The type of the assignment target (LHS)
-    :param value: The type of the assignment value (RHS)
-    :param position: The position of the target/value in the multiple assignment
-    :param types: The types object containing z3 types
-    
-    Cases:
-        - List: a, b = [1, 2]
-        - types.set: a, b = 1, "string"
-        
-    Ex:
-        - a, b = [1, 2]
-        
-        The above example calls this function twice:
-            * first time: target := type(a), value := type(1), position := 0
-            * second time: target := type(b), value := type(2), position := 1
-    """
-
-    # List multiple assignment
-    lst = [value == types.list(target)]
-
-    # tuple multiple assignment:
-    # Assert with tuples of different lengths, maintaining the correct position of the target in the tuple.
-    t = []
-    for cur_len in range(position + 1, len(types.tuples)):
-        before_target = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(value)
-                         for i in range(position)]  # The tuple elements before the target
-        after_target = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(value)
-                        for i in range(position + 1, cur_len)]  # The tuple elements after the target
-
-        params = before_target + [target] + after_target  # The parameters to instantiate the tuple
-
-        t.append(value == types.tuples[cur_len](*params))
-
-    return [Or(lst + t)]
 
 
 def subscript_assignment(target, types):

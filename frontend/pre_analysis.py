@@ -12,14 +12,20 @@ class PreAnalyzer:
         - Class and instance attributes
     """
 
-    def __init__(self, prog_ast, base_folder):
+    def __init__(self, prog_ast, base_folder, stubs_handler):
         """
         :param prog_ast: The AST for the python program  
         """
         # List all the nodes existing in the AST
         self.base_folder = base_folder
         self.all_nodes = self.walk(prog_ast)
+
+        # Pre-analyze only used constructs from the stub files.
+        used_names = self.get_all_used_names()
+        stub_asts = stubs_handler.get_relevant_ast_nodes(used_names)
         self.stub_nodes = []
+        for stub_ast in stub_asts:
+            self.stub_nodes += list(ast.walk(stub_ast))
 
     def walk(self, prog_ast):
         result = list(ast.walk(prog_ast))
@@ -28,18 +34,18 @@ class PreAnalyzer:
         for node in import_nodes:
             for name in node.names:
                 if ImportHandler.is_builtin(name.name):
-                    # No need to analyze built-in library modules, all functions are stubs
-                    continue
-                new_ast = ImportHandler.get_ast(name.name, self.base_folder)
+                    new_ast = ImportHandler.get_builtin_ast(name.name)
+                else:
+                    new_ast = ImportHandler.get_module_ast(name.name, self.base_folder)
                 result += self.walk(new_ast)
         for node in import_from_nodes:
-            if ImportHandler.is_builtin(node.module):
-                # No need to analyze built-in library modules, all functions are stubs
-                continue
             if node.module == "typing":
                 # FIXME ignore typing for now, not to break type vars
                 continue
-            new_ast = ImportHandler.get_ast(node.module, self.base_folder)
+            if ImportHandler.is_builtin(node.module):
+                new_ast = ImportHandler.get_builtin_ast(node.module)
+            else:
+                new_ast = ImportHandler.get_module_ast(node.module, self.base_folder)
             result += self.walk(new_ast)
 
         return result
@@ -100,12 +106,10 @@ class PreAnalyzer:
 
         class_to_instance_attributes = OrderedDict()
         class_to_class_attributes = OrderedDict()
-        class_to_funcs = OrderedDict()
         class_to_base = OrderedDict()
-        class_to_init_count = OrderedDict()
+        class_to_funcs = OrderedDict()
 
         for cls in class_defs:
-            init_args_count = 1
             if len(cls.bases) > 1:
                 raise NotImplementedError("Multiple inheritance is not supported yet.")
             elif cls.bases:
@@ -154,15 +158,12 @@ class PreAnalyzer:
                                     target.value.id == first_arg):
                                 instance_attributes.add(target.attr)
 
-                    if cls_stmt.name == "__init__":
-                        init_args_count = len(cls_stmt.args.args)
                 elif isinstance(cls_stmt, ast.Assign):
                     # Get attributes defined as class-level assignment
                     for target in cls_stmt.targets:
                         if isinstance(target, ast.Name):
                             class_attributes.add(target.id)
                             instance_attributes.add(target.id)
-            class_to_init_count[cls.name] = init_args_count
         return class_to_instance_attributes, class_to_class_attributes, class_to_base, class_to_funcs
 
     def get_all_configurations(self):
