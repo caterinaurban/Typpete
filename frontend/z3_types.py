@@ -81,6 +81,7 @@ class Z3Types:
         self.all_types = OrderedDict()
         self.instance_attributes = OrderedDict()
         self.class_attributes = OrderedDict()
+        self.class_to_init_count = config.class_to_init_count
 
         max_tuple_length = config.max_tuple_length
         max_function_args = config.max_function_args
