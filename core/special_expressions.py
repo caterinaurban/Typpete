@@ -1,10 +1,11 @@
-from typing import List
+from typing import List, Union
 
 from core.expressions import Expression, BinaryArithmeticOperation, Operation
 
 
 class VariadicArithmeticOperation(Operation):
-    def __init__(self, typ, operator: BinaryArithmeticOperation.Operator, operands: List[Expression] = None):
+    def __init__(self, typ, operator: BinaryArithmeticOperation.Operator,
+                 operands: Union[List[Expression], type(None)] = None):
         """Variadic arithmetic operation.
         
         E.g. the sum over arbitrary many summands (expressions).

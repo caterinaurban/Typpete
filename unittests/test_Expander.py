@@ -1,6 +1,6 @@
 import unittest
 
-from core.expressions_tools import simplify, expand
+from core.expressions_tools import expand
 from unittests.generic_tests import ExpressionTreeTestCase
 
 
