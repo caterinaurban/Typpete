@@ -1,5 +1,6 @@
 from z3 import Const, IntSort
 
+
 class ClassNode:
     """
     Class representing a node in a tree where each node represents a class, and has

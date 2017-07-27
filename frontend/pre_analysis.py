@@ -244,7 +244,6 @@ class Configuration:
         return
 
 
-
 def propagate_attributes_to_subclasses(class_defs):
     """Start depth-first methods propagation from inheritance roots to subclasses"""
     inheritance_forest = get_inheritance_forest(class_defs)
