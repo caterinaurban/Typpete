@@ -33,3 +33,6 @@ def popitem(dict: Dict[T, U]) -> Tuple[T, U]:
 def update(dict: Dict[T, U], dict2: Dict[T, U]) -> None:
     """Adds dictionary dict2's key-values pairs to dict"""
     pass
+
+def items(dict: Dict[T, U]) -> List[Tuple[T, U]]:
+    pass

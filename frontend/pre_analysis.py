@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from frontend.constants import BUILTINS
 from frontend.import_handler import ImportHandler
 import ast
 
@@ -202,46 +203,20 @@ class Configuration:
         self.base_folder = ""
         self.used_names = []
         self.max_default_args = 0
+        self.all_classes = {}
 
     def complete_class_to_base(self):
         """
-        ForAll([x], self.extends(self.type(x), self.object), patterns=[self.type(x)], qid="type is obj"),
-            # none
-            self.extends(self.none, self.object),
-            # numbers
-            self.extends(self.num, self.object),
-            self.extends(self.complex, self.num),
-            self.extends(self.float, self.complex),
-            self.extends(self.int, self.float),
-            self.extends(self.bool, self.int),
-            # sequences
-            self.extends(self.seq, self.object),
-            self.extends(self.string, self.seq),
-            self.extends(self.bytes, self.seq),
-            self.extends(self.tuple, self.seq),
-            ForAll([x], self.extends(self.list(x), self.seq), patterns=[self.list(x)], qid="list is seq"),
-            # sets
-            ForAll([x], self.extends(self.set(x), self.object), patterns=[self.set(x)], qid="set is obj"),
-            # dictionaries
-            ForAll([x, y], self.extends(self.dict(x, y), self.object), patterns=[self.dict(x, y)], qid="dict is obj"),
-        :return:
+        Builds up the dictionary in self.all_classes, in which all classes (including
+        builtins and classes from stubs) are mapped to their base classes.
+
+        The dictionary refers to all classes by their Z3-level names. For generic classes,
+        it contains tuples containing the Z3-level class name and subsequently the names
+        of the accessor functions for the arguments.
+
+        To be executed after max_tuple_length and max_function_args have been set.
         """
-        builtins = {
-            'none': 'object',
-            'number' : 'object',
-            'complex': 'number',
-            'float' : 'complex',
-            'int' : 'float',
-            'bool' : 'int',
-            'sequence' : 'object',
-            'str' : 'sequence',
-            'bytes' : 'sequence',
-            'tuple' : 'sequence',
-            ('list', 'list_type') : 'sequence',
-            ('set', 'set_type') : 'object',
-            ('dict', 'dict_key_type', 'dict_value_type') : 'object',
-            ('type', 'instance') : 'object',
-        }
+        builtins = dict(BUILTINS)
 
         for cur_len in range(self.max_tuple_length + 1):
             name = 'tuple_' + str(cur_len)

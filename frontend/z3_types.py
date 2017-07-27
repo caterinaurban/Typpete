@@ -6,6 +6,7 @@ Limitations:
 """
 from collections import OrderedDict
 from frontend.annotation_resolver import AnnotationResolver
+from frontend.class_node import ClassNode
 from frontend.pre_analysis import PreAnalyzer
 from frontend.stubs.stubs_handler import StubsHandler
 from z3 import *
@@ -56,7 +57,7 @@ class TypesSolver(Solver):
         super().add(Implies(assertion, And(*args)))
 
     def init_axioms(self):
-        self.add(self.z3_types.inheritance + self.z3_types.subtyping, fail_message="Subtyping error")
+        self.add(self.z3_types.subtyping, fail_message="Subtyping error")
 
     def infer_stubs(self, context, infer_func):
         self.stubs_handler.infer_all_files(context, self, self.config.used_names, infer_func)
@@ -130,149 +131,16 @@ class Z3Types:
         create_classes_attributes(type_sort, classes_to_instance_attrs, self.instance_attributes)
         create_classes_attributes(type_sort, classes_to_class_attrs, self.class_attributes)
 
-        # constants to be used in quantifiers
-        x = Const("x", type_sort)
-        y = Const("y", type_sort)
-        z = Const("z", type_sort)
-
-        # function representing inheritance between types: extends(x, y) if and only if x inherits from y
-        self.extends = Function("extends", type_sort, type_sort, BoolSort())
         # function representing subtyping between types: subtype(x, y) if and only if x is a subtype of y
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
-        # function representing absence of subtyping between types
-        self.not_subtype = Function("not subtype", type_sort, type_sort, BoolSort())
+        self.subtyping = self.create_subtype_axioms(config.all_classes, type_sort)
 
-        self.inheritance = [
-            # types
-            ForAll([x], self.extends(self.type(x), self.object), patterns=[self.type(x)], qid="type is obj"),
-            # none
-            self.extends(self.none, self.object),
-            # numbers
-            self.extends(self.num, self.object),
-            self.extends(self.complex, self.num),
-            self.extends(self.float, self.complex),
-            self.extends(self.int, self.float),
-            self.extends(self.bool, self.int),
-            # sequences
-            self.extends(self.seq, self.object),
-            self.extends(self.string, self.seq),
-            self.extends(self.bytes, self.seq),
-            self.extends(self.tuple, self.seq),
-            ForAll([x], self.extends(self.list(x), self.seq), patterns=[self.list(x)], qid="list is seq"),
-            # sets
-            ForAll([x], self.extends(self.set(x), self.object), patterns=[self.set(x)], qid="set is obj"),
-            # dictionaries
-            ForAll([x, y], self.extends(self.dict(x, y), self.object), patterns=[self.dict(x, y)], qid="dict is obj"),
-        ]
-
-        self.subtyping = [
-            # reflexivity
-            ForAll(x, self.subtype(x, x), patterns=[self.subtype(x, x)], qid="reflex"),
-            # antisymmetry
-            ForAll([x, y], Implies(And(self.subtype(x, y), self.subtype(y, x)), x == y),
-                   patterns=[MultiPattern(self.subtype(x, y), self.subtype(y, x))], qid="antisym"),
-            # transitivity
-            ForAll([x, y, z], Implies(And(self.subtype(x, y), self.subtype(y, z)), self.subtype(x, z)),
-                   patterns=[MultiPattern(self.subtype(x, y), self.subtype(y, z))], qid="trans"),
-
-            # inheritance implies subtyping: if x inherits from y, then x is a subtype of y
-            #       y
-            #     /
-            #   x
-            ForAll([x, y], Implies(self.extends(x, y), self.subtype(x, y)),
-                   patterns=[self.extends(x, y)], qid="extends"),
-            # if different types x and y inherit from the same type z, then they cannot be subtypes of each other
-            #       z
-            #     /   \
-            #   x       y
-            ForAll([x, y, z], Implies(And(x != y, self.extends(x, z), self.extends(y, z)),
-                                      And(self.not_subtype(x, y), self.not_subtype(y, x))),
-                   patterns=[MultiPattern(self.extends(x, z), self.extends(y, z))], qid="not_subtype"),
-            # if x is a subtype of y and y is not a subtype of z, then x cannot be a subtype of z
-            #       o
-            #     /   \
-            #   z       y
-            #             \
-            #               x
-            ForAll([x, y, z], Implies(And(self.subtype(x, y), self.not_subtype(y, z)),
-                                      Not(self.subtype(x, z))),
-                   patterns=[MultiPattern(self.subtype(x, y), self.not_subtype(y, z))], qid="not subtype"),
-
-            # a generic type is invariant
-            ForAll([x, y], Implies(self.subtype(x, self.type(y)), x == self.type(y)),
-                   patterns=[self.subtype(x, self.type(y))], qid="generic type"),
-            # a generic list type is invariant
-            ForAll([x, y], Implies(self.subtype(x, self.list(y)), x == self.list(y)),
-                   patterns=[self.subtype(x, self.list(y))], qid="generic list"),
-            # a generic set type is invariant
-            ForAll([x, y], Implies(self.subtype(x, self.set(y)), x == self.set(y)),
-                   patterns=[self.subtype(x, self.set(y))], qid="generic set"),
-            # a generic dictionary type is invariant
-            ForAll([x, y, z], Implies(self.subtype(x, self.dict(y, z)), x == self.dict(y, z)),
-                   patterns=[self.subtype(x, self.dict(y, z))], qid="generic dict")
-        ] + self.tuples_axioms() + self.functions_axioms() + self.classes_axioms(class_to_base)
-        self.subtyping = self.create_all_axioms(config.all_classes, type_sort)
-
-    def create_all_axioms(self, all_classes, type_sort):
-        class Node:
-            def __init__(self, name, parent_node):
-                self.name = name
-                self.parent_node = parent_node
-                self.children = []
-
-            def find(self, name):
-                if name == self.name:
-                    return self
-                for c in self.children:
-                    res = c.find(name)
-                    if res:
-                        return res
-
-            def __str__(self):
-                return str(self.name)
-
-            def all(self):
-                result = [self]
-                for c in self.children:
-                    result += c.all()
-                return result
-
-            def all_super(self):
-                result = [self]
-                if self.parent_node:
-                    result += self.parent_node.all_super()
-                return result
-
-            def get_literal(self):
-                if isinstance(self.name, str):
-                    return getattr(type_sort, self.name)
-                else:
-                    constr = getattr(type_sort, self.name[0])
-                    args = self.quantified()
-                    return constr(*args)
-
-            def get_literal_with_args(self, var):
-                if isinstance(self.name, str):
-                    return getattr(type_sort, self.name)
-                else:
-                    constr = getattr(type_sort, self.name[0])
-                    args = []
-                    for arg in self.name[1:]:
-                        args.append(getattr(type_sort, arg)(var))
-                    return constr(*args)
-
-            def quantified(self):
-                res = []
-                if isinstance(self.name, tuple):
-                    for i, arg in enumerate(self.name[1:]):
-                        sort = type_sort if not arg.endswith('defaults_args') else IntSort()
-                        cur = Const("y" + str(i), sort)
-                        res.append(cur)
-                return res
-
-
-
-        tree = Node('object', None)
+    def create_class_tree(self, all_classes, type_sort):
+        """
+        Creates a tree consisting of ClassNodes which contains all classes in all_classes,
+        where child nodes are subclasses. The root will be object.
+        """
+        tree = ClassNode('object', None, type_sort)
         to_cover = list(all_classes.keys())
         covered = {'object'}
         i = 0
@@ -284,32 +152,40 @@ class Z3Types:
                 to_cover.append(current)
                 continue
             base_node = tree.find(base)
-            current_node = Node(current, base_node)
+            current_node = ClassNode(current, base_node, type_sort)
             base_node.children.append(current_node)
             covered.add(current)
+        return tree
 
-            axioms = []
-        for c in tree.all():
+    def create_subtype_axioms(self, all_classes, type_sort):
+        """
+        Creates axioms defining subtype relations for all possible classes.
+        """
+        tree = self.create_class_tree(all_classes, type_sort)
+        axioms = []
+        # For each class C in the program, create two axioms:
+        for c in tree.all_children():
             c_literal = c.get_literal()
             x = Const("x", self.type_sort)
 
-            # subtype(c, Y)
+            # One which is triggered by subtype(C, X)
             options = []
             for sub in c.all_super():
                 options.append(x == sub.get_literal())
             subtype_expr = self.subtype(c_literal, x)
-            axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options), patterns=[subtype_expr])
+            axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
+                           patterns=[subtype_expr])
             axioms.append(axiom)
 
-            # subtype(X, c)
+            # And one which is triggered by subtype(X, C)
             options = []
-            for super in c.all():
+            for super in c.all_children():
                 options.append(x == super.get_literal_with_args(x))
             subtype_expr = self.subtype(x, c_literal)
-            axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options), patterns=[subtype_expr])
+            axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
+                           patterns=[subtype_expr])
             axioms.append(axiom)
         return axioms
-
 
     def tuples_axioms(self):
         """Axioms for tuple subtyping."""
