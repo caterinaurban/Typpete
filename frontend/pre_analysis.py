@@ -187,6 +187,8 @@ class PreAnalyzer:
         config.used_names = self.get_all_used_names()
         config.max_default_args = self.max_default_args()
 
+        config.complete_class_to_base()
+
         return config
 
 
@@ -200,6 +202,72 @@ class Configuration:
         self.base_folder = ""
         self.used_names = []
         self.max_default_args = 0
+
+    def complete_class_to_base(self):
+        """
+        ForAll([x], self.extends(self.type(x), self.object), patterns=[self.type(x)], qid="type is obj"),
+            # none
+            self.extends(self.none, self.object),
+            # numbers
+            self.extends(self.num, self.object),
+            self.extends(self.complex, self.num),
+            self.extends(self.float, self.complex),
+            self.extends(self.int, self.float),
+            self.extends(self.bool, self.int),
+            # sequences
+            self.extends(self.seq, self.object),
+            self.extends(self.string, self.seq),
+            self.extends(self.bytes, self.seq),
+            self.extends(self.tuple, self.seq),
+            ForAll([x], self.extends(self.list(x), self.seq), patterns=[self.list(x)], qid="list is seq"),
+            # sets
+            ForAll([x], self.extends(self.set(x), self.object), patterns=[self.set(x)], qid="set is obj"),
+            # dictionaries
+            ForAll([x, y], self.extends(self.dict(x, y), self.object), patterns=[self.dict(x, y)], qid="dict is obj"),
+        :return:
+        """
+        builtins = {
+            'none': 'object',
+            'number' : 'object',
+            'complex': 'number',
+            'float' : 'complex',
+            'int' : 'float',
+            'bool' : 'int',
+            'sequence' : 'object',
+            'str' : 'sequence',
+            'bytes' : 'sequence',
+            'tuple' : 'sequence',
+            ('list', 'list_type') : 'sequence',
+            ('set', 'set_type') : 'object',
+            ('dict', 'dict_key_type', 'dict_value_type') : 'object',
+            ('type', 'instance') : 'object',
+        }
+
+        for cur_len in range(self.max_tuple_length + 1):
+            name = 'tuple_' + str(cur_len)
+            tuple_args = []
+            for cur_arg in range(cur_len):
+                arg_name = name + '_arg_' + str(cur_arg + 1)
+                tuple_args.append(arg_name)
+            if tuple_args:
+                builtins[tuple([name] + tuple_args)] = 'tuple'
+            else:
+                builtins[name] = 'tuple'
+        for cur_len in range(self.max_function_args + 1):
+            name = 'func_' + str(cur_len)
+            func_args = [name + '_defaults_args']
+            for cur_arg in range(cur_len):
+                arg_name = name + '_arg_' + str(cur_arg + 1)
+                func_args.append(arg_name)
+            func_args.append(name + '_return')
+            builtins[tuple([name] + func_args)] = 'object'
+        self.all_classes = builtins
+        for key, val in self.class_to_base.items():
+            ukey = 'class_' + key
+            uval = val if val == 'object' else 'class_' + val
+            self.all_classes[ukey] = uval
+        return
+
 
 
 def propagate_attributes_to_subclasses(class_defs):

@@ -45,7 +45,7 @@ class TypesSolver(Solver):
         self.z3_types = Z3Types(self.config)
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         self.optimize = Optimize(ctx)
-        self.optimize.set("timeout", 30000)
+        # self.optimize.set("timeout", 30000)
         self.init_axioms()
 
     def add(self, *args, fail_message):
@@ -211,6 +211,105 @@ class Z3Types:
             ForAll([x, y, z], Implies(self.subtype(x, self.dict(y, z)), x == self.dict(y, z)),
                    patterns=[self.subtype(x, self.dict(y, z))], qid="generic dict")
         ] + self.tuples_axioms() + self.functions_axioms() + self.classes_axioms(class_to_base)
+        self.subtyping = self.create_all_axioms(config.all_classes, type_sort)
+
+    def create_all_axioms(self, all_classes, type_sort):
+        class Node:
+            def __init__(self, name, parent_node):
+                self.name = name
+                self.parent_node = parent_node
+                self.children = []
+
+            def find(self, name):
+                if name == self.name:
+                    return self
+                for c in self.children:
+                    res = c.find(name)
+                    if res:
+                        return res
+
+            def __str__(self):
+                return str(self.name)
+
+            def all(self):
+                result = [self]
+                for c in self.children:
+                    result += c.all()
+                return result
+
+            def all_super(self):
+                result = [self]
+                if self.parent_node:
+                    result += self.parent_node.all_super()
+                return result
+
+            def get_literal(self):
+                if isinstance(self.name, str):
+                    return getattr(type_sort, self.name)
+                else:
+                    constr = getattr(type_sort, self.name[0])
+                    args = self.quantified()
+                    return constr(*args)
+
+            def get_literal_with_args(self, var):
+                if isinstance(self.name, str):
+                    return getattr(type_sort, self.name)
+                else:
+                    constr = getattr(type_sort, self.name[0])
+                    args = []
+                    for arg in self.name[1:]:
+                        args.append(getattr(type_sort, arg)(var))
+                    return constr(*args)
+
+            def quantified(self):
+                res = []
+                if isinstance(self.name, tuple):
+                    for i, arg in enumerate(self.name[1:]):
+                        sort = type_sort if not arg.endswith('defaults_args') else IntSort()
+                        cur = Const("y" + str(i), sort)
+                        res.append(cur)
+                return res
+
+
+
+        tree = Node('object', None)
+        to_cover = list(all_classes.keys())
+        covered = {'object'}
+        i = 0
+        while i < len(to_cover):
+            current = to_cover[i]
+            i += 1
+            base = all_classes[current]
+            if base not in covered:
+                to_cover.append(current)
+                continue
+            base_node = tree.find(base)
+            current_node = Node(current, base_node)
+            base_node.children.append(current_node)
+            covered.add(current)
+
+            axioms = []
+        for c in tree.all():
+            c_literal = c.get_literal()
+            x = Const("x", self.type_sort)
+
+            # subtype(c, Y)
+            options = []
+            for sub in c.all_super():
+                options.append(x == sub.get_literal())
+            subtype_expr = self.subtype(c_literal, x)
+            axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options), patterns=[subtype_expr])
+            axioms.append(axiom)
+
+            # subtype(X, c)
+            options = []
+            for super in c.all():
+                options.append(x == super.get_literal_with_args(x))
+            subtype_expr = self.subtype(x, c_literal)
+            axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options), patterns=[subtype_expr])
+            axioms.append(axiom)
+        return axioms
+
 
     def tuples_axioms(self):
         """Axioms for tuple subtyping."""
