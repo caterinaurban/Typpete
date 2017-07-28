@@ -1,6 +1,7 @@
 condition = True
 q = [3] if condition else ["st"]
 r = [2.0] and [1, 2]
+rr = r[0] * 2
 s = q + r
 t = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 u = 2
@@ -10,6 +11,7 @@ x = w[u]
 
 # q := List[object]
 # r := List[float]
+# rr := float
 # s := List[object]
 # t := List[int]
 # u := int
