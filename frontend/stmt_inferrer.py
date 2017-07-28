@@ -302,9 +302,9 @@ def _infer_try(node, context, solver):
     return result_type
 
 
-def _init_func_context(args, context, solver):
+def _init_func_context(name, args, context, solver):
     """Initialize the local function scope, and the arguments types"""
-    local_context = Context(parent_context=context)
+    local_context = Context(name=name, parent_context=context)
 
     # TODO starred args
 
@@ -416,7 +416,7 @@ def _infer_func_def(node, context, solver):
             context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count))
         return
 
-    func_context, args_types = _init_func_context(node.args.args, context, solver)
+    func_context, args_types = _init_func_context(node.name, node.args.args, context, solver)
     result_type = solver.new_z3_const("func")
     result_type.args_count = len(node.args.args)
     context.set_type(node.name, result_type)
@@ -445,7 +445,7 @@ def _infer_func_def(node, context, solver):
 
 
 def _infer_class_def(node, context, solver):
-    class_context = Context(parent_context=context)
+    class_context = Context(name=node.name, parent_context=context)
     result_type = solver.new_z3_const("class_type")
     solver.z3_types.all_types[node.name] = result_type
 
