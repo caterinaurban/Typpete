@@ -1,4 +1,7 @@
 class A:
+    def __init__(self, x=1):
+        pass
+
     def f(self):
         return 1
 
@@ -12,15 +15,12 @@ def fab(a):
     return a().f()
 
 x = fab(B)
-y = x + "st"
 
 
 class C:
     x = 1
 
 c = C()
-c.x += True
-d = [1, 2, 3][c.x]
 
 
 class D:
@@ -34,14 +34,16 @@ class E(D):
 
 e = E()
 f = e.f()
-
+a = A()
+aa = A(1)
 
 # A := Type[A]
 # B := Type[B]
 # C := Type[C]
 # D := Type[D]
 # E := Type[E]
-
+# a := A
+# aa := A
 # x := str
 # c := C
 # fab := Callable[[Type[B]], str]

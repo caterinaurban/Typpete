@@ -1,4 +1,4 @@
-from abstract_domains.lattice import BaseLattice
+from abstract_domains.lattice import Lattice
 from enum import Flag
 
 
@@ -17,7 +17,7 @@ O = Used.O
 N = Used.N
 
 
-class UsedLattice(BaseLattice):
+class UsedLattice(Lattice):
     """Used variable analysis core abstract domain representation."""
 
     DESCEND = {
@@ -67,10 +67,6 @@ class UsedLattice(BaseLattice):
 
     def __repr__(self):
         return self.used.name
-
-    def default(self):
-        self._used = N
-        return self
 
     def bottom(self):
         self._used = N

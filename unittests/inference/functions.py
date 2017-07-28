@@ -30,10 +30,16 @@ def f6(x):
     return x["string"]
 
 
+def f7(x):
+    if x < 2:
+        return 1
+    return f7(x - 1) + f7(x - 2)
+
+
 a = f1([1, 2, 3])
 b = f2(a[0])
 c = f3(b)
-d = f4({"": c[0]}, 2)
+d = f4({"": c[0]}, 1)
 e = f5(a, {"": d}, 2)
 f = b[e]
 g = f6({"st": 1})
