@@ -5,7 +5,7 @@ class Context:
         types_map ({str, Type}): a dict mapping variable names to their inferred types.
     """
 
-    def __init__(self, name=None, parent_context=None):
+    def __init__(self, name="", parent_context=None):
         self.name = name
         self.types_map = {}
         self.builtin_methods = {}

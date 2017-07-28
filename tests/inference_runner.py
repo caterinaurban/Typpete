@@ -39,7 +39,14 @@ def print_context(ctx, ind=""):
         if ctx.has_context_in_children(v):
             print_context(ctx.get_context_from_children(v), "\t" + ind)
         if not ind:
-            print(ind + "---------------------------")
+            print("---------------------------")
+    children = False
+    for child in ctx.children_contexts:
+        if ctx.name == "" and child.name == "":
+            children = True
+            print_context(child, "\t" + ind)
+    if not ind and children:
+        print("---------------------------")
 
 
 start_time = time.time()
