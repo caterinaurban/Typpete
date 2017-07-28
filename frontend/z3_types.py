@@ -135,7 +135,8 @@ class Z3Types:
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
         self.subtyping = self.create_subtype_axioms(config.all_classes, type_sort)
 
-    def create_class_tree(self, all_classes, type_sort):
+    @staticmethod
+    def create_class_tree(all_classes, type_sort):
         """
         Creates a tree consisting of ClassNodes which contains all classes in all_classes,
         where child nodes are subclasses. The root will be object.
@@ -170,8 +171,8 @@ class Z3Types:
 
             # One which is triggered by subtype(C, X)
             options = []
-            for sub in c.all_super():
-                options.append(x == sub.get_literal())
+            for base in c.all_parents():
+                options.append(x == base.get_literal())
             subtype_expr = self.subtype(c_literal, x)
             axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                            patterns=[subtype_expr])
@@ -179,8 +180,8 @@ class Z3Types:
 
             # And one which is triggered by subtype(X, C)
             options = []
-            for super in c.all_children():
-                options.append(x == super.get_literal_with_args(x))
+            for sub in c.all_children():
+                options.append(x == sub.get_literal_with_args(x))
             subtype_expr = self.subtype(x, c_literal)
             axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                            patterns=[subtype_expr])

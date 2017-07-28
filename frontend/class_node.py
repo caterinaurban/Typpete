@@ -36,13 +36,13 @@ class ClassNode:
             result += c.all_children()
         return result
 
-    def all_super(self):
+    def all_parents(self):
         """
         Returns all transitive parent nodes.
         """
         result = [self]
         if self.parent_node:
-            result += self.parent_node.all_super()
+            result += self.parent_node.all_parents()
         return result
 
     def get_literal(self):
