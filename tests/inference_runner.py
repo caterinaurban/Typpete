@@ -30,24 +30,36 @@ def print_complete_solver(z3solver):
     pp(out, formatter(z3solver))
 
 
-start_time = time.time()
+def print_context(ctx, ind=""):
+    for v in sorted(ctx.types_map):
+        z3_t = ctx.types_map[v]
+        if isinstance(z3_t, (Context, AnnotatedFunction)):
+            continue
+        print(ind + "{}: {}".format(v, model[z3_t]))
+        if ctx.has_context_in_children(v):
+            print_context(ctx.get_context_from_children(v), "\t" + ind)
+        if not ind:
+            print("---------------------------")
+    children = False
+    for child in ctx.children_contexts:
+        if ctx.name == "" and child.name == "":
+            children = True
+            print_context(child, "\t" + ind)
+    if not ind and children:
+        print("---------------------------")
 
+
+start_time = time.time()
 check = solver.optimize.check()
+end_time = time.time()
 
 if check == z3_types.unsat:
     print("Check: unsat")
     solver.check(solver.assertions_vars)
+    print(solver.unsat_core())
     print([solver.assertions_errors[x] for x in solver.unsat_core()])
 else:
     model = solver.optimize.model()
-    for v in sorted(context.types_map):
-        z3_t = context.types_map[v]
-
-        if isinstance(z3_t, (Context, AnnotatedFunction)):
-            continue
-
-        print("{}: {}".format(v, model[z3_t]))
-
-end_time = time.time()
+    print_context(context)
 
 print("Ran in {} seconds".format(end_time - start_time))

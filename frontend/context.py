@@ -5,7 +5,8 @@ class Context:
         types_map ({str, Type}): a dict mapping variable names to their inferred types.
     """
 
-    def __init__(self, parent_context=None):
+    def __init__(self, name="", parent_context=None):
+        self.name = name
         self.types_map = {}
         self.builtin_methods = {}
         self.parent_context = parent_context
@@ -72,6 +73,24 @@ class Context:
         if self.parent_context is None:
             return methods
         return methods + self.parent_context.get_matching_methods(method_name)
+
+    def has_context_in_children(self, context_name):
+        """Check if this context or one of the children contexts matches the given name."""
+        if self.name == context_name:
+            return True
+        for child in self.children_contexts:
+            if child.name == context_name:
+                return True
+        return False
+
+    def get_context_from_children(self, context_name):
+        """Get the context matching the given name."""
+        if self.name == context_name:
+            return self
+        for child in self.children_contexts:
+            if child.name == context_name:
+                return child
+        raise NameError("Context {} is not defined".format(context_name))
 
 
 class AnnotatedFunction:
