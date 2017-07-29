@@ -20,6 +20,8 @@ def add(left, right, result, types):
             And(types.subtype(left, types.seq), left == right, left == result),
             And(types.subtype(left, types.num), types.subtype(right, left), result == left),
             And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+            And(types.subtype(right, types.num), types.subtype(left, types.num),
+                result == types.num),
 
             # result from list addition is a list with a supertype of operands' types
             And(left == types.list(types.list_type(left)),
@@ -412,32 +414,43 @@ def function_call_axioms(called, args, result, types):
                           defaults_count <= types.config.max_default_args))
     return axioms
 
-def generic_call_axioms(called, args, result, types, tv):
-    is_generic = called == types.generic(types.type_var(called), types.generic_func(called))
-    under_upper = types.subtype(tv, types.upper(types.type_var(called)))
-    x = tv
-    def mysubst(a):
-        return types.subst(a, types.type_var(called), x)
-    called_func = types.generic_func(called)
+def generic_call_axioms(called, args, result, types, tvs):
+    axioms = []
+    for i in range(3):
+        generic_constr = types.generics[i]
+        cargs = []
+        for j in range(i + 1):
+            cargs.append(getattr(types, 'generic{}_tv{}'.format(i + 1, j + 1))(called))
+        is_generic = called == generic_constr(*cargs, getattr(types, 'generic{}_func'.format(i + 1))(called))
 
-    if len(args) == 0:
-        res = mysubst(called_func) == types.funcs[0](result)
-    else:
-        subtype_axioms = []
-        z3_args = []
-        for i in range(len(args)):
-            z3_arg = mysubst(getattr(types.type_sort, "func_{}_arg_{}".format(len(args), i + 1))(called_func))
-            z3_args.append(z3_arg)
-            arg = args[i]
-            subtype_axioms.append(types.subtype(arg, z3_arg))
+        under_upper = [types.subtype(tv, types.upper(getattr(types, 'generic{}_tv{}'.format(i + 1, k + 1))(called))) for k, tv in enumerate(tvs) if k <= i]
+        xs = tvs
+        def mysubst(a):
+            res = a
+            for arg, tv in zip(cargs, tvs):
+                res = types.subst(res, arg, tv)
+            return res
+        called_func = getattr(types, 'generic{}_func'.format(i + 1))(called)
 
-        func_type = types.funcs[len(args)]
-        z3_args.append(result)
-        res = And(subtype_axioms + [mysubst(called_func) == func_type(*z3_args)])
-    return [And(is_generic, under_upper, res)]
+        if len(args) == 0:
+            axioms.append(mysubst(called_func) == types.funcs[0](0, result))
+        else:
+            subtype_axioms = []
+            z3_args = []
+            for i in range(len(args)):
+                z3_arg = mysubst(getattr(types.type_sort, "func_{}_arg_{}".format(len(args), i + 1))(called_func))
+                z3_args.append(z3_arg)
+                arg = args[i]
+                subtype_axioms.append(types.subtype(arg, z3_arg))
+
+            func_type = types.funcs[len(args)]
+            z3_args.append(result)
+            res = And(subtype_axioms + [mysubst(called_func) == func_type(0, *z3_args)])
+            axioms.append(And(is_generic, *under_upper, res))
+    return axioms
 
 
-def call(called, args, result, types, tv):
+def call(called, args, result, types, tvs):
     """Constraints for calls
     
     Cases:
@@ -447,7 +460,7 @@ def call(called, args, result, types, tv):
     return [
         Or(
             function_call_axioms(called, args, result, types) +
-            generic_call_axioms(called, args, result, types, tv) +
+            generic_call_axioms(called, args, result, types, tvs) +
             instance_axioms(called, args, result, types)
         )
     ]

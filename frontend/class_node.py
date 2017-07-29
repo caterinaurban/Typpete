@@ -1,4 +1,4 @@
-from z3 import Const, IntSort
+from z3 import ArithRef, Const, IntSort
 
 class ClassNode:
     """
@@ -45,7 +45,7 @@ class ClassNode:
             result += self.parent_node.all_super()
         return result
 
-    def get_literal(self):
+    def get_literal(self, transformer = None):
         """
         Creates a Z3 expression representing this type. If this is a generic type,
         will use the variables from self.quantified() as the type arguments.
@@ -55,6 +55,8 @@ class ClassNode:
         else:
             constr = getattr(self.type_sort, self.name[0])
             args = self.quantified()
+            if transformer:
+                args = [transformer(a) if not isinstance(a, ArithRef) else a for a in args]
             return constr(*args)
 
     def get_literal_with_args(self, var):

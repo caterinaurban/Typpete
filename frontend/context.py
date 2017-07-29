@@ -10,9 +10,21 @@ class Context:
         self.builtin_methods = {}
         self.parent_context = parent_context
         self.children_contexts = []
+        self._type_params = {}
 
         if parent_context:
             parent_context.children_contexts.append(self)
+
+    @property
+    def type_params(self):
+        if self.parent_context:
+            return self.parent_context.type_params
+        else:
+            return self._type_params
+
+    @type_params.setter
+    def type_params(self, tp):
+        self._type_params = tp
 
     def get_type(self, var_name):
         """Get the type of `var_name` from this context (or a parent context)"""

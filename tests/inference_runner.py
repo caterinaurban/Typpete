@@ -10,6 +10,7 @@ r.close()
 solver = z3_types.TypesSolver(t)
 
 context = Context()
+context.type_params = solver.config.type_params
 solver.infer_stubs(context, infer)
 
 for stmt in t.body:

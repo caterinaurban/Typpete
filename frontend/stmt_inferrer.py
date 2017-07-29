@@ -441,10 +441,13 @@ def _infer_func_def(node, context, solver):
 
     func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (body_type,))
 
-    if node.name.startswith('generic'):
+    if context.type_params.get(node.name):
+        args = context.type_params.get(node.name)
+        func = solver.z3_types.generics[len(args) - 1]
+        args = [getattr(solver.z3_types, 'tv' + str(a)) for a in args]
         solver.add(
-            result_type == solver.z3_types.generic(solver.z3_types.typevar, func_type),
-            fail_message="URGH")
+            result_type == func(*args, func_type),
+            fail_message="Generic function definition in line {}".format(node.lineno))
     else:
         solver.add(result_type == func_type,
                    fail_message="Function definition in line {}".format(node.lineno))
