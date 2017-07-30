@@ -22,14 +22,6 @@ abstract\_domains\.lattice module
     :undoc-members:
     :show-inheritance:
 
-abstract\_domains\.store module
--------------------------------
-
-.. automodule:: abstract_domains.store
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 abstract\_domains\.stack module
 -------------------------------
 
@@ -45,6 +37,15 @@ abstract\_domains\.state module
     :members:
     :undoc-members:
     :show-inheritance:
+
+abstract\_domains\.store module
+-------------------------------
+
+.. automodule:: abstract_domains.store
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------

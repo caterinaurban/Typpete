@@ -4,8 +4,8 @@ abstract\_domains\.traces package
 Submodules
 ----------
 
-abstract\_domains\.traces\.traces_domain module
------------------------------------------------
+abstract\_domains\.traces\.traces\_domain module
+------------------------------------------------
 
 .. automodule:: abstract_domains.traces.traces_domain
     :members:

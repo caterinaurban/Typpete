@@ -4,8 +4,8 @@ abstract\_domains\.liveness package
 Submodules
 ----------
 
-abstract\_domains\.liveness\.liveness_domain module
----------------------------------------------------
+abstract\_domains\.liveness\.liveness\_domain module
+----------------------------------------------------
 
 .. automodule:: abstract_domains.liveness.liveness_domain
     :members:

@@ -20,18 +20,18 @@ abstract\_domains\.usage\.store module
     :undoc-members:
     :show-inheritance:
 
-abstract\_domains\.usage\.used module
--------------------------------------
-
-.. automodule:: abstract_domains.usage.used
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 abstract\_domains\.usage\.test\_usedListStartLattice module
 -----------------------------------------------------------
 
 .. automodule:: abstract_domains.usage.test_usedListStartLattice
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+abstract\_domains\.usage\.used module
+-------------------------------------
+
+.. automodule:: abstract_domains.usage.used
     :members:
     :undoc-members:
     :show-inheritance:
@@ -43,6 +43,7 @@ abstract\_domains\.usage\.used\_liststart module
     :members:
     :undoc-members:
     :show-inheritance:
+
 
 Module contents
 ---------------
