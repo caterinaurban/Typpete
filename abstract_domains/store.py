@@ -22,6 +22,10 @@ class Store(Lattice):
         self._store = {var: self._lattices[var.typ](**self._arguments[var.typ]) for var in self._variables}
 
     @property
+    def variables(self):
+        return self._variables
+
+    @property
     def lattices(self):
         return self._lattices
 
@@ -30,7 +34,7 @@ class Store(Lattice):
         return self._store
 
     def __repr__(self):
-        return "\n".join("{} -> {}".format(variable, value) for variable, value in self.store.items())
+        return ", ".join("{} -> {}".format(variable, value) for variable, value in self.store.items())
 
     def bottom(self) -> 'Store':
         for var in self.store:
@@ -43,8 +47,7 @@ class Store(Lattice):
         return self
 
     def is_bottom(self) -> bool:
-        # TODO: replace `all` with `any`
-        return all(element.is_bottom() for element in self.store.values())
+        return any(element.is_bottom() for element in self.store.values())
 
     def is_top(self) -> bool:
         return all(element.is_top() for element in self.store.values())

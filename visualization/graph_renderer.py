@@ -168,7 +168,7 @@ class CfgRenderer(GraphRenderer):
         for node in cfg.nodes.values():
             fillcolor = self._node_color(node, cfg)
             if isinstance(node, (Basic, Loop)):
-                stmt = '<font color="#ffffff" point-size="11">{}</font>'
+                stmt = '<font color="#ffffff" point-size="11">{} </font>'
                 stmts = map(lambda x: stmt.format(html.escape(str(x))), node.stmts)
                 label = self._list2table(list(stmts), escape=False)
             else:
@@ -181,7 +181,7 @@ class AnalysisResultRenderer(CfgRenderer):
     """Graphviz rendering of an analysis result on the analyzed control flow graph."""
 
     def _basic_node_label(self, node, result):
-        state = '<font point-size="9">{}</font>'
+        state = '<font point-size="9">{} </font>'
         states = map(lambda x: state.format(html.escape(str(x)).replace('\n', '<br />')), result.get_node_result(node))
         stmt = '<font color="#ffffff" point-size="11">{}</font>'
         stmts = map(lambda x: stmt.format(html.escape(str(x))), node.stmts)

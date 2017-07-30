@@ -15,10 +15,6 @@ class UsedStore(Store, State):
     def __init__(self, variables: List[VariableIdentifier]):
         super().__init__(variables, {int: UsedLattice, list: UsedListStartLattice})
 
-    def __repr__(self):
-        variables = ", ".join("{} -> {}".format(variable, value) for variable, value in self.store.items())
-        return variables
-
     def descend(self) -> 'UsedStore':
         for var in self.store.values():
             var.descend()

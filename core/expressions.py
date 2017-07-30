@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from enum import Enum
+from enum import IntEnum
 from typing import Set, Sequence
 
 """
@@ -300,12 +300,21 @@ class Index(Expression):
 
 
 """
+Generic Operation Expressions
+"""
+
+
+class Operation(Expression, metaclass=ABCMeta):
+    pass
+
+
+"""
 Unary Operation Expressions
 """
 
 
-class UnaryOperation(Expression):
-    class Operator(Enum):
+class UnaryOperation(Operation):
+    class Operator(IntEnum):
         """Unary operator representation."""
 
         @abstractmethod
@@ -341,7 +350,10 @@ class UnaryOperation(Expression):
         return hash((self.typ, self.operator, self.expression))
 
     def __str__(self):
-        return "{0.operator}({0.expression})".format(self)
+        expr_string = str(self.expression)
+        if isinstance(self.expression, Operation):
+            expr_string = f"({expr_string})"
+        return f"{str(self.operator)}{expr_string}"
 
 
 class UnaryArithmeticOperation(UnaryOperation):
@@ -353,12 +365,12 @@ class UnaryArithmeticOperation(UnaryOperation):
     class Operator(UnaryOperation.Operator):
         """Unary arithmetic operator representation."""
         Add = 1
-        Sub = 2
+        Sub = -1
 
         def __str__(self):
             if self.value == 1:
                 return "+"
-            elif self.value == 2:
+            elif self.value == -1:
                 return "-"
 
     def __init__(self, typ, operator: Operator, expression: Expression):
@@ -400,8 +412,8 @@ Binary Operation Expressions
 """
 
 
-class BinaryOperation(Expression):
-    class Operator(Enum):
+class BinaryOperation(Operation):
+    class Operator(IntEnum):
         """Binary operator representation."""
 
         @abstractmethod
@@ -443,7 +455,13 @@ class BinaryOperation(Expression):
         return hash((self.typ, self.left, self.operator, self.right))
 
     def __str__(self):
-        return "{0.left} {0.operator} {0.right}".format(self)
+        left_string = str(self.left)
+        right_string = str(self.right)
+        if isinstance(self.left, Operation):
+            left_string = f"({left_string})"
+        if isinstance(self.right, Operation):
+            right_string = f"({right_string})"
+        return f"{left_string} {str(self.operator)} {right_string}"
 
 
 class BinaryArithmeticOperation(BinaryOperation):
@@ -525,6 +543,13 @@ class BinaryComparisonOperation(BinaryOperation):
         In = 9
         NotIn = 10
 
+        def reverse_operator(self):
+            """Returns the reverse operator of this operator."""
+            try:
+                return BinaryComparisonOperation.Operator.REVERSE_OPERATOR[self]
+            except KeyError:
+                return None
+
         def __str__(self):
             if self.value == 1:
                 return "=="
@@ -546,6 +571,19 @@ class BinaryComparisonOperation(BinaryOperation):
                 return "in"
             elif self.value == 10:
                 return "not in"
+
+    Operator.REVERSE_OPERATOR = {
+        Operator.Eq: Operator.NotEq,
+        Operator.NotEq: Operator.Eq,
+        Operator.Lt: Operator.GtE,
+        Operator.LtE: Operator.Gt,
+        Operator.Gt: Operator.LtE,
+        Operator.GtE: Operator.Lt,
+        Operator.Is: Operator.IsNot,
+        Operator.IsNot: Operator.Is,
+        Operator.In: Operator.NotIn,
+        Operator.NotIn: Operator.In
+    }
 
     def __init__(self, typ, left: Expression, operator: Operator, right: Expression):
         """Binary comparison operation expression representation.

@@ -1,8 +1,9 @@
 import glob
-from abstract_domains.usage.stack import UsedStack
+
+from abstract_domains.numerical.octagon_domain import OctagonDomain
 from core.expressions import VariableIdentifier
-from engine.backward import BackwardInterpreter
-from semantics.usage.usage_semantics import UsageSemantics
+from engine.forward import ForwardInterpreter
+from semantics.forward import DefaultForwardSemantics
 from unittests.generic_tests import ResultCommentsFileTestCase
 import unittest
 import os
@@ -11,7 +12,7 @@ import logging
 logging.basicConfig(level=logging.INFO, filename='unittests.log', filemode='w')
 
 
-class UsageTestCase(ResultCommentsFileTestCase):
+class OctagonTestCase(ResultCommentsFileTestCase):
     def __init__(self, source_path):
         super().__init__(source_path)
         self._source_path = source_path
@@ -20,29 +21,32 @@ class UsageTestCase(ResultCommentsFileTestCase):
         logging.info(self)
         self.render_cfg()
 
-        # find all variables
         variable_names = self.find_variable_names()
         variables = []
         for name in variable_names:
-            # TODO remove this name hack when type inferences work
-            typ = list if name.startswith("list") else int
-            variables.append(VariableIdentifier(typ, name))
+            variables.append(VariableIdentifier(int, name))
 
         # print(list(map(str,variables)))
 
-        # Run Usage Analysis
-        backward_interpreter = BackwardInterpreter(self.cfg, UsageSemantics(), 3)
-        result = backward_interpreter.analyze(UsedStack(variables))
+        # Run Octagon numerical Analysis
+        forward_interpreter = ForwardInterpreter(self.cfg, DefaultForwardSemantics(), 3)
+        result = forward_interpreter.analyze(OctagonDomain(variables))
+
+        # ensure all results are closed for displaying
+        for node_result_list in result.result.values():
+            for oct in node_result_list:
+                oct.close()
+
         self.render_result_cfg(result)
         self.check_result_comments(result)
 
 
 def suite():
     s = unittest.TestSuite()
-    g = os.getcwd() + '/usage/**.py'
+    g = os.getcwd() + '/octagon/**.py'
     for path in glob.iglob(g):
         if os.path.basename(path) != "__init__.py":
-            s.addTest(UsageTestCase(path))
+            s.addTest(OctagonTestCase(path))
     runner = unittest.TextTestRunner()
     runner.run(s)
 
