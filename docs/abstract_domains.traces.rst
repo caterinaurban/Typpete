@@ -4,10 +4,10 @@ abstract\_domains\.traces package
 Submodules
 ----------
 
-abstract\_domains\.traces\.traces module
-----------------------------------------
+abstract\_domains\.traces\.traces_domain module
+-----------------------------------------------
 
-.. automodule:: abstract_domains.traces.traces
+.. automodule:: abstract_domains.traces.traces_domain
     :members:
     :undoc-members:
     :show-inheritance:

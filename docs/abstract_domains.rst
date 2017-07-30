@@ -14,18 +14,26 @@ Subpackages
 Submodules
 ----------
 
-abstract\_domains\.generic\_lattices module
--------------------------------------------
-
-.. automodule:: abstract_domains.generic_lattices
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 abstract\_domains\.lattice module
 ---------------------------------
 
 .. automodule:: abstract_domains.lattice
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+abstract\_domains\.store module
+-------------------------------
+
+.. automodule:: abstract_domains.store
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+abstract\_domains\.stack module
+-------------------------------
+
+.. automodule:: abstract_domains.stack
     :members:
     :undoc-members:
     :show-inheritance:
@@ -37,7 +45,6 @@ abstract\_domains\.state module
     :members:
     :undoc-members:
     :show-inheritance:
-
 
 Module contents
 ---------------
