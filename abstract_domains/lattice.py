@@ -1,15 +1,26 @@
+"""
+Lattice
+=======
+
+Interface of a lattice. Lattice elements support lattice operations.
+"""
+
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 from functools import reduce
 from typing import List
 
+from core.utils import copy_docstring
+
 
 class Lattice(metaclass=ABCMeta):
-    """A mutable lattice element.
+    """Mutable lattice element.
 
-    Subclasses are expected to provide consistent method implementations for:
-    * `bottom()`, `is_bottom()`
-    * `top()`, `is_top()`
+    .. warning::
+        Lattice operations modify the current lattice element.
+
+        Subclasses are expected to provide consistent method implementations for
+        ``bottom()``, ``is_bottom()``, ``top()`` and ``is_top()``.
     """
 
     def __eq__(self, other: 'Lattice'):
@@ -23,7 +34,7 @@ class Lattice(metaclass=ABCMeta):
 
     @abstractmethod
     def __repr__(self):
-        """Unambiguous string representing the current lattice element.
+        """Unambiguous string representation of the current lattice element.
 
         :return: unambiguous string representation
 
@@ -31,7 +42,7 @@ class Lattice(metaclass=ABCMeta):
 
     @abstractmethod
     def bottom(self):
-        """The bottom lattice element.
+        """Bottom lattice element.
 
         :return: current lattice element modified to be the bottom lattice element
 
@@ -39,7 +50,7 @@ class Lattice(metaclass=ABCMeta):
 
     @abstractmethod
     def top(self):
-        """The top lattice element.
+        """Top lattice element.
 
         :return: current lattice element modified to be the top lattice element
 
@@ -181,9 +192,10 @@ class Lattice(metaclass=ABCMeta):
 
 
 class KindMixin(Lattice, metaclass=ABCMeta):
-    """A mixin that adds an explicit distinction between default and special lattice elements like top/bottom."""
+    """Mixin that adds an explicit distinction between bottom, default, and top elements to a lattice."""
 
     class Kind(Enum):
+        """Kind of a lattice element."""
         TOP = 3
         DEFAULT = 2
         BOTTOM = 1
@@ -194,6 +206,7 @@ class KindMixin(Lattice, metaclass=ABCMeta):
 
     @property
     def kind(self):
+        """The kind of the current lattice element."""
         return self._kind
 
     @kind.setter
@@ -202,40 +215,52 @@ class KindMixin(Lattice, metaclass=ABCMeta):
 
 
 class BottomMixin(KindMixin, metaclass=ABCMeta):
-    """A mixin that adds a bottom element to another lattice."""
+    """Mixin that adds a predefined bottom element to a lattice."""
 
+    @copy_docstring(Lattice.bottom)
     def bottom(self):
         self._kind = KindMixin.Kind.BOTTOM
         return self
 
+    @copy_docstring(Lattice.is_bottom)
     def is_bottom(self) -> bool:
         return self._kind == KindMixin.Kind.BOTTOM
 
 
 class TopMixin(KindMixin, metaclass=ABCMeta):
-    """A mixin that adds a top element to another lattice."""
+    """Mixin that adds a predefined top element to another lattice."""
 
+    @copy_docstring(Lattice.top)
     def top(self):
         self._kind = KindMixin.Kind.TOP
         return self
 
+    @copy_docstring(Lattice.is_top)
     def is_top(self) -> bool:
         return self._kind == KindMixin.Kind.TOP
 
 
 class BoundedLattice(TopMixin, BottomMixin, metaclass=ABCMeta):
-    """A mutable lattice element, with default bottom and top elements."""
+    """Mutable lattice element, with predefined bottom and top elements.
 
+    .. warning::
+        Lattice operations modify the current lattice element.
+    """
+
+    @copy_docstring(Lattice.bottom)
     def bottom(self) -> 'BoundedLattice':
         self.kind = KindMixin.Kind.BOTTOM
         return self
 
+    @copy_docstring(Lattice.top)
     def top(self) -> 'BoundedLattice':
         self.kind = KindMixin.Kind.TOP
         return self
 
+    @copy_docstring(Lattice.is_bottom)
     def is_bottom(self) -> bool:
         return self.kind == KindMixin.Kind.BOTTOM
 
+    @copy_docstring(Lattice.is_top)
     def is_top(self) -> bool:
         return self.kind == KindMixin.Kind.TOP
