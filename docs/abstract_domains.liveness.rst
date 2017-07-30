@@ -1,11 +1,13 @@
 abstract\_domains\.liveness package
 ===================================
 
+.. automodule:: abstract_domains.liveness
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
-
-abstract\_domains\.liveness\.liveness\_domain module
-----------------------------------------------------
 
 .. automodule:: abstract_domains.liveness.liveness_domain
     :members:
@@ -13,10 +15,3 @@ abstract\_domains\.liveness\.liveness\_domain module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: abstract_domains.liveness
-    :members:
-    :undoc-members:
-    :show-inheritance:

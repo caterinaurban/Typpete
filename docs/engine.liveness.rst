@@ -1,11 +1,13 @@
 engine\.liveness package
 ========================
 
+.. automodule:: engine.liveness
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
-
-engine\.liveness\.liveness\_analysis module
--------------------------------------------
 
 .. automodule:: engine.liveness.liveness_analysis
     :members:
@@ -13,10 +15,3 @@ engine\.liveness\.liveness\_analysis module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: engine.liveness
-    :members:
-    :undoc-members:
-    :show-inheritance:

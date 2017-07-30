@@ -1,11 +1,13 @@
 engine\.traces package
 ======================
 
+.. automodule:: engine.traces
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
-
-engine\.traces\.traces\_analysis module
----------------------------------------
 
 .. automodule:: engine.traces.traces_analysis
     :members:
@@ -13,10 +15,3 @@ engine\.traces\.traces\_analysis module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: engine.traces
-    :members:
-    :undoc-members:
-    :show-inheritance:

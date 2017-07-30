@@ -47,7 +47,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Lyra'
-copyright = '2017, Caterina Urban, Simon Wehrli, Mostafa Hassan'
+copyright = '2017, Caterina Urban'
 author = 'Caterina Urban, Simon Wehrli, Mostafa Hassan'
 
 # The version info for the project you're documenting, acts as replacement for

@@ -1,43 +1,33 @@
 abstract\_domains\.numerical package
 ====================================
 
+.. automodule:: abstract_domains.numerical
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
-
-abstract\_domains\.numerical\.dbm module
-----------------------------------------
 
 .. automodule:: abstract_domains.numerical.dbm
     :members:
     :undoc-members:
     :show-inheritance:
 
-abstract\_domains\.numerical\.interval\_domain module
------------------------------------------------------
-
 .. automodule:: abstract_domains.numerical.interval_domain
     :members:
     :undoc-members:
     :show-inheritance:
-
-abstract\_domains\.numerical\.linear\_forms module
---------------------------------------------------
 
 .. automodule:: abstract_domains.numerical.linear_forms
     :members:
     :undoc-members:
     :show-inheritance:
 
-abstract\_domains\.numerical\.numerical module
-----------------------------------------------
-
 .. automodule:: abstract_domains.numerical.numerical
     :members:
     :undoc-members:
     :show-inheritance:
-
-abstract\_domains\.numerical\.octagon\_domain module
-----------------------------------------------------
 
 .. automodule:: abstract_domains.numerical.octagon_domain
     :members:
@@ -45,10 +35,3 @@ abstract\_domains\.numerical\.octagon\_domain module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: abstract_domains.numerical
-    :members:
-    :undoc-members:
-    :show-inheritance:

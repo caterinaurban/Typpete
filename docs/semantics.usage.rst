@@ -1,11 +1,13 @@
 semantics\.usage package
 ========================
 
+.. automodule:: semantics.usage
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
-
-semantics\.usage\.usage\_semantics module
------------------------------------------
 
 .. automodule:: semantics.usage.usage_semantics
     :members:
@@ -13,10 +15,3 @@ semantics\.usage\.usage\_semantics module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: semantics.usage
-    :members:
-    :undoc-members:
-    :show-inheritance:

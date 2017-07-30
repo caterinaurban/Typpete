@@ -1,11 +1,13 @@
 engine\.usage package
 =====================
 
+.. automodule:: engine.usage
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
-
-engine\.usage\.usage\_analysis module
--------------------------------------
 
 .. automodule:: engine.usage.usage_analysis
     :members:
@@ -13,10 +15,3 @@ engine\.usage\.usage\_analysis module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: engine.usage
-    :members:
-    :undoc-members:
-    :show-inheritance:

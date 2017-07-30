@@ -1,11 +1,13 @@
 abstract\_domains\.traces package
 =================================
 
+.. automodule:: abstract_domains.traces
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
-
-abstract\_domains\.traces\.traces\_domain module
-------------------------------------------------
 
 .. automodule:: abstract_domains.traces.traces_domain
     :members:
@@ -13,10 +15,3 @@ abstract\_domains\.traces\.traces\_domain module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: abstract_domains.traces
-    :members:
-    :undoc-members:
-    :show-inheritance:

@@ -26,6 +26,7 @@ class Lattice(metaclass=ABCMeta):
         """Unambiguous string representing the current lattice element.
 
         :return: unambiguous string representation
+
         """
 
     @abstractmethod
@@ -33,6 +34,7 @@ class Lattice(metaclass=ABCMeta):
         """The bottom lattice element.
 
         :return: current lattice element modified to be the bottom lattice element
+
         """
 
     @abstractmethod
@@ -40,6 +42,7 @@ class Lattice(metaclass=ABCMeta):
         """The top lattice element.
 
         :return: current lattice element modified to be the top lattice element
+
         """
 
     @abstractmethod
@@ -47,6 +50,7 @@ class Lattice(metaclass=ABCMeta):
         """Test whether the lattice element is bottom.
 
         :return: whether the lattice element is bottom
+
         """
 
     @abstractmethod
@@ -54,6 +58,7 @@ class Lattice(metaclass=ABCMeta):
         """Test whether the lattice element is top.
 
         :return: whether the lattice element is top
+
         """
 
     @abstractmethod
@@ -62,6 +67,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: whether the current lattice element is less than or equal to the other lattice element
+
         """
 
     def less_equal(self, other: 'Lattice') -> bool:
@@ -69,6 +75,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: whether the current lattice element is less than or equal to the other lattice element
+
         """
         if self.is_bottom() or other.is_top():
             return True
@@ -83,6 +90,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the least upper bound of the two lattice elements
+
         """
 
     def join(self, other: 'Lattice') -> 'Lattice':
@@ -90,6 +98,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the least upper bound of the two lattice elements
+
         """
         if self.is_bottom() or other.is_top():
             return self.replace(other)
@@ -103,6 +112,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param elements: lattice elements to compute the least upper bound of
         :return: current lattice element modified to be the least upper bound of the lattice elements
+
         """
         return reduce(lambda s1, s2: s1.join(s2), elements, self.bottom())
 
@@ -112,6 +122,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the greatest lower bound of the two lattice elements
+
         """
 
     def meet(self, other: 'Lattice'):
@@ -119,6 +130,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the greatest lower bound of the two lattice elements
+
         """
         if self.is_top() or other.is_bottom():
             return self.replace(other)
@@ -132,6 +144,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param elements: lattice elements to compute the greatest lower bound of
         :return: current lattice element modified to be the least upper bound of the lattice elements
+
         """
         return reduce(lambda s1, s2: s1.meet(s2), elements, self.top())
 
@@ -141,6 +154,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the widening of the two lattice elements
+
         """
 
     def widening(self, other: 'Lattice'):
@@ -148,6 +162,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the widening of the two lattice elements
+
         """
         if self.is_bottom() or other.is_top():
             return self.replace(other)
@@ -159,6 +174,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element updated to be equal to other
+
         """
         self.__dict__.update(other.__dict__)
         return self
