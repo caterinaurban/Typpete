@@ -1,9 +1,8 @@
 from frontend.stmt_inferrer import *
 import ast
-import sys
 import time
 
-r = open("tests/inference/test.py")
+r = open("tests/inference/example.py")
 t = ast.parse(r.read())
 r.close()
 
@@ -18,16 +17,14 @@ for stmt in t.body:
 solver.push()
 
 
-def print_complete_solver(z3solver):
-    pp = z3_types.z3printer._PP
-    pp.max_lines = 4000
-    pp.max_width = 120
-    formatter = z3_types.z3printer._Formatter
-    formatter.max_visited = 100000
-    formatter.max_depth = 50
-    formatter.max_args = 512
-    out = sys.stdout
-    pp(out, formatter(z3solver))
+def print_solver(z3solver):
+    printer = z3_types.z3printer
+    printer.set_pp_option('max_lines', 4000)
+    printer.set_pp_option('max_width', 120)
+    printer.set_pp_option('max_visited', 10000000)
+    printer.set_pp_option('max_depth', 1000000)
+    printer.set_pp_option('max_args', 512)
+    printer.pp(z3solver)
 
 
 def print_context(ctx, ind=""):

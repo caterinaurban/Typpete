@@ -67,7 +67,6 @@ def _infer_one_target(target, context, solver):
     return target_type
 
 
-# noinspection PyUnresolvedReferences
 def _infer_assignment_target(target, context, value_type, solver):
     """Infer the type of a target in an assignment
 

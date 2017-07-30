@@ -58,29 +58,25 @@ class LinearForm:
         """Syntactic comparision of this linear form."""
         if not isinstance(other, self.__class__):
             raise NotImplementedError("Incomparable types!")
-        return self.var_summands == other.var_summands \
-               and self.interval < other.interval
+        return self.var_summands == other.var_summands and self.interval < other.interval
 
     def __le__(self, other):
         """Syntactic comparision of this linear form."""
         if not isinstance(other, self.__class__):
             raise NotImplementedError("Incomparable types!")
-        return self.var_summands == other.var_summands \
-               and self.interval <= other.interval
+        return self.var_summands == other.var_summands and self.interval <= other.interval
 
     def __gt__(self, other):
         """Syntactic comparision of this linear form."""
         if not isinstance(other, self.__class__):
             raise NotImplementedError("Incomparable types!")
-        return self.var_summands == other.var_summands \
-               and self.interval > other.interval
+        return self.var_summands == other.var_summands and self.interval > other.interval
 
     def __ge__(self, other):
         """Syntactic comparision of this linear form."""
         if not isinstance(other, self.__class__):
             raise NotImplementedError("Incomparable types!")
-        return self.var_summands == other.var_summands \
-               and self.interval >= other.interval
+        return self.var_summands == other.var_summands and self.interval >= other.interval
 
     def __hash__(self):
         return hash(repr(self))
@@ -89,6 +85,7 @@ class LinearForm:
         vars_string = ' '.join([f"{str(sign)} {var}" for var, sign in self.var_summands.items()])
         return vars_string + (f" + {self._interval}" if self._interval else "")
 
+    # noinspection PyPep8Naming
     class Visitor(ExpressionVisitor):
         """A visitor to generate a single variable linear form."""
 
@@ -96,14 +93,17 @@ class LinearForm:
         # the sub-expressions is negated. They can also fallback on other visitors like the interval visitor via
         # IntervalLattice.evaluate(expr)
 
+        # noinspection PyMethodMayBeStatic
         def visit_Literal(self, expr: Literal, linear_form, invert=False):
             linear_form.interval = IntervalLattice.evaluate(expr)
             if invert:
                 linear_form.interval.negate()
 
+        # noinspection PyMethodMayBeStatic
         def visit_VariableIdentifier(self, expr: VariableIdentifier, linear_form, invert=False):
             linear_form._encounter_new_var(expr, sign=MINUS if invert else PLUS)
 
+        # noinspection PyMethodMayBeStatic
         def visit_Input(self, _: Input, linear_form, invert=False):
             linear_form.interval = IntervalLattice().top()
             if invert:

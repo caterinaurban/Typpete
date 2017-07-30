@@ -11,7 +11,7 @@ class ImportHandler:
         """Get the AST of a python module
         
         :param path: the path to the python module
-        :param base_folder: the name of the python module
+        :param module_name: the name of the python module
         """
         try:
             r = open(path)
@@ -26,7 +26,7 @@ class ImportHandler:
     def get_module_ast(module_name, base_folder):
         """Get the AST of a python module
 
-        :param path: the name of the python module
+        :param module_name: the name of the python module
         :param base_folder: the base folder containing the python module
         """
         return ImportHandler.get_ast("{}/{}.py".format(base_folder, module_name), module_name)

@@ -163,6 +163,7 @@ PLUS = Sign.Add
 MINUS = Sign.Sub
 
 
+# noinspection PyPep8Naming
 class Simplifier(ExpressionVisitor):
     @staticmethod
     def _ensure_expr(constant):
@@ -263,6 +264,7 @@ def simplify(expr: Expression):
     return expr
 
 
+# noinspection PyPep8Naming
 class NotFreeConditionTransformer(ExpressionTransformer):
     """Transforms an expression by pushing ``not``-operators down the expression tree and reversing binary operations
 
@@ -325,6 +327,7 @@ def make_condition_not_free(expr: Expression):
     return NotFreeConditionTransformer().visit(expr)
 
 
+# noinspection PyPep8Naming
 class Expander(ExpressionVisitor):
     """Expands an expression into a variadic arithmetic operation with outermost operator equals ``Add``.
      
@@ -393,6 +396,7 @@ class Expander(ExpressionVisitor):
                           invert=(expr.operator == MINUS) != invert)
 
 
+# noinspection PyPep8Naming
 class ExpanderCleanup(ExpressionTransformer):
     """Cleans up an expanded expression.
     

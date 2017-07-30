@@ -299,7 +299,7 @@ class BoolTracesState(BoundedLattice, State):
         return len(values)
 
 
-class TvlTracesState(State):
+class TvlTracesState(BoundedLattice, State):
     class TvlTrace:
         def __init__(self, values: Tuple):
             self._trace = [values]

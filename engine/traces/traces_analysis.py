@@ -16,6 +16,7 @@ class BoolTracesAnalysis(Runner):
         variables = [VariableIdentifier(int, name) for name in names]
         return BoolTracesState(variables, True)
 
+
 class TvlTracesAnalysis(Runner):
 
     def interpreter(self):

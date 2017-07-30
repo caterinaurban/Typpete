@@ -290,7 +290,7 @@ class CfgFactory:
         return len(self._stmts) > 0
 
 
-# noinspection PyMethodMayBeStatic,PyPep8Naming
+# noinspection PyPep8Naming
 class CfgVisitor(ast.NodeVisitor):
     """
     This AST visitor generates a CFG recursively.
@@ -461,6 +461,7 @@ class CfgVisitor(ast.NodeVisitor):
                           bool)
         return result
 
+    # noinspection PyMethodMayBeStatic
     def visit_NameConstant(self, node):
         return Literal(bool, str(node.value))
 
