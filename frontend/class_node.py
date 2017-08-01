@@ -11,6 +11,7 @@ class ClassNode:
         self.parent_node = parent_node
         self.children = []
         self.type_sort = type_sort
+        self._qf = None
 
     def find(self, name):
         """
@@ -78,10 +79,13 @@ class ClassNode:
         """
         Returns a list of Z3 variables, one for each parameter of this type.
         """
+        if self._qf is not None:
+            return self._qf
         res = []
         if isinstance(self.name, tuple):
             for i, arg in enumerate(self.name[1:]):
                 sort = self.type_sort if not arg.endswith('defaults_args') else IntSort()
                 cur = Const("y" + str(i), sort)
                 res.append(cur)
+        self._qf = res
         return res

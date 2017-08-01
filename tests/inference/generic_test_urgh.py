@@ -1,10 +1,9 @@
 
 
 
-
-def generic_tolist(a):
-    b = a + 1
-    return [a]
+def generic_tolist(aaa):
+    bbb = aaa + 1
+    return [aaa]
 
 u = generic_tolist(1.2)
 u[0] = 2.4
@@ -29,8 +28,8 @@ def flatten_dict(dicts,
         result[key] = []
     for d in dicts:
         for key, value in d.items():
-            a = [1]
-            b = a[key]
+            # a = [1]
+            # b = a[key]
             if key in result:
                 result[key].extend(value)
             else:
@@ -39,19 +38,12 @@ def flatten_dict(dicts,
 
 a = flatten([[1,2], [1,2], [True, False]])
 a2 = flatten([[1,2], [1,2], [True, False]])
-# a2 = flatten([["hi"], ['yo', 'sup']])
-a4 = a[a[0]]
+a3 = flatten([[1,2], [1,2], [True, False]])
+a4 = flatten([[1,2], [1,2], [True, False]])
+a5 = flatten([["hi"], ['yo', 'sup']])
+a6 = a[a[0]]
 
 b = [{1:[2]}, {True: [True]}, {5: [1.2, 2]}]
 c = b[0][1]
-
-d = flatten_dict(b, [True, 1])
-# e = flatten_dict([{1.2: ['hi']}], [3, 5])
-
-
-# a := List[int]
-# b := List[Dict[int, List[float]]]
-# c := List[float]
-# d := Dict[int, List[float]]
-# flatten := Callable[[List[List[int]]], List[int]]
-# flatten_dict := Callable[[List[Dict[int, List[float]]], List[int]], Dict[int, List[float]]]
+arggg = [True, 1]
+gg = flatten_dict(b, arggg)

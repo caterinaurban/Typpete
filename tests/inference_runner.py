@@ -3,7 +3,7 @@ import ast
 import sys
 import time
 
-r = open("tests/inference/generic_test.py")
+r = open("tests/inference/coop_concat.py")
 t = ast.parse(r.read())
 r.close()
 
@@ -33,14 +33,26 @@ def print_complete_solver(z3solver):
 
 start_time = time.time()
 
-check = solver.optimize.check()
+print(solver.to_smt2())
+
+for av in solver.assertions_vars:
+    print('(assert (! ' + str(av)  + ' :named named' + str(av) + '))')
+
+# test_axiom = solver.z3_types.tvs[0] == solver.z3_types.upper(solver.z3_types.tvs[1])
+# print(test_axiom)
+# solver.add(test_axiom, fail_message="Just trying things")
+
+# check = solver.optimize.check()
+check = solver.check(*solver.assertions_vars)
 
 if check == z3_types.unsat:
     print("Check: unsat")
     solver.check(solver.assertions_vars)
     print([solver.assertions_errors[x] for x in solver.unsat_core()])
 else:
-    model = solver.optimize.model()
+    # model = solver.optimize.model()
+    model = solver.model()
+    print(model[solver.z3_types.upper])
     for v in sorted(context.types_map):
         z3_t = context.types_map[v]
 

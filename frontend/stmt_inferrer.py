@@ -400,6 +400,9 @@ def has_type_var(node, solver):
 
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
+    if context.type_params.get(node.name):
+        old_method = solver.z3_types.current_method
+        solver.z3_types.current_method = solver.z3_types.method_ids[node.name]
     if is_stub(node) or has_type_var(node, solver):
         return_annotation = node.returns
         args_annotations = []
@@ -451,6 +454,8 @@ def _infer_func_def(node, context, solver):
     else:
         solver.add(result_type == func_type,
                    fail_message="Function definition in line {}".format(node.lineno))
+    if context.type_params.get(node.name):
+        solver.z3_types.current_method = old_method
 
 
 def _infer_class_def(node, context, solver):

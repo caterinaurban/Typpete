@@ -414,6 +414,7 @@ def function_call_axioms(called, args, result, types):
                           defaults_count <= types.config.max_default_args))
     return axioms
 
+
 def generic_call_axioms(called, args, result, types, tvs):
     axioms = []
     for i in range(3):
@@ -423,13 +424,24 @@ def generic_call_axioms(called, args, result, types, tvs):
             cargs.append(getattr(types, 'generic{}_tv{}'.format(i + 1, j + 1))(called))
         is_generic = called == generic_constr(*cargs, getattr(types, 'generic{}_func'.format(i + 1))(called))
 
-        under_upper = [types.subtype(tv, types.upper(getattr(types, 'generic{}_tv{}'.format(i + 1, k + 1))(called))) for k, tv in enumerate(tvs) if k <= i]
-        xs = tvs
+        under_upper = []
+        for k, ta in enumerate(tvs):
+            if not k <= i:
+                break
+            current_tv = getattr(types, 'generic{}_tv{}'.format(i + 1, k + 1))(called)
+            def mysubst(a):
+                res = a
+                for l in range(k):
+                    res = types.subst(res, cargs[l], tvs[l])
+                return res
+            under_upper.append(types.subtype(ta, mysubst(types.upper(current_tv))))
+
         def mysubst(a):
             res = a
             for arg, tv in zip(cargs, tvs):
                 res = types.subst(res, arg, tv)
             return res
+
         called_func = getattr(types, 'generic{}_func'.format(i + 1))(called)
 
         if len(args) == 0:
