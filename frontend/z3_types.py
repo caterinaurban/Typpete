@@ -181,7 +181,10 @@ class Z3Types:
             # And one which is triggered by subtype(X, C)
             options = []
             for sub in c.all_children():
-                options.append(x == sub.get_literal_with_args(x))
+                if sub is c:
+                    options.append(x == c_literal)
+                else:
+                    options.append(x == sub.get_literal_with_args(x))
             subtype_expr = self.subtype(x, c_literal)
             axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                            patterns=[subtype_expr])
