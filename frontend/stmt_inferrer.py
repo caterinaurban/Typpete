@@ -34,8 +34,8 @@ from frontend.import_handler import ImportHandler
 def _infer_one_target(target, context, solver):
     """
     Get the type of the left hand side of an assignment
-    
-    :param target: The target on the left hand side 
+
+    :param target: The target on the left hand side
     :param context: The current context level
     :param solver: The SMT solver
     :return: the type of the target
@@ -321,13 +321,13 @@ def _init_func_context(name, args, context, solver):
 
 def _infer_args_defaults(args_types, defaults, context, solver):
     """Infer the default values of function arguments (if any)
-    
+
     :param args_types: Z3 constants for arguments types
     :param defaults: AST nodes for default values of arguments
     :param context: The parent of the function context
     :param solver: The inference Z3 solver
-    
-    
+
+
     A default array of length `n` represents the default values of the last `n` arguments
     """
     for i, default in enumerate(defaults):
@@ -350,7 +350,7 @@ def is_annotated(node):
 
 def is_stub(node):
     """Check if the function is a stub definition:
-    
+
     For the function to be a stub, it should be fully annotated and should have no body.
     The body should be a single `Pass` statement with optional docstring.
     """
@@ -363,7 +363,7 @@ def is_stub(node):
 
 def has_type_var(node, solver):
     """Check if the function definition has a generic type variable annotation
-    
+
     Inspect all the nodes of the type annotations and look for relevant generic type vars
     """
     found_type_var = False
@@ -447,6 +447,7 @@ def _infer_func_def(node, context, solver):
 
 
 def _infer_class_def(node, context, solver):
+    """Infer the types in a class definition"""
     class_context = Context(name=node.name, parent_context=context)
     result_type = solver.new_z3_const("class_type")
     solver.z3_types.all_types[node.name] = result_type
@@ -523,28 +524,28 @@ def _infer_class_def(node, context, solver):
 
 def _infer_import(node, context, solver):
     """Infer the imported module in normal import statement
-    
+
     The imported modules can be used with direct module access only.
     Which means, re-assigning the module to a variable or passing it as a function arg is not supported.
-    
+
     For example, the following is not possible:
         - import X
           x = X
-          
+
         - import X
           f(X)
-          
+
     The importing supports deep module access. For example, the following is supported.
-    
+
     >> A.py
     x = 1
-    
+
     >> B.py
     import A
-    
+
     >> C.py
     import B
-    
+
     print(B.A.x)
     """
     for name in node.names:
