@@ -5,6 +5,6 @@ if x:
     x = x and y
     y = False
 if x:
-     x = x and y
-     y = False
+    x = x and y
+    y = False
 print(y)

@@ -1,12 +1,14 @@
 from typing import List, Set, Tuple, FrozenSet
 from itertools import chain, combinations, product
 from copy import deepcopy
+
+from abstract_domains.lattice import BoundedLattice
 from abstract_domains.state import State
 from core.expressions import Expression, VariableIdentifier, UnaryBooleanOperation, Literal, BinaryBooleanOperation, \
     Input
 
 
-class BoolTracesState(State):
+class BoolTracesState(BoundedLattice, State):
     class BoolTrace:
         def __init__(self, values: Tuple):
             self._trace = [values]
@@ -297,7 +299,7 @@ class BoolTracesState(State):
         return len(values)
 
 
-class TvlTracesState(State):
+class TvlTracesState(BoundedLattice, State):
     class TvlTrace:
         def __init__(self, values: Tuple):
             self._trace = [values]

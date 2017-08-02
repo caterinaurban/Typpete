@@ -84,7 +84,7 @@ class UsedStack(Stack, State):
 
     def _substitute_variable(self, left: Expression, right: Expression) -> 'UsedStack':
         if isinstance(left, VariableIdentifier):
-            self.stack[-1].substitute_variable({left}, {right})  # TODO correct to use non-underscore interface???
+            self.stack[-1].substitute_variable({left}, {right})
         else:
             raise NotImplementedError("Variable substitution for {} is not implemented!".format(left))
         return self

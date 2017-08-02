@@ -1,45 +1,59 @@
+"""
+Lattice
+=======
+
+Interface of a lattice. Lattice elements support lattice operations.
+"""
+
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 from functools import reduce
 from typing import List
 
+from core.utils import copy_docstring
+
 
 class Lattice(metaclass=ABCMeta):
-    """A mutable lattice element.
+    """Mutable lattice element.
 
-    Subclasses are expected to provide consistent method implementations for:
-    * `bottom()`, `is_bottom()`
-    * `top()`, `is_top()`
+    .. warning::
+        Lattice operations modify the current lattice element.
+
+        Subclasses are expected to provide consistent method implementations for
+        ``bottom()``, ``is_bottom()``, ``top()`` and ``is_top()``.
     """
 
     def __eq__(self, other: 'Lattice'):
-        isinstance(other, self.__class__) and repr(self) == repr(other)
-
-    def __hash__(self):
-        return hash(repr(self))
+        return isinstance(other, self.__class__) and repr(self) == repr(other)
 
     def __ne__(self, other: 'Lattice'):
         return not (self == other)
 
+    def __hash__(self):
+        return hash(repr(self))
+
     @abstractmethod
     def __repr__(self):
-        """Unambiguous string representing the current lattice element.
+        """Unambiguous string representation of the current lattice element.
 
         :return: unambiguous string representation
+
         """
 
     @abstractmethod
     def bottom(self):
-        """The bottom lattice element.
+        """Bottom lattice element.
 
         :return: current lattice element modified to be the bottom lattice element
+
         """
 
     @abstractmethod
     def top(self):
-        """The top lattice element.
+        """Top lattice element.
 
         :return: current lattice element modified to be the top lattice element
+
         """
 
     @abstractmethod
@@ -47,6 +61,7 @@ class Lattice(metaclass=ABCMeta):
         """Test whether the lattice element is bottom.
 
         :return: whether the lattice element is bottom
+
         """
 
     @abstractmethod
@@ -54,6 +69,7 @@ class Lattice(metaclass=ABCMeta):
         """Test whether the lattice element is top.
 
         :return: whether the lattice element is top
+
         """
 
     @abstractmethod
@@ -62,6 +78,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: whether the current lattice element is less than or equal to the other lattice element
+
         """
 
     def less_equal(self, other: 'Lattice') -> bool:
@@ -69,6 +86,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: whether the current lattice element is less than or equal to the other lattice element
+
         """
         if self.is_bottom() or other.is_top():
             return True
@@ -83,6 +101,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the least upper bound of the two lattice elements
+
         """
 
     def join(self, other: 'Lattice') -> 'Lattice':
@@ -90,6 +109,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the least upper bound of the two lattice elements
+
         """
         if self.is_bottom() or other.is_top():
             return self.replace(other)
@@ -103,6 +123,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param elements: lattice elements to compute the least upper bound of
         :return: current lattice element modified to be the least upper bound of the lattice elements
+
         """
         return reduce(lambda s1, s2: s1.join(s2), elements, self.bottom())
 
@@ -112,6 +133,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the greatest lower bound of the two lattice elements
+
         """
 
     def meet(self, other: 'Lattice'):
@@ -119,6 +141,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the greatest lower bound of the two lattice elements
+
         """
         if self.is_top() or other.is_bottom():
             return self.replace(other)
@@ -132,6 +155,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param elements: lattice elements to compute the greatest lower bound of
         :return: current lattice element modified to be the least upper bound of the lattice elements
+
         """
         return reduce(lambda s1, s2: s1.meet(s2), elements, self.top())
 
@@ -141,6 +165,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the widening of the two lattice elements
+
         """
 
     def widening(self, other: 'Lattice'):
@@ -148,6 +173,7 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element modified to be the widening of the two lattice elements
+
         """
         if self.is_bottom() or other.is_top():
             return self.replace(other)
@@ -159,40 +185,82 @@ class Lattice(metaclass=ABCMeta):
 
         :param other: other lattice element
         :return: current lattice element updated to be equal to other
+
         """
         self.__dict__.update(other.__dict__)
         return self
 
 
-class BoundedLattice(Lattice, metaclass=ABCMeta):
-    """A mutable lattice element, with default bottom and top elements."""
+class KindMixin(Lattice, metaclass=ABCMeta):
+    """Mixin that adds an explicit distinction between bottom, default, and top elements to a lattice."""
 
     class Kind(Enum):
+        """Kind of a lattice element."""
         TOP = 3
         DEFAULT = 2
         BOTTOM = 1
 
     def __init__(self):
-        self._kind = BoundedLattice.Kind.DEFAULT
+        """Create a default lattice element."""
+        self._kind = KindMixin.Kind.DEFAULT
 
     @property
     def kind(self):
+        """The kind of the current lattice element."""
         return self._kind
 
     @kind.setter
-    def kind(self, kind: 'BoundedLattice.Kind'):
+    def kind(self, kind: 'KindMixin.Kind'):
         self._kind = kind
 
-    def bottom(self) -> 'BoundedLattice':
-        self.kind = BoundedLattice.Kind.BOTTOM
+
+class BottomMixin(KindMixin, metaclass=ABCMeta):
+    """Mixin that adds a predefined bottom element to a lattice."""
+
+    @copy_docstring(Lattice.bottom)
+    def bottom(self):
+        self._kind = KindMixin.Kind.BOTTOM
         return self
 
-    def top(self) -> 'BoundedLattice':
-        self.kind = BoundedLattice.Kind.TOP
-        return self
-
+    @copy_docstring(Lattice.is_bottom)
     def is_bottom(self) -> bool:
-        return self.kind == BoundedLattice.Kind.BOTTOM
+        return self._kind == KindMixin.Kind.BOTTOM
 
+
+class TopMixin(KindMixin, metaclass=ABCMeta):
+    """Mixin that adds a predefined top element to another lattice."""
+
+    @copy_docstring(Lattice.top)
+    def top(self):
+        self._kind = KindMixin.Kind.TOP
+        return self
+
+    @copy_docstring(Lattice.is_top)
     def is_top(self) -> bool:
-        return self.kind == BoundedLattice.Kind.TOP
+        return self._kind == KindMixin.Kind.TOP
+
+
+class BoundedLattice(TopMixin, BottomMixin, metaclass=ABCMeta):
+    """Mutable lattice element, with predefined bottom and top elements.
+
+    .. warning::
+        Lattice operations modify the current lattice element.
+    """
+
+    @copy_docstring(Lattice.bottom)
+    def bottom(self) -> 'BoundedLattice':
+        self.kind = KindMixin.Kind.BOTTOM
+        return self
+
+    @copy_docstring(Lattice.top)
+    def top(self) -> 'BoundedLattice':
+        self.kind = KindMixin.Kind.TOP
+        return self
+
+    @copy_docstring(Lattice.is_bottom)
+    def is_bottom(self) -> bool:
+        return self.kind == KindMixin.Kind.BOTTOM
+
+    @copy_docstring(Lattice.is_top)
+    def is_top(self) -> bool:
+        return self.kind == KindMixin.Kind.TOP

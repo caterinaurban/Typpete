@@ -69,7 +69,6 @@ class VariableAccessSemantics(Semantics):
 class ListSemantics(Semantics):
     """Semantics of list accesses."""
 
-    # noinspection PyMethodMayBeStatic
     def list_display_stmt_semantics(self, stmt: ListDisplayStmt, state: State) -> State:
         """Semantics of a list display statement.
 
@@ -85,7 +84,6 @@ class ListSemantics(Semantics):
         state.result = result
         return state
 
-    # noinspection PyMethodMayBeStatic
     def slice_stmt_semantics(self, stmt: SliceStmt, state: State) -> State:
         """Semantics of a slice statement.
 
@@ -115,7 +113,6 @@ class ListSemantics(Semantics):
         state.result = result
         return state
 
-    # noinspection PyMethodMayBeStatic
     def index_stmt_semantics(self, stmt: IndexStmt, state: State) -> State:
         """Semantics of a index statement.
 

@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from frontend.constants import BUILTINS
 from frontend.import_handler import ImportHandler
 import ast
 
@@ -181,6 +182,8 @@ class PreAnalyzer:
         config.used_names = self.get_all_used_names()
         config.max_default_args = self.max_default_args()
 
+        config.complete_class_to_base()
+
         return config
 
 
@@ -195,6 +198,45 @@ class Configuration:
         self.base_folder = ""
         self.used_names = []
         self.max_default_args = 0
+        self.all_classes = {}
+
+    def complete_class_to_base(self):
+        """
+        Builds up the dictionary in self.all_classes, in which all classes (including
+        builtins and classes from stubs) are mapped to their base classes.
+
+        The dictionary refers to all classes by their Z3-level names. For generic classes,
+        it contains tuples containing the Z3-level class name and subsequently the names
+        of the accessor functions for the arguments.
+
+        To be executed after max_tuple_length and max_function_args have been set.
+        """
+        builtins = dict(BUILTINS)
+
+        for cur_len in range(self.max_tuple_length + 1):
+            name = 'tuple_' + str(cur_len)
+            tuple_args = []
+            for cur_arg in range(cur_len):
+                arg_name = name + '_arg_' + str(cur_arg + 1)
+                tuple_args.append(arg_name)
+            if tuple_args:
+                builtins[tuple([name] + tuple_args)] = 'tuple'
+            else:
+                builtins[name] = 'tuple'
+        for cur_len in range(self.max_function_args + 1):
+            name = 'func_' + str(cur_len)
+            func_args = [name + '_defaults_args']
+            for cur_arg in range(cur_len):
+                arg_name = name + '_arg_' + str(cur_arg + 1)
+                func_args.append(arg_name)
+            func_args.append(name + '_return')
+            builtins[tuple([name] + func_args)] = 'object'
+        self.all_classes = builtins
+        for key, val in self.class_to_base.items():
+            ukey = 'class_' + key
+            uval = val if val == 'object' else 'class_' + val
+            self.all_classes[ukey] = uval
+        return
 
 
 def propagate_attributes_to_subclasses(class_defs):
