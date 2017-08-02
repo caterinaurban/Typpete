@@ -1,6 +1,6 @@
 class Aexp:
     def eval(self, env):
-        return 0
+        return 1
 
 
 class IntAexp(Aexp):
@@ -235,7 +235,7 @@ print(env)
 # IfStatement := Type[IfStatement]
 # WhileStatement := Type[WhileStatement]
 
-# env := Dict[str, int]
+# env := Dict[str, float]
 # x := VarAexp
 # z := IntAexp
 # i := AssignStatement

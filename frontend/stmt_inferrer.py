@@ -436,9 +436,12 @@ def _infer_func_def(node, context, solver):
         solver.add(body_type == return_type,
                    fail_message="Return type annotation in line {}".format(node.lineno))
     else:
-        body_type = _infer_body(node.body, func_context, node.lineno, solver)
 
-    func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (body_type,))
+        body_type = _infer_body(node.body, func_context, node.lineno, solver)
+    return_type = solver.new_z3_const("return")
+    solver.add(solver.z3_types.subtype(body_type, return_type),
+               fail_message="Return type in line {}".format(node.lineno))
+    func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
 
