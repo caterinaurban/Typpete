@@ -414,7 +414,8 @@ def infer_func_call(node, context, solver):
                                                      args_types,
                                                      result_type,
                                                      solver.z3_types),
-                       fail_message="Class instantiation in line {}.".format(node.lineno))
+                       fail_message="Class instantiation in line {}.".format(node.lineno),
+                       force=True)
             return result_type
 
     # instance represents the receiver in case of method calls.

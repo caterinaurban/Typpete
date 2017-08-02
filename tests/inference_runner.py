@@ -1,8 +1,9 @@
 from frontend.stmt_inferrer import *
+from z3 import Optimize
 import ast
 import time
 
-r = open("tests/inference/example.py")
+r = open("unittests/inference/linked_list.py")
 t = ast.parse(r.read())
 r.close()
 
@@ -52,9 +53,21 @@ end_time = time.time()
 
 if check == z3_types.unsat:
     print("Check: unsat")
-    solver.check(solver.assertions_vars)
-    print(solver.unsat_core())
-    print([solver.assertions_errors[x] for x in solver.unsat_core()])
+    opt = Optimize(solver.ctx)
+    for av in solver.assertions_vars:
+        opt.add_soft(av)
+    for a in solver.all_assertions:
+        opt.add(a)
+    checkres = opt.check()
+    model = opt.model()
+    print_context(context)
+    for av in solver.assertions_vars:
+        if not model[av]:
+            print("Unsat:")
+            print(solver.assertions_errors[av])
+    # solver.check(solver.assertions_vars)
+    # print(solver.unsat_core())
+    # print([solver.assertions_errors[x] for x in solver.unsat_core()])
 else:
     model = solver.optimize.model()
     print_context(context)

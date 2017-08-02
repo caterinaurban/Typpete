@@ -47,17 +47,22 @@ class TypesSolver(Solver):
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         self.optimize = Optimize(ctx)
         # self.optimize.set("timeout", 30000)
+        self.all_assertions = []
         self.init_axioms()
 
-    def add(self, *args, fail_message):
+    def add(self, *args, fail_message, force = False):
         assertion = self.new_z3_const("assertion_bool", BoolSort())
         self.assertions_vars.append(assertion)
         self.assertions_errors[assertion] = fail_message
         self.optimize.add(*args)
-        super().add(Implies(assertion, And(*args)))
+        implication = Implies(assertion, And(*args))
+        super().add(implication)
+        self.all_assertions.append(implication)
+        if force:
+            self.all_assertions.append(And(*args))
 
     def init_axioms(self):
-        self.add(self.z3_types.subtyping, fail_message="Subtyping error")
+        self.add(self.z3_types.subtyping, fail_message="Subtyping error", force=True)
 
     def infer_stubs(self, context, infer_func):
         self.stubs_handler.infer_all_files(context, self, self.config.used_names, infer_func)
