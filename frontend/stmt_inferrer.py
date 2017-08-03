@@ -29,6 +29,7 @@ import sys
 from frontend.config import config as inference_config
 from frontend.context import Context, AnnotatedFunction
 from frontend.import_handler import ImportHandler
+from z3 import Or, Not
 
 
 def _infer_one_target(target, context, solver):
@@ -193,12 +194,35 @@ def _infer_control_flow(node, context, solver):
     body_context = Context(parent_context=context)
     else_context = Context(parent_context=context)
 
+    var_is_instance = None
+    if hasattr(node, "test"):
+        expr.infer(node.test, context, solver)
+        if (isinstance(node.test, ast.Call) and isinstance(node.test.func, ast.Name)
+           and node.test.func.id == "isinstance" and len(node.test.args) == 2
+           and isinstance(node.test.args[0], ast.Name) and isinstance(node.test.args[1], ast.Name)):
+            # isinstance(x, t) test: Make `x` to be of type `t` in the then branch
+            # The only allowed case is when `x` is variable and `t` is a single type (not a tuple).
+
+            # Get the type `t`
+            t = expr.infer(node.test.args[1], context, solver)
+
+            # Set `x` to be an instance of `t` in the then branch
+            instance_accessor = solver.z3_types.type_sort.instance
+            body_context.set_type(node.test.args[0].id, instance_accessor(t))
+
+            # Set `x` to a new uninterpreted constant in the else branch
+            # This constant will be then a subtype of the original x in the parent context.
+            else_context.set_type(node.test.args[0].id, solver.new_z3_const("isinstance_else"))
+
+            # Keep track of the name of the variable `x`
+            var_is_instance = node.test.args[0].id
+
     body_type = _infer_body(node.body, body_context, node.lineno, solver)
     else_type = _infer_body(node.orelse, else_context, node.lineno, solver)
 
     # Re-assigning variables in the body branch
     for v in body_context.types_map:
-        if context.has_variable(v):
+        if context.has_variable(v) and v != var_is_instance:
             t1 = body_context.types_map[v]
             t2 = context.get_type(v)
             solver.add(t1 == t2,
@@ -206,7 +230,7 @@ def _infer_control_flow(node, context, solver):
 
     # Re-assigning variables in the else branch
     for v in else_context.types_map:
-        if context.has_variable(v):
+        if context.has_variable(v) and v != var_is_instance:
             t1 = else_context.types_map[v]
             t2 = context.get_type(v)
             solver.add(t1 == t2,
@@ -214,7 +238,7 @@ def _infer_control_flow(node, context, solver):
 
     # Take intersection of variables in both contexts
     for v in body_context.types_map:
-        if v in else_context.types_map and not context.has_variable(v):
+        if (v in else_context.types_map and not context.has_variable(v)) or v == var_is_instance:
             var_type = solver.new_z3_const("branching_var")
             t1 = body_context.types_map[v]
             t2 = else_context.types_map[v]
@@ -229,10 +253,12 @@ def _infer_control_flow(node, context, solver):
 
             solver.optimize.add_soft(t1 == var_type)
             solver.optimize.add_soft(t2 == var_type)
-            context.set_type(v, var_type)
 
-    if hasattr(node, "test"):
-        expr.infer(node.test, context, solver)
+            if v == var_is_instance:
+                solver.add(context.get_type(v) == var_type,
+                           fail_message="isinstance type in line {}".format(node.lineno))
+            else:
+                context.set_type(v, var_type)
 
     result_type = solver.new_z3_const("control_flow")
     solver.add(axioms.control_flow(body_type, else_type, result_type, solver.z3_types),
