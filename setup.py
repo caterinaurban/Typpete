@@ -4,16 +4,16 @@ except ImportError:
     from distutils.core import setup
 
 config = {
-    'description': 'Lyra',
+    'description': 'Typpete',
     'author': 'Caterina Urban',
-    'url': 'https://github.com/caterinaurban/Lyra',
-    'download_url': 'https://github.com/caterinaurban/Lyra',
+    'url': 'https://github.com/caterinaurban/Typpete',
+    'download_url': 'https://github.com/caterinaurban/Typpete',
     'author_email': 'caterina.urban@gmail.com',
     'version': '0.1',
     'install_requires': [],
-    'packages': ['lyra'],
+    'packages': ['typpete'],
     'scripts': [],
-    'name': 'Lyra'
+    'name': 'Typpete'
 }
 
 setup(**config)
