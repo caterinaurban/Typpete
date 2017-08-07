@@ -141,22 +141,30 @@ class Z3Types:
         Creates a tree consisting of ClassNodes which contains all classes in all_classes,
         where child nodes are subclasses. The root will be object.
         """
-        tree = ClassNode('object', None, type_sort)
+        graph = ClassNode('object', [], type_sort)
         to_cover = list(all_classes.keys())
         covered = {'object'}
         i = 0
         while i < len(to_cover):
             current = to_cover[i]
             i += 1
-            base = all_classes[current]
-            if base not in covered:
+            bases = all_classes[current]
+            cont = False
+            for base in bases:
+                if base not in covered:
+                    cont = True
+                    break
+            if cont:
                 to_cover.append(current)
                 continue
-            base_node = tree.find(base)
-            current_node = ClassNode(current, base_node, type_sort)
-            base_node.children.append(current_node)
+
+            current_node = ClassNode(current, [], type_sort)
+            for base in bases:
+                base_node = graph.find(base)
+                current_node.parents.append(base_node)
+                base_node.children.append(current_node)
             covered.add(current)
-        return tree
+        return graph
 
     def create_subtype_axioms(self, all_classes, type_sort):
         """

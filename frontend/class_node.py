@@ -7,9 +7,9 @@ class ClassNode:
     references to the base class and subclasses.
     """
 
-    def __init__(self, name, parent_node, type_sort):
+    def __init__(self, name, parents, type_sort):
         self.name = name
-        self.parent_node = parent_node
+        self.parents = parents
         self.children = []
         self.type_sort = type_sort
 
@@ -42,8 +42,8 @@ class ClassNode:
         Returns all transitive parent nodes.
         """
         result = [self]
-        if self.parent_node:
-            result += self.parent_node.all_parents()
+        for parent in self.parents:
+            result += parent.all_parents()
         return result
 
     def get_literal(self):

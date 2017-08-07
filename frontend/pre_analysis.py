@@ -113,12 +113,10 @@ class PreAnalyzer:
 
         for cls in class_defs:
             init_args_count = 1
-            if len(cls.bases) > 1:
-                raise NotImplementedError("Multiple inheritance is not supported yet.")
-            elif cls.bases:
-                class_to_base[cls.name] = cls.bases[0].id
+            if cls.bases:
+                class_to_base[cls.name] = [x.id for x in cls.bases]
             else:
-                class_to_base[cls.name] = "object"
+                class_to_base[cls.name] = ["object"]
 
             add_init_if_not_existing(cls)
 
@@ -225,9 +223,9 @@ class Configuration:
                 arg_name = name + '_arg_' + str(cur_arg + 1)
                 tuple_args.append(arg_name)
             if tuple_args:
-                builtins[tuple([name] + tuple_args)] = 'tuple'
+                builtins[tuple([name] + tuple_args)] = ['tuple']
             else:
-                builtins[name] = 'tuple'
+                builtins[name] = ['tuple']
         for cur_len in range(self.max_function_args + 1):
             name = 'func_' + str(cur_len)
             func_args = [name + '_defaults_args']
@@ -235,17 +233,20 @@ class Configuration:
                 arg_name = name + '_arg_' + str(cur_arg + 1)
                 func_args.append(arg_name)
             func_args.append(name + '_return')
-            builtins[tuple([name] + func_args)] = 'object'
+            builtins[tuple([name] + func_args)] = ['object']
         self.all_classes = builtins
         for key, val in self.class_to_base.items():
             ukey = 'class_' + key
-            uval = val if val == 'object' else 'class_' + val
+            uval = [x if x == 'object' else 'class_' + x for x in val]
             self.all_classes[ukey] = uval
         return
 
 
 def propagate_attributes_to_subclasses(class_defs):
-    """Start depth-first methods propagation from inheritance roots to subclasses"""
+    """Start depth-first methods propagation from inheritance roots to subclasses
+    
+    TODO: Method resolution order
+    """
     inheritance_forest = get_inheritance_forest(class_defs)
     roots = get_forest_roots(inheritance_forest)
     name_to_node = class_name_to_node(class_defs)
@@ -293,19 +294,20 @@ def get_forest_roots(forest):
 
 
 def get_inheritance_forest(class_defs):
-    """Return a forest of class nodes
+    """Return a graph of class nodes
     
-    Each tree represents an inheritance hierarchy. There is a directed edge between class 'a' and class 'b'
+    Each graph component represents an inheritance hierarchy. There is a directed edge between class 'a' and class 'b'
     if 'b' extends 'a'.
+    The graph is guaranteed to be a DAG.
     """
-    tree = {}
+    graph = {}
     for cls in class_defs:
-        tree[cls.name] = []
+        graph[cls.name] = []
     for cls in class_defs:
         bases = cls.bases
         for base in bases:
-            tree[base.id].append(cls.name)
-    return tree
+            graph[base.id].append(cls.name)
+    return graph
 
 
 def add_init_if_not_existing(class_node):
