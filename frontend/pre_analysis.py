@@ -1,4 +1,6 @@
 from collections import OrderedDict
+
+from copy import copy
 from frontend.constants import BUILTINS
 from frontend.import_handler import ImportHandler
 import ast
@@ -242,37 +244,94 @@ class Configuration:
         return
 
 
+def valid_lists(lists):
+    """
+    
+    :param lists: list of lists 
+    :return: list of lists of positive length
+    """
+    return [l for l in lists if l]
+
+
+def merge(*lists):
+    """Merge the lists according to C3 algorithm
+    
+    - Select first head of the lists which doesn't appear in the tail of any other list.
+    - The selected element is removed from all the lists where it appears as a head and addead to the output list.
+    - Repeat the above two steps until all the lists are empty
+    - If no head can be removed and the lists are not yet empty, then no consistent MRO is possible.
+    """
+    res = []
+    while True:
+        lists = valid_lists(lists)  # Select only lists with positive length
+        if not lists:
+            # All lists are empty, then done.
+            break
+        found_head = False
+        for l in lists:
+            head = l[0]
+            can = True
+            # Check if the head doesn't appear in the tail of any list
+            for l2 in lists:
+                if head in l2[1:]:
+                    can = False
+                    break
+            if can:
+                # Can remove this head
+                found_head = True
+                res.append(head)
+                for l2 in lists:
+                    if head in l2:
+                        l2.remove(head)
+                break
+
+        if not found_head:
+            # Inconsistent MRO. Example:
+            # class A(X, Y): ...
+            # class B(Y, X): ...
+            # class C(A, B): ...
+            # C3 fails to resolve such structure
+            raise TypeError("Cannot create a consistent method resolution order (MRO)")
+    return res
+
+
+def get_linearization(cls, class_to_bases):
+    """Apply C3 linearization algorithm to resolve the MRO."""
+    bases = class_to_bases[cls]
+    bases_linearizations = [get_linearization(x, class_to_bases) for x in bases]
+    return [cls] + merge(*bases_linearizations, copy(bases))  # Copy `bases` so as not to modify the original mapping
+
+
 def propagate_attributes_to_subclasses(class_defs):
-    """Start depth-first methods propagation from inheritance roots to subclasses
-    
-    TODO: Method resolution order
-    """
-    inheritance_forest = get_inheritance_forest(class_defs)
-    roots = get_forest_roots(inheritance_forest)
-    name_to_node = class_name_to_node(class_defs)
+    """Start depth-first methods propagation from inheritance roots to subclasses"""
+    class_to_bases = {}
+    class_to_node = {}
+    for class_def in class_defs:
+        class_to_bases[class_def.name] = [x.id for x in class_def.bases]
+        class_to_node[class_def.name] = class_def
 
-    for root in roots:
-        propagate(root, inheritance_forest, name_to_node)
+    # Save the inherited functions separately. Don't add them to the AST until
+    # all classes are processed.
+    class_to_inherited_funcs = {}
+    for class_def in class_defs:
+        class_linearization = get_linearization(class_def.name, class_to_bases)
+        class_to_inherited_funcs[class_def.name] = []
+        # Traverse the parents in the order given by MRO
+        for parent in class_linearization:
+            # Keep track of all added method names, so as not to add a duplicate method.
+            class_funcs = {func.name for func in
+                           (class_def.body + class_to_inherited_funcs[class_def.name])
+                           if isinstance(func, ast.FunctionDef)}
 
+            parent_node = class_to_node[parent]
+            # Select only functions that are not overridden in the subclasses.
+            inherited_funcs = [func for func in parent_node.body
+                               if isinstance(func, ast.FunctionDef) and func.name not in class_funcs]
+            class_to_inherited_funcs[class_def.name] += inherited_funcs
 
-def propagate(node, inheritance_forest, name_to_node):
-    """Propagate methods to subclasses with depth first manner.
-    
-    :param node: The class node whose methods are to be propagated
-    :param inheritance_forest: A data-structure containing the inheritance hierarchy
-    :param name_to_node: A mapping from class names to their AST nodes 
-    """
-    for subclass in inheritance_forest[node]:
-        base_node = name_to_node[node]
-        sub_node = name_to_node[subclass]
-        sub_funcs_names = [func.name for func in sub_node.body if isinstance(func, ast.FunctionDef)]
-
-        # Select only functions that are not overridden in the subclasses.
-        inherited_funcs = [func for func in base_node.body
-                           if isinstance(func, ast.FunctionDef) and func.name not in sub_funcs_names]
-        sub_node.body += inherited_funcs
-        # Propagate to sub-subclasses..
-        propagate(subclass, inheritance_forest, name_to_node)
+    # Add the inherited functions to the AST.
+    for class_def in class_defs:
+        class_def.body += class_to_inherited_funcs[class_def.name]
 
 
 def class_name_to_node(nodes):

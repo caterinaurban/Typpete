@@ -447,6 +447,7 @@ def _infer_class_def(node, context, solver):
     class_context = Context(name=node.name, parent_context=context)
     result_type = solver.new_z3_const("class_type")
     solver.z3_types.all_types[node.name] = result_type
+    context.set_type(node.name, result_type)
 
     for stmt in node.body:
         infer(stmt, class_context, solver)
@@ -469,7 +470,6 @@ def _infer_class_def(node, context, solver):
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
     result_type.is_class = True
-    context.set_type(node.name, result_type)
 
 
 def _infer_import(node, context, solver):
