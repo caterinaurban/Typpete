@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# Lyra documentation build configuration file, created by
+# Typpete documentation build configuration file, created by
 # sphinx-quickstart on Fri Jun  9 12:29:25 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -46,9 +46,9 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'Lyra'
-copyright = '2017, Caterina Urban'
-author = 'Caterina Urban, Simon Wehrli, Mostafa Hassan'
+project = 'Typpete'
+copyright = '2017, Caterina Urban, Marco Eilers, Mostafa Hassan'
+author = 'Caterina Urban, Marco Eilers, Mostafa Hassan'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -100,7 +100,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'Lyradoc'
+htmlhelp_basename = 'Typpetedoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -127,8 +127,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'Lyra.tex', 'Lyra Documentation',
-     'Caterina Urban, Simon Wehrli, Mostafa Abdullah', 'manual'),
+    (master_doc, 'Typpete.tex', 'Typpete Documentation',
+     'Caterina Urban, Marco Eilers, Mostafa Hassan', 'manual'),
 ]
 
 
@@ -137,7 +137,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'lyra', 'Lyra Documentation',
+    (master_doc, 'Typpete', 'Typpete Documentation',
      [author], 1)
 ]
 
@@ -148,8 +148,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'Lyra', 'Lyra Documentation',
-     author, 'Lyra', 'One line description of project.',
+    (master_doc, 'Typpete', 'Typpete Documentation',
+     author, 'Typpete', 'One line description of project.',
      'Miscellaneous'),
 ]
 

@@ -3,7 +3,7 @@ from z3 import Optimize
 import ast
 import time
 
-r = open("unittests/inference/linked_list.py")
+r = open("tests/example.py")
 t = ast.parse(r.read())
 r.close()
 
