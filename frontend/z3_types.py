@@ -57,9 +57,10 @@ class TypesSolver(Solver):
         self.optimize.add(*args)
         implication = Implies(assertion, And(*args))
         super().add(implication)
-        self.all_assertions.append(implication)
         if force:
             self.all_assertions.append(And(*args))
+        else:
+            self.all_assertions.append(implication)
 
     def init_axioms(self):
         self.add(self.z3_types.subtyping, fail_message="Subtyping error", force=True)

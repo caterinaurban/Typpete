@@ -3,7 +3,7 @@ from z3 import Optimize
 import ast
 import time
 
-r = open("tests/example.py")
+r = open("tests/inference/example.py")
 t = ast.parse(r.read())
 r.close()
 
@@ -63,8 +63,12 @@ if check == z3_types.unsat:
     print_context(context)
     for av in solver.assertions_vars:
         if not model[av]:
-            print("Unsat:")
-            print(solver.assertions_errors[av])
+            print("Check: unsat")
+            error = solver.assertions_errors[av]
+            if isinstance(error, str):
+                print(error)
+            else:
+                print(error(model))
     # solver.check(solver.assertions_vars)
     # print(solver.unsat_core())
     # print([solver.assertions_errors[x] for x in solver.unsat_core()])

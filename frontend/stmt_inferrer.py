@@ -83,8 +83,11 @@ def _infer_assignment_target(target, context, value_type, solver):
         - Compound: Ex: a, b[0], [c, d], e["key"] = 1, 2.0, [True, False], "value"
     """
     target_type = _infer_one_target(target, context, solver)
-    solver.add(axioms.assignment(target_type, value_type, solver.z3_types),
-               fail_message="Assignment in line {}".format(target.lineno))
+    line_number = "Assignment at line {}: ".format(target.lineno)
+    constraint = "the right-hand side should be a subtype of the left-hand side "
+    reason = "but {} is not a subtype of {}."
+    fail_message = lambda m: line_number + constraint + reason.format(m.eval(value_type), m.eval(target_type))
+    solver.add(axioms.assignment(target_type, value_type, solver.z3_types), fail_message=fail_message)
     solver.optimize.add_soft(target_type == value_type)
 
 
