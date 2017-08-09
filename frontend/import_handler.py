@@ -39,13 +39,12 @@ class ImportHandler:
     @staticmethod
     def infer_import(module_name, base_folder, infer_func, solver):
         """Infer the types of a python module"""
-        context = Context()
-
         if ImportHandler.is_builtin(module_name):
-            solver.stubs_handler.infer_builtin_lib(module_name, context, solver,
-                                                   solver.config.used_names, infer_func)
+            return solver.stubs_handler.infer_builtin_lib(module_name, solver,
+                                                          solver.config.used_names, infer_func)
         else:
             t = ImportHandler.get_module_ast(module_name, base_folder)
+            context = Context(t.body, solver)
             solver.infer_stubs(context, infer_func)
             for stmt in t.body:
                 infer_func(stmt, context, solver)
