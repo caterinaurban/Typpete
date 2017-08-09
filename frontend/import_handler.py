@@ -5,6 +5,7 @@ from frontend.stubs.stubs_paths import libraries
 
 class ImportHandler:
     """Handler for importing other modules during the type inference"""
+    cached_asts = {}
 
     @staticmethod
     def get_ast(path, module_name):
@@ -13,6 +14,8 @@ class ImportHandler:
         :param path: the path to the python module
         :param module_name: the name of the python module
         """
+        if module_name in ImportHandler.cached_asts:
+            return ImportHandler.cached_asts[module_name]
         try:
             r = open(path)
         except FileNotFoundError:
@@ -20,6 +23,7 @@ class ImportHandler:
 
         tree = ast.parse(r.read())
         r.close()
+        ImportHandler.cached_asts[module_name] = tree
         return tree
 
     @staticmethod
