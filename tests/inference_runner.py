@@ -8,7 +8,7 @@ r.close()
 
 solver = z3_types.TypesSolver(t)
 
-context = Context()
+context = Context(t.body, solver)
 solver.infer_stubs(context, infer)
 
 for stmt in t.body:

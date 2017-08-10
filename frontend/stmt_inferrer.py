@@ -192,8 +192,8 @@ def _infer_control_flow(node, context, solver):
 
         type: super{String, Float}
     """
-    body_context = Context(parent_context=context)
-    else_context = Context(parent_context=context)
+    body_context = Context(node.body, solver, parent_context=context)
+    else_context = Context(node.body, solver, parent_context=context)
 
     body_type = _infer_body(node.body, body_context, node.lineno, solver)
     else_type = _infer_body(node.orelse, else_context, node.lineno, solver)
@@ -303,9 +303,9 @@ def _infer_try(node, context, solver):
     return result_type
 
 
-def _init_func_context(name, args, context, solver):
+def _init_func_context(node, args, context, solver):
     """Initialize the local function scope, and the arguments types"""
-    local_context = Context(name=name, parent_context=context)
+    local_context = Context(node.body, solver, name=node.name, parent_context=context)
 
     # TODO starred args
 
@@ -415,9 +415,9 @@ def _infer_func_def(node, context, solver):
                                                                                      defaults_count)
         else:
             context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count))
-        return
+        return solver.z3_types.none
 
-    func_context, args_types = _init_func_context(node.name, node.args.args, context, solver)
+    func_context, args_types = _init_func_context(node, node.args.args, context, solver)
     result_type = solver.new_z3_const("func")
     result_type.args_count = len(node.args.args)
     context.set_type(node.name, result_type)
@@ -446,13 +446,12 @@ def _infer_func_def(node, context, solver):
     func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
+    return solver.z3_types.none
 
 
 def _infer_class_def(node, context, solver):
-    """Infer the types in a class definition"""
-    class_context = Context(name=node.name, parent_context=context)
-    result_type = solver.new_z3_const("class_type")
-    solver.z3_types.all_types[node.name] = result_type
+    class_context = Context(node.body, solver, name=node.name, parent_context=context)
+    result_type = context.get_type(node.name)
 
     for stmt in node.body:
         infer(stmt, class_context, solver)
@@ -533,7 +532,7 @@ def _infer_class_def(node, context, solver):
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
     result_type.is_class = True
-    context.set_type(node.name, result_type)
+    return solver.z3_types.none
 
 
 def _infer_import(node, context, solver):

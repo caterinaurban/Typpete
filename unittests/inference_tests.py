@@ -54,7 +54,7 @@ class TestInference(unittest.TestCase):
 
         solver = z3_types.TypesSolver(t)
 
-        context = Context()
+        context = Context(t.body, solver)
 
         solver.infer_stubs(context, infer)
 

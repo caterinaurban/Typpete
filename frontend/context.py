@@ -1,3 +1,6 @@
+import ast
+
+
 class Context:
     """Represents types scope in a python program.
 
@@ -5,9 +8,25 @@ class Context:
         types_map ({str, Type}): a dict mapping variable names to their inferred types.
     """
 
-    def __init__(self, name="", parent_context=None):
+    def __init__(self, context_nodes, solver, name="", parent_context=None):
+        """
+        
+        :param context_nodes: The AST nodes that belong to this scope. Used to pre-store all class types in the scope. 
+        :param solver: The SMT solver for the inference. Used to create new Z3 constants for the class types.
+        :param name: The context name
+        :param parent_context: Reference to the parent scope (context)
+        """
         self.name = name
         self.types_map = {}
+
+        # Store all the class types that appear in this context. This enables using
+        # classes in no specific order.
+        class_names = [node.name for node in context_nodes if isinstance(node, ast.ClassDef)]
+        for cls in class_names:
+            cls_type = solver.new_z3_const("class_type")
+            self.types_map[cls] = cls_type
+            solver.z3_types.all_types[cls] = cls_type
+
         self.builtin_methods = {}
         self.parent_context = parent_context
         self.children_contexts = []
