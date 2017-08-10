@@ -9,6 +9,13 @@ class Context:
     """
 
     def __init__(self, context_nodes, solver, name="", parent_context=None):
+        """
+        
+        :param context_nodes: The AST nodes that belong to this scope. Used to pre-store all class types in the scope. 
+        :param solver: The SMT solver for the inference. Used to create new Z3 constants for the class types.
+        :param name: The context name
+        :param parent_context: Reference to the parent scope (context)
+        """
         self.name = name
         self.types_map = {}
 
