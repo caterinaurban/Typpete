@@ -102,7 +102,6 @@ class PreAnalyzer:
         """
         # TODO propagate attributes to subclasses.
         class_defs = [node for node in self.all_nodes if isinstance(node, ast.ClassDef)]
-
         propagate_attributes_to_subclasses(class_defs)
 
         class_to_instance_attributes = OrderedDict()
