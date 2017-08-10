@@ -245,7 +245,7 @@ class Configuration:
         return
 
 
-def valid_lists(lists):
+def get_non_empty_lists(lists):
     """
     
     :param lists: list of lists 
@@ -264,29 +264,29 @@ def merge(*lists):
     """
     res = []
     while True:
-        lists = valid_lists(lists)  # Select only lists with positive length
+        lists = get_non_empty_lists(lists)  # Select only lists with positive length
         if not lists:
             # All lists are empty, then done.
             break
-        found_head = False
+        removed_head = False
         for l in lists:
             head = l[0]
-            can = True
+            head_can_be_removed = True
             # Check if the head doesn't appear in the tail of any list
             for l2 in lists:
                 if head in l2[1:]:
-                    can = False
+                    head_can_be_removed = False
                     break
-            if can:
+            if head_can_be_removed:
                 # Can remove this head
-                found_head = True
+                removed_head = True
                 res.append(head)
                 for l2 in lists:
                     if head in l2:
                         l2.remove(head)
                 break
 
-        if not found_head:
+        if not removed_head:
             # Inconsistent MRO. Example:
             # class A(X, Y): ...
             # class B(Y, X): ...

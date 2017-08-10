@@ -442,7 +442,9 @@ def _infer_func_def(node, context, solver):
         return_type = solver.new_z3_const("return")
         solver.add(solver.z3_types.subtype(body_type, return_type),
                    fail_message="Return type in line {}".format(node.lineno))
-        solver.optimize.add_soft(body_type == return_type)
+        # Putting higher weight for this soft constraint to give it higher priority over soft-constraint
+        # added by inheritance covariance/contravariance return type
+        solver.optimize.add_soft(body_type == return_type, weight=2)
     func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
@@ -532,6 +534,8 @@ def _infer_class_def(node, context, solver):
                     solver.add(solver.z3_types.subtype(return_accessor(class_attrs[attr]),
                                                        return_accessor(bases_attrs[base][attr])),
                                fail_message="Return covariance in line {}".format(node.lineno))
+                    solver.optimize.add_soft(return_accessor(class_attrs[attr])
+                                             == return_accessor(bases_attrs[base][attr]))
 
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))

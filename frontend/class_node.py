@@ -32,18 +32,18 @@ class ClassNode:
         """
         Returns all transitive child nodes.
         """
-        result = [self]
+        result = {self}
         for c in self.children:
-            result += c.all_children()
+            result.update(c.all_children())
         return result
 
     def all_parents(self):
         """
         Returns all transitive parent nodes.
         """
-        result = [self]
+        result = {self}
         for parent in self.parents:
-            result += parent.all_parents()
+            result.update(parent.all_parents())
         return result
 
     def get_literal(self):
