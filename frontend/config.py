@@ -11,4 +11,7 @@ config = {
     #       x = "string"
     #       x += "a"
     "enforce_same_type_in_branches": False,
+
+    # List of the supported decorators for function definitions.
+    "decorators": ["staticmethod"]
 }

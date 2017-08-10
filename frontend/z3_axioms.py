@@ -334,7 +334,7 @@ def one_type_instantiation(class_name, args, result, types):
     :param result: The resulting instance from instantiation
     :param types: Z3Types object for this inference program
     """
-    init_args_count = types.class_to_init_count[class_name]
+    init_args_count = types.class_to_funcs[class_name]["__init__"][0]
 
     # Get the instance accessor from the type_sort data type.
     instance = getattr(types.type_sort, "instance")(types.all_types[class_name])
