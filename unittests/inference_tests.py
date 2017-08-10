@@ -54,7 +54,7 @@ class TestInference(unittest.TestCase):
 
         solver = z3_types.TypesSolver(t)
 
-        context = Context()
+        context = Context(t.body, solver)
 
         solver.infer_stubs(context, infer)
 
@@ -85,7 +85,7 @@ class TestInference(unittest.TestCase):
 
         check = solver.optimize.check()
         if self.sat:
-            self.assertNotEqual(check, z3_types.unsat)
+            self.assertNotEqual(check, z3_types.unsat, self.file_name)
         else:
             self.assertEqual(check, z3_types.unsat)
             end_time = time.time()

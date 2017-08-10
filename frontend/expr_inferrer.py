@@ -341,7 +341,7 @@ def infer_sequence_comprehension(node, sequence_type, context, solver):
         The iterable should always be a list or a set (not a tuple or a dict)
         The iteration target should be always a variable name.
     """
-    local_context = Context(parent_context=context)
+    local_context = Context([], solver, parent_context=context)
     infer_generators(node.generators, local_context, node.lineno, solver)
     return sequence_type(infer(node.elt, local_context, solver))
 
@@ -361,7 +361,7 @@ def infer_dict_comprehension(node, context, solver):
         The iterable should always be a list or a set (not a tuple or a dict)
         The iteration target should be always a variable name.
     """
-    local_context = Context(parent_context=context)
+    local_context = Context([], solver, parent_context=context)
     infer_generators(node.generators, local_context, node.lineno, solver)
     key_type = infer(node.key, local_context, solver)
     val_type = infer(node.value, local_context, solver)
