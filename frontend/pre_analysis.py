@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from frontend.config import config
 from frontend.constants import BUILTINS
 from frontend.import_handler import ImportHandler
 import ast
@@ -139,7 +140,12 @@ class PreAnalyzer:
             # Inspect all class-level statements
             for cls_stmt in cls.body:
                 if isinstance(cls_stmt, ast.FunctionDef):
-                    class_funcs[cls_stmt.name] = (len(cls_stmt.args.args), [d.id for d in cls_stmt.decorator_list],
+                    decorators = []
+                    for d in cls_stmt.decorator_list:
+                        if not isinstance(d, ast.Name) or d.id not in config["decorators"]:
+                            raise TypeError("Decorator {} is not supported".format(d))
+                        decorators.append(d.id)
+                    class_funcs[cls_stmt.name] = (len(cls_stmt.args.args), decorators,
                                                   len(cls_stmt.args.defaults))
                     # Add function to class attributes and get attributes defined by self.some_attribute = value
                     instance_attributes.add(cls_stmt.name)

@@ -85,7 +85,9 @@ def _infer_assignment_target(target, context, value_type, solver):
     target_type = _infer_one_target(target, context, solver)
     solver.add(axioms.assignment(target_type, value_type, solver.z3_types),
                fail_message="Assignment in line {}".format(target.lineno))
-    solver.optimize.add_soft(target_type == value_type)
+
+    # Adding weight of 2 to give the assignment soft constraint a higher priority over others.
+    solver.optimize.add_soft(target_type == value_type, weight=2)
 
 
 def _is_type_var_declaration(node):
@@ -436,11 +438,11 @@ def _infer_func_def(node, context, solver):
         solver.add(body_type == return_type,
                    fail_message="Return type annotation in line {}".format(node.lineno))
     else:
-
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
-    return_type = solver.new_z3_const("return")
-    solver.add(solver.z3_types.subtype(body_type, return_type),
-               fail_message="Return type in line {}".format(node.lineno))
+        return_type = solver.new_z3_const("return")
+        solver.add(solver.z3_types.subtype(body_type, return_type),
+                   fail_message="Return type in line {}".format(node.lineno))
+        solver.optimize.add_soft(body_type == return_type)
     func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
@@ -464,12 +466,27 @@ def _infer_class_def(node, context, solver):
         base_class_to_funcs = solver.z3_types.class_to_funcs[node.bases[0].id]
         base_attrs = solver.z3_types.instance_attributes[node.bases[0].id]
 
-    for attr in class_context.types_map:
+    for attr in class_attrs:
+        if attr not in class_to_funcs and attr in base_attrs:
+            # Not a method and exists in superclass
+            solver.add(class_attrs[attr] == base_attrs[attr],
+                       fail_message="Field {} in subclass {} has same type as that in the superclass".format(node.name,
+                                                                                                             attr))
+        if attr not in class_context.types_map:
+            # The context doesn't contain the types of the instance attributes (e.g., self.x)
+            # The axioms for such attributes are already added in the condition above.
+            continue
         solver.add(class_attrs[attr] == class_context.types_map[attr],
                    fail_message="Class attribute in {}".format(node.lineno))
 
         if attr in class_to_funcs and "staticmethod" not in class_to_funcs[attr][1]:
             # If the attribute is a non static method, set the type of the first arg to be an instance of this class
+
+            if not class_to_funcs[attr][0]:
+                raise TypeError("Instance method {} in class {} should have at least one argument (the receiver)."
+                                "If you wish to create a static method, please add the appropriate decorator."
+                                .format(attr, node.name))
+
             args_len = class_to_funcs[attr][0]
             arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_len))
             solver.add(arg_accessor(class_attrs[attr]) == instance_type,
@@ -477,7 +494,7 @@ def _infer_class_def(node, context, solver):
 
         if attr != "__init__" and attr in base_class_to_funcs:
             # attr is an overridden method
-            # class_to_funcs[attr] is a tuple of two elements.
+            # class_to_funcs[attr] is a tuple of three elements.
             # The first is the args length, the second is the decorators list, the third is default args length
             base_args_len = base_class_to_funcs[attr][0]
             base_defaults_len = base_class_to_funcs[attr][2]
@@ -495,9 +512,6 @@ def _infer_class_def(node, context, solver):
                     raise TypeError("Non-static method {} in class {} cannot override static method.".format(attr,
                                                                                                              node.name))
             else:
-                if not base_args_len:
-                    raise TypeError("Instance methods should have at least one argument (the receiver)."
-                                    "If you wish to create a static method, please add the appropriate decorator.")
                 if base_args_len > sub_args_len:
                     raise TypeError("Method {} in subclass {} should have total arguments length more than or equal "
                                     "that in superclass.".format(attr, node.name))
