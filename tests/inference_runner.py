@@ -2,7 +2,7 @@ from frontend.stmt_inferrer import *
 import ast
 import time
 
-r = open("tests/inference/example.py")
+r = open("tests/example.py")
 t = ast.parse(r.read())
 r.close()
 
