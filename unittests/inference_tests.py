@@ -54,7 +54,7 @@ class TestInference(unittest.TestCase):
 
         solver = z3_types.TypesSolver(t)
 
-        context = Context()
+        context = Context(t.body, solver)
 
         solver.infer_stubs(context, infer)
 
@@ -85,9 +85,11 @@ class TestInference(unittest.TestCase):
 
         check = solver.optimize.check()
         if self.sat:
-            self.assertNotEqual(check, z3_types.unsat)
+            self.assertNotEqual(check, z3_types.unsat,
+                                "Expected file {} to be SAT. Found UNSAT".format(self.file_name))
         else:
-            self.assertEqual(check, z3_types.unsat)
+            self.assertEqual(check, z3_types.unsat,
+                             "Expected file {} to be UNSAT. Found SAT".format(self.file_name))
             end_time = time.time()
             print(self.test_end_message(end_time - start_time))
             return

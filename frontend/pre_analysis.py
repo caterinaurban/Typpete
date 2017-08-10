@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 from copy import copy
+from frontend.config import config
 from frontend.constants import BUILTINS
 from frontend.import_handler import ImportHandler
 import ast
@@ -104,19 +105,17 @@ class PreAnalyzer:
         """
         # TODO propagate attributes to subclasses.
         class_defs = [node for node in self.all_nodes if isinstance(node, ast.ClassDef)]
-
         propagate_attributes_to_subclasses(class_defs)
 
         class_to_instance_attributes = OrderedDict()
         class_to_class_attributes = OrderedDict()
         class_to_base = OrderedDict()
         class_to_funcs = OrderedDict()
-        class_to_init_count = OrderedDict()
 
         for cls in class_defs:
-            init_args_count = 1
             if cls.bases:
                 class_to_base[cls.name] = [x.id for x in cls.bases]
+
             else:
                 class_to_base[cls.name] = ["object"]
 
@@ -135,16 +134,23 @@ class PreAnalyzer:
             class_attributes = set()
             class_to_instance_attributes[cls.name] = instance_attributes
             class_to_class_attributes[cls.name] = class_attributes
-            class_funcs = []
+
+            class_funcs = {}
             class_to_funcs[cls.name] = class_funcs
 
             # Inspect all class-level statements
             for cls_stmt in cls.body:
                 if isinstance(cls_stmt, ast.FunctionDef):
+                    decorators = []
+                    for d in cls_stmt.decorator_list:
+                        if not isinstance(d, ast.Name) or d.id not in config["decorators"]:
+                            raise TypeError("Decorator {} is not supported".format(d))
+                        decorators.append(d.id)
+                    class_funcs[cls_stmt.name] = (len(cls_stmt.args.args), decorators,
+                                                  len(cls_stmt.args.defaults))
                     # Add function to class attributes and get attributes defined by self.some_attribute = value
                     instance_attributes.add(cls_stmt.name)
                     class_attributes.add(cls_stmt.name)
-                    class_funcs.append((cls_stmt.name, len(cls_stmt.args.args)))
                     if not cls_stmt.args.args:
                         continue
                     first_arg = cls_stmt.args.args[0].arg  # In most cases it will be 'self'
@@ -159,18 +165,13 @@ class PreAnalyzer:
                                     target.value.id == first_arg):
                                 instance_attributes.add(target.attr)
 
-                    if cls_stmt.name == "__init__":
-                        init_args_count = len(cls_stmt.args.args)
                 elif isinstance(cls_stmt, ast.Assign):
                     # Get attributes defined as class-level assignment
                     for target in cls_stmt.targets:
                         if isinstance(target, ast.Name):
                             class_attributes.add(target.id)
                             instance_attributes.add(target.id)
-            class_to_init_count[cls.name] = init_args_count
-
-        return (class_to_instance_attributes, class_to_class_attributes,
-                class_to_base, class_to_funcs, class_to_init_count)
+        return class_to_instance_attributes, class_to_class_attributes, class_to_base, class_to_funcs
 
     def get_all_configurations(self):
         config = Configuration()
@@ -183,7 +184,6 @@ class PreAnalyzer:
         config.classes_to_class_attrs = class_analysis[1]
         config.class_to_base = class_analysis[2]
         config.class_to_funcs = class_analysis[3]
-        config.class_to_init_count = class_analysis[4]
 
         config.used_names = self.get_all_used_names()
         config.max_default_args = self.max_default_args()
@@ -200,6 +200,7 @@ class Configuration:
         self.max_function_args = 1
         self.classes_to_attrs = OrderedDict()
         self.class_to_base = OrderedDict()
+        self.class_to_funcs = OrderedDict()
         self.base_folder = ""
         self.used_names = []
         self.max_default_args = 0
@@ -334,41 +335,6 @@ def propagate_attributes_to_subclasses(class_defs):
         class_def.body += class_to_inherited_funcs[class_def.name]
 
 
-def class_name_to_node(nodes):
-    """Return a mapping for the class name to its AST node."""
-    name_to_node = {}
-    for node in nodes:
-        name_to_node[node.name] = node
-    return name_to_node
-
-
-def get_forest_roots(forest):
-    """Return list of classes that have no super-class (other than object)"""
-    roots = list(forest.keys())
-    for node in forest:
-        for sub in forest[node]:
-            if sub in roots:
-                roots.remove(sub)
-    return roots
-
-
-def get_inheritance_forest(class_defs):
-    """Return a graph of class nodes
-    
-    Each graph component represents an inheritance hierarchy. There is a directed edge between class 'a' and class 'b'
-    if 'b' extends 'a'.
-    The graph is guaranteed to be a DAG.
-    """
-    graph = {}
-    for cls in class_defs:
-        graph[cls.name] = []
-    for cls in class_defs:
-        bases = cls.bases
-        for base in bases:
-            graph[base.id].append(cls.name)
-    return graph
-
-
 def add_init_if_not_existing(class_node):
     """Add a default empty __init__ function if it doesn't exist in the class node"""
     for stmt in class_node.body:
@@ -376,7 +342,7 @@ def add_init_if_not_existing(class_node):
             return
     class_node.body.append(ast.FunctionDef(
         name="__init__",
-        args=ast.arguments(args=[ast.arg(arg="self", annotation=None)]),
+        args=ast.arguments(args=[ast.arg(arg="self", annotation=None)], defaults=[]),
         body=[ast.Pass()],
         decorator_list=[],
         returns=None,

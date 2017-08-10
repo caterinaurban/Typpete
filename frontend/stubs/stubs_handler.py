@@ -1,5 +1,6 @@
 import ast
 import frontend.stubs.stubs_paths as paths
+from frontend.context import Context
 
 
 class StubsHandler:
@@ -29,12 +30,13 @@ class StubsHandler:
             self.lib_asts[lib] = tree
 
     @staticmethod
-    def infer_file(tree, context, solver, used_names, infer_func, method_type=None):
+    def infer_file(tree, solver, used_names, infer_func, method_type=None):
         # Infer only structs that are used in the program to be inferred
 
         # Function definitions
         relevant_nodes = StubsHandler.get_relevant_nodes(tree, used_names)
 
+        context = Context(tree.body, solver)
         if method_type:
             # Add the flag in the statements to recognize the method statements during the inference
             for node in relevant_nodes:
@@ -42,6 +44,8 @@ class StubsHandler:
 
         for stmt in relevant_nodes:
             infer_func(stmt, context, solver)
+
+        return context
 
     @staticmethod
     def get_relevant_nodes(tree, used_names):
@@ -90,11 +94,24 @@ class StubsHandler:
 
     def infer_all_files(self, context, solver, used_names, infer_func):
         for tree in self.asts:
-            self.infer_file(tree, context, solver, used_names, infer_func)
+            ctx = self.infer_file(tree, solver, used_names, infer_func)
+            # Merge the stub types into the context
+            context.types_map.update(ctx.types_map)
         for tree in self.methods_asts:
-            self.infer_file(tree, context, solver, used_names, infer_func, tree.method_type)
+            ctx = self.infer_file(tree, solver, used_names, infer_func, tree.method_type)
+            # Merge the stub types into the context
+            context.types_map.update(ctx.types_map)
+            context.builtin_methods.update(ctx.builtin_methods)
 
-    def infer_builtin_lib(self, module_name, context, solver, used_names, infer_func):
+    def infer_builtin_lib(self, module_name, solver, used_names, infer_func):
+        """
+        
+        :param module_name: The name of the built-in library to be inferred 
+        :param solver: The Z3 solver
+        :param used_names: The names used in the program, to infer only relevant stubs.
+        :param infer_func: The statements inference function
+        :return: The context containing types of the relevant stubs.
+        """
         if module_name not in self.lib_asts:
             raise ImportError("No module named {}".format(module_name))
-        self.infer_file(self.lib_asts[module_name], context, solver, used_names, infer_func)
+        return self.infer_file(self.lib_asts[module_name], solver, used_names, infer_func)

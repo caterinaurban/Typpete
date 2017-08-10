@@ -41,7 +41,7 @@ class TypesSolver(Solver):
         self.assertions_vars = []
         self.assertions_errors = {}
         self.stubs_handler = StubsHandler()
-        analyzer = PreAnalyzer(tree, "tests/inference", self.stubs_handler)     # TODO: avoid hard-coding
+        analyzer = PreAnalyzer(tree, "tests", self.stubs_handler)     # TODO: avoid hard-coding
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config)
         self.annotation_resolver = AnnotationResolver(self.z3_types)
@@ -82,7 +82,7 @@ class Z3Types:
         self.all_types = OrderedDict()
         self.instance_attributes = OrderedDict()
         self.class_attributes = OrderedDict()
-        self.class_to_init_count = config.class_to_init_count
+        self.class_to_funcs = config.class_to_funcs
 
         max_tuple_length = config.max_tuple_length
         max_function_args = config.max_function_args
@@ -91,6 +91,7 @@ class Z3Types:
         class_to_base = config.class_to_base
 
         type_sort = declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_attrs)
+
         self.type_sort = type_sort
 
         # type constructors and accessors
