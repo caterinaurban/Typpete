@@ -13,5 +13,8 @@ config = {
     "enforce_same_type_in_branches": False,
 
     # List of the supported decorators for function definitions.
-    "decorators": ["staticmethod"]
+    "decorators": ["staticmethod"],
+
+    # Whether to allow to define instance attribute outside __init__
+    "allow_attributes_outside_init": True
 }
