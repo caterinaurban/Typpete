@@ -434,6 +434,11 @@ def infer_func_call(node, context, solver):
         # Add axioms for built-in methods
         call_axioms += _get_builtin_method_call_axioms(args_types, solver, context, result_type, node.func.attr)
 
+        if instance is not None:
+            # Add disjunctions for staticmethod calls
+            # Remove the first arg (which is the method receiver) from the call args types.
+            call_axioms += axioms.staticmethod_call(instance, args_types[1:], result_type,
+                                                    node.func.attr, solver.z3_types)
     called = infer(node.func, context, solver)
     if isinstance(called, AnnotatedFunction):
         func_axioms = solver.annotation_resolver.get_annotated_function_axioms(args_types, solver, called, result_type)
