@@ -459,6 +459,7 @@ def _infer_class_def(node, context, solver):
         infer(stmt, class_context, solver)
 
     class_attrs = solver.z3_types.instance_attributes[node.name]
+    inherited_funcs_to_super = solver.config.inherited_funcs_to_super[node.name]
     instance_type = solver.z3_types.classes[node.name]
     class_to_funcs = solver.z3_types.class_to_funcs[node.name]
     base_classes_to_funcs = {}
@@ -526,16 +527,33 @@ def _infer_class_def(node, context, solver):
 
                     # handle arguments and return contravariance/covariance
                     for i in range(1, base_args_len):
-                        arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}".format(base_args_len, i + 1))
-                        solver.add(solver.z3_types.subtype(arg_accessor(bases_attrs[base][attr]),
-                                                           arg_accessor(class_attrs[attr])),
-                                   fail_message="Arguments contravariance in line {}".format(node.lineno))
-                    return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(base_args_len))
-                    solver.add(solver.z3_types.subtype(return_accessor(class_attrs[attr]),
-                                                       return_accessor(bases_attrs[base][attr])),
-                               fail_message="Return covariance in line {}".format(node.lineno))
-                    solver.optimize.add_soft(return_accessor(class_attrs[attr])
-                                             == return_accessor(bases_attrs[base][attr]))
+                        base_arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}"
+                                                    .format(base_args_len, i + 1))
+                        sub_arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}"
+                                                   .format(sub_args_len, i + 1))
+                        if attr in inherited_funcs_to_super and inherited_funcs_to_super[attr] == base:
+                            solver.add(base_arg_accessor(bases_attrs[base][attr])
+                                       == sub_arg_accessor(class_attrs[attr]),
+                                       fail_message="Arguments type in inherited function {} in class {}"
+                                                    "have same type as those in class {}".format(attr, node.name, base))
+                        else:
+                            solver.add(solver.z3_types.subtype(base_arg_accessor(bases_attrs[base][attr]),
+                                                               sub_arg_accessor(class_attrs[attr])),
+                                       fail_message="Arguments contravariance in line {}".format(node.lineno))
+                    base_return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(base_args_len))
+                    sub_return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(sub_args_len))
+
+                    if attr in inherited_funcs_to_super and inherited_funcs_to_super[attr] == base:
+                        solver.add(sub_return_accessor(class_attrs[attr])
+                                   == base_return_accessor(bases_attrs[base][attr]),
+                                   fail_message="Return function in inherited function {} in class {}"
+                                                "has same type as that in class {}".format(attr, node.name, base))
+                    else:
+                        solver.add(solver.z3_types.subtype(sub_return_accessor(class_attrs[attr]),
+                                                           base_return_accessor(bases_attrs[base][attr])),
+                                   fail_message="Return covariance in line {}".format(node.lineno))
+                    solver.optimize.add_soft(sub_return_accessor(class_attrs[attr])
+                                             == base_return_accessor(bases_attrs[base][attr]))
 
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
