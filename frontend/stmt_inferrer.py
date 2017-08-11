@@ -512,17 +512,17 @@ def _infer_class_def(node, context, solver):
 
                 if "staticmethod" in decorators:
                     if "staticmethod" not in base_classes_to_funcs[base][attr][1]:
-                        raise TypeError("Static method {} in class {} cannot override"
+                        raise TypeError("Static method {} in class {} cannot override "
                                         "non-static method.".format(attr, node.name))
                     if "staticmethod" not in class_to_funcs[attr][1]:
-                        raise TypeError("Non-static method {} in class {} cannot"
+                        raise TypeError("Non-static method {} in class {} cannot "
                                         "override static method.".format(attr, node.name))
                 else:
                     if base_args_len > sub_args_len:
-                        raise TypeError("Method {} in subclass {} should have total arguments length"
+                        raise TypeError("Method {} in subclass {} should have total arguments length "
                                         "more than or equal that in superclass.".format(attr, node.name))
                     if base_non_defaults_len > sub_non_defaults_len:
-                        raise TypeError("Method {} in subclass {} should have non-default arguments length less than"
+                        raise TypeError("Method {} in subclass {} should have non-default arguments length less than "
                                         "or equal that in superclass".format(attr, node.name))
 
                     # handle arguments and return contravariance/covariance
@@ -534,7 +534,7 @@ def _infer_class_def(node, context, solver):
                         if attr in inherited_funcs_to_super and inherited_funcs_to_super[attr] == base:
                             solver.add(base_arg_accessor(bases_attrs[base][attr])
                                        == sub_arg_accessor(class_attrs[attr]),
-                                       fail_message="Arguments type in inherited function {} in class {}"
+                                       fail_message="Arguments type in inherited function {} in class {} "
                                                     "have same type as those in class {}".format(attr, node.name, base))
                         else:
                             solver.add(solver.z3_types.subtype(base_arg_accessor(bases_attrs[base][attr]),
@@ -546,7 +546,7 @@ def _infer_class_def(node, context, solver):
                     if attr in inherited_funcs_to_super and inherited_funcs_to_super[attr] == base:
                         solver.add(sub_return_accessor(class_attrs[attr])
                                    == base_return_accessor(bases_attrs[base][attr]),
-                                   fail_message="Return function in inherited function {} in class {}"
+                                   fail_message="Return function in inherited function {} in class {} "
                                                 "has same type as that in class {}".format(attr, node.name, base))
                     else:
                         solver.add(solver.z3_types.subtype(sub_return_accessor(class_attrs[attr]),
