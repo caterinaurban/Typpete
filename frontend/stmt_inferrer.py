@@ -470,12 +470,21 @@ def _infer_class_def(node, context, solver):
         bases_attrs[base.id] = solver.z3_types.instance_attributes[base.id]
 
     for attr in class_attrs:
-        if attr in class_to_funcs and attr not in inherited_funcs_to_super:
+        if (attr in class_to_funcs and attr not in inherited_funcs_to_super
+           and "staticmethod" not in class_to_funcs[attr][1]):
             # First arg (the method receiver) is the same as instance only if it is not an inherited method
+            # and not a static method
+
+            if not class_to_funcs[attr][0]:
+                raise TypeError("Instance method {} in class {} should have at least one argument (the receiver)."
+                                "If you wish to create a static method, please add the appropriate decorator."
+                                .format(attr, node.name))
+
             args_len = class_to_funcs[attr][0]
             arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_len))
             solver.add(arg_accessor(class_attrs[attr]) == instance_type,
-                       fail_message="First arg in instance methods has class instance type")
+                       fail_message="First arg in instance method {} in class {} has class instance type"
+                       .format(attr, node.name))
 
         for base in bases_attrs:
             if attr not in class_to_funcs and attr in bases_attrs[base]:
@@ -489,14 +498,6 @@ def _infer_class_def(node, context, solver):
             continue
         solver.add(class_attrs[attr] == class_context.types_map[attr],
                    fail_message="Class attribute in {}".format(node.lineno))
-
-        if attr in class_to_funcs and "staticmethod" not in class_to_funcs[attr][1]:
-            # If the attribute is a non static method, set the type of the first arg to be an instance of this class
-
-            if not class_to_funcs[attr][0]:
-                raise TypeError("Instance method {} in class {} should have at least one argument (the receiver)."
-                                "If you wish to create a static method, please add the appropriate decorator."
-                                .format(attr, node.name))
 
         # Handle covariance/contravariance of overridden methods in all base classes
         for base in base_classes_to_funcs:
