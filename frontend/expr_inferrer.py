@@ -372,7 +372,15 @@ def _get_args_types(args, context, instance, solver):
     """Return inferred types for function call arguments"""
     # TODO kwargs
 
-    args_types = () if instance is None else (instance,)
+    if instance is not None:
+        # The instance represents the method receiver. It is a subtype of the first argument in the method.
+        arg_type = solver.new_z3_const("call_arg")
+        solver.add(solver.z3_types.subtype(instance, arg_type),
+                   fail_message="Method receiver subtyping in line {}")
+        solver.optimize.add_soft(instance == arg_type)
+        args_types = (arg_type,)
+    else:
+        args_types = ()
     for arg in args:
         arg_type = solver.new_z3_const("call_arg")
         call_type = infer(arg, context, solver)

@@ -470,6 +470,13 @@ def _infer_class_def(node, context, solver):
         bases_attrs[base.id] = solver.z3_types.instance_attributes[base.id]
 
     for attr in class_attrs:
+        if attr in class_to_funcs and attr not in inherited_funcs_to_super:
+            # First arg (the method receiver) is the same as instance only if it is not an inherited method
+            args_len = class_to_funcs[attr][0]
+            arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_len))
+            solver.add(arg_accessor(class_attrs[attr]) == instance_type,
+                       fail_message="First arg in instance methods has class instance type")
+
         for base in bases_attrs:
             if attr not in class_to_funcs and attr in bases_attrs[base]:
                 # Not a method and exists in superclass
@@ -490,11 +497,6 @@ def _infer_class_def(node, context, solver):
                 raise TypeError("Instance method {} in class {} should have at least one argument (the receiver)."
                                 "If you wish to create a static method, please add the appropriate decorator."
                                 .format(attr, node.name))
-
-            args_len = class_to_funcs[attr][0]
-            arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_len))
-            solver.add(arg_accessor(class_attrs[attr]) == instance_type,
-                       fail_message="First arg in instance methods has class instance type")
 
         # Handle covariance/contravariance of overridden methods in all base classes
         for base in base_classes_to_funcs:
@@ -531,12 +533,8 @@ def _infer_class_def(node, context, solver):
                                                     .format(base_args_len, i + 1))
                         sub_arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}"
                                                    .format(sub_args_len, i + 1))
-                        if attr in inherited_funcs_to_super and inherited_funcs_to_super[attr] == base:
-                            solver.add(base_arg_accessor(bases_attrs[base][attr])
-                                       == sub_arg_accessor(class_attrs[attr]),
-                                       fail_message="Arguments type in inherited function {} in class {} "
-                                                    "have same type as those in class {}".format(attr, node.name, base))
-                        else:
+                        if attr not in inherited_funcs_to_super or inherited_funcs_to_super[attr] != base:
+                            # Only add contravariant axioms if this method is not inherited from the current base class.
                             solver.add(solver.z3_types.subtype(base_arg_accessor(bases_attrs[base][attr]),
                                                                sub_arg_accessor(class_attrs[attr])),
                                        fail_message="Arguments contravariance in line {}".format(node.lineno))
@@ -544,11 +542,12 @@ def _infer_class_def(node, context, solver):
                     sub_return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(sub_args_len))
 
                     if attr in inherited_funcs_to_super and inherited_funcs_to_super[attr] == base:
-                        solver.add(sub_return_accessor(class_attrs[attr])
-                                   == base_return_accessor(bases_attrs[base][attr]),
-                                   fail_message="Return function in inherited function {} in class {} "
+                        # Add equality axioms if this method is inherited from the current base class.
+                        solver.add(class_attrs[attr] == bases_attrs[base][attr],
+                                   fail_message="Inherited function {} in class {} "
                                                 "has same type as that in class {}".format(attr, node.name, base))
                     else:
+                        # Add covariant axiom otherwise
                         solver.add(solver.z3_types.subtype(sub_return_accessor(class_attrs[attr]),
                                                            base_return_accessor(bases_attrs[base][attr])),
                                    fail_message="Return covariance in line {}".format(node.lineno))
