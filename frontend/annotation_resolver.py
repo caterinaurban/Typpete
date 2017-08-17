@@ -15,7 +15,6 @@ class AnnotationResolver:
             "complex": z3_types.complex,
             "str": z3_types.string,
             "bytes": z3_types.bytes,
-            "number": z3_types.num,
             "sequence": z3_types.seq,
             "Tuple": z3_types.tuple
         }
@@ -179,15 +178,15 @@ class AnnotationResolver:
         """
         args_annotations = annotated_function.args_annotations
         result_annotation = annotated_function.return_annotation
-
-        axioms = []
-
-        if len(args_types) != len(args_annotations):
+        defaults_count = annotated_function.defaults_count
+        min_args = len(args_annotations) - defaults_count
+        max_args = len(args_annotations)
+        if len(args_types) < min_args or len(args_types) > max_args:
             return None
-
+        axioms = []
         generics_map = {}
 
-        for i, annotation in enumerate(args_annotations):
+        for i, annotation in enumerate(args_annotations[:len(args_types)]):
             arg_type = self.resolve(annotation, solver, generics_map)
             axioms.append(args_types[i] == arg_type)
         axioms.append(result_type == self.resolve(result_annotation, solver, generics_map))
@@ -239,7 +238,7 @@ class AnnotationResolver:
         if match:
             return match.group(1)
 
-        match = re.match("type_type", type_str)
+        match = re.match("type", type_str)
         # unparse type type. Example: type_type(class_A) -> Type[A]
         if match:
             # get the instance of this type

@@ -1,4 +1,8 @@
 from collections import OrderedDict
+
+from copy import copy
+from frontend.config import config
+from frontend.constants import BUILTINS
 from frontend.import_handler import ImportHandler
 import ast
 
@@ -12,14 +16,20 @@ class PreAnalyzer:
         - Class and instance attributes
     """
 
-    def __init__(self, prog_ast, base_folder):
+    def __init__(self, prog_ast, base_folder, stubs_handler):
         """
         :param prog_ast: The AST for the python program  
         """
         # List all the nodes existing in the AST
         self.base_folder = base_folder
         self.all_nodes = self.walk(prog_ast)
+
+        # Pre-analyze only used constructs from the stub files.
+        used_names = self.get_all_used_names()
+        stub_asts = stubs_handler.get_relevant_ast_nodes(used_names)
         self.stub_nodes = []
+        for stub_ast in stub_asts:
+            self.stub_nodes += list(ast.walk(stub_ast))
 
     def walk(self, prog_ast):
         result = list(ast.walk(prog_ast))
@@ -27,13 +37,19 @@ class PreAnalyzer:
         import_from_nodes = [node for node in result if isinstance(node, ast.ImportFrom)]
         for node in import_nodes:
             for name in node.names:
-                new_ast = ImportHandler.get_ast(name.name, self.base_folder)
+                if ImportHandler.is_builtin(name.name):
+                    new_ast = ImportHandler.get_builtin_ast(name.name)
+                else:
+                    new_ast = ImportHandler.get_module_ast(name.name, self.base_folder)
                 result += self.walk(new_ast)
         for node in import_from_nodes:
             if node.module == "typing":
                 # FIXME ignore typing for now, not to break type vars
                 continue
-            new_ast = ImportHandler.get_ast(node.module, self.base_folder)
+            if ImportHandler.is_builtin(node.module):
+                new_ast = ImportHandler.get_builtin_ast(node.module)
+            else:
+                new_ast = ImportHandler.get_module_ast(node.module, self.base_folder)
             result += self.walk(new_ast)
 
         return result
@@ -54,6 +70,11 @@ class PreAnalyzer:
 
         return max(user_func_max, stub_func_max)
 
+    def max_default_args(self):
+        """Get the maximum number of default arguments appearing in all function definitions"""
+        func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
+        return max([len(node.args.defaults) for node in func_defs] + [0])
+
     def maximum_tuple_length(self):
         """Get the maximum length of tuples appearing in the AST"""
         user_tuples = [node for node in self.all_nodes if isinstance(node, ast.Tuple)]
@@ -69,6 +90,7 @@ class PreAnalyzer:
         names = [node.id for node in self.all_nodes if isinstance(node, ast.Name)]
         names += [node.name for node in self.all_nodes if isinstance(node, ast.ClassDef)]
         names += [node.attr for node in self.all_nodes if isinstance(node, ast.Attribute)]
+        names += [node.name for node in self.all_nodes if isinstance(node, ast.alias)]
         return names
 
     def analyze_classes(self):
@@ -82,21 +104,20 @@ class PreAnalyzer:
             
         """
         # TODO propagate attributes to subclasses.
-        class_defs = [node for node in self.all_nodes if isinstance(node, ast.ClassDef)]
-
+        class_defs = [node for node in self.all_nodes + self.stub_nodes if isinstance(node, ast.ClassDef)]
         propagate_attributes_to_subclasses(class_defs)
 
         class_to_instance_attributes = OrderedDict()
         class_to_class_attributes = OrderedDict()
         class_to_base = OrderedDict()
+        class_to_funcs = OrderedDict()
 
         for cls in class_defs:
-            if len(cls.bases) > 1:
-                raise NotImplementedError("Multiple inheritance is not supported yet.")
-            elif cls.bases:
-                class_to_base[cls.name] = cls.bases[0].id
+            if cls.bases:
+                class_to_base[cls.name] = [x.id for x in cls.bases]
+
             else:
-                class_to_base[cls.name] = "object"
+                class_to_base[cls.name] = ["object"]
 
             add_init_if_not_existing(cls)
 
@@ -114,9 +135,19 @@ class PreAnalyzer:
             class_to_instance_attributes[cls.name] = instance_attributes
             class_to_class_attributes[cls.name] = class_attributes
 
+            class_funcs = {}
+            class_to_funcs[cls.name] = class_funcs
+
             # Inspect all class-level statements
             for cls_stmt in cls.body:
                 if isinstance(cls_stmt, ast.FunctionDef):
+                    decorators = []
+                    for d in cls_stmt.decorator_list:
+                        if not isinstance(d, ast.Name) or d.id not in config["decorators"]:
+                            raise TypeError("Decorator {} is not supported".format(d))
+                        decorators.append(d.id)
+                    class_funcs[cls_stmt.name] = (len(cls_stmt.args.args), decorators,
+                                                  len(cls_stmt.args.defaults))
                     # Add function to class attributes and get attributes defined by self.some_attribute = value
                     instance_attributes.add(cls_stmt.name)
                     class_attributes.add(cls_stmt.name)
@@ -133,22 +164,31 @@ class PreAnalyzer:
                             if (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and
                                     target.value.id == first_arg):
                                 instance_attributes.add(target.attr)
+
                 elif isinstance(cls_stmt, ast.Assign):
                     # Get attributes defined as class-level assignment
                     for target in cls_stmt.targets:
                         if isinstance(target, ast.Name):
                             class_attributes.add(target.id)
                             instance_attributes.add(target.id)
-
-        return class_to_instance_attributes, class_to_class_attributes, class_to_base
+        return class_to_instance_attributes, class_to_class_attributes, class_to_base, class_to_funcs
 
     def get_all_configurations(self):
         config = Configuration()
         config.max_tuple_length = self.maximum_tuple_length()
         config.max_function_args = self.maximum_function_args()
         config.base_folder = self.base_folder
-        config.classes_to_instance_attrs, config.classes_to_class_attrs, config.class_to_base = self.analyze_classes()
+
+        class_analysis = self.analyze_classes()
+        config.classes_to_instance_attrs = class_analysis[0]
+        config.classes_to_class_attrs = class_analysis[1]
+        config.class_to_base = class_analysis[2]
+        config.class_to_funcs = class_analysis[3]
+
         config.used_names = self.get_all_used_names()
+        config.max_default_args = self.max_default_args()
+
+        config.complete_class_to_base()
 
         return config
 
@@ -160,72 +200,139 @@ class Configuration:
         self.max_function_args = 1
         self.classes_to_attrs = OrderedDict()
         self.class_to_base = OrderedDict()
+        self.class_to_funcs = OrderedDict()
         self.base_folder = ""
         self.used_names = []
+        self.max_default_args = 0
+        self.all_classes = {}
+
+    def complete_class_to_base(self):
+        """
+        Builds up the dictionary in self.all_classes, in which all classes (including
+        builtins and classes from stubs) are mapped to their base classes.
+
+        The dictionary refers to all classes by their Z3-level names. For generic classes,
+        it contains tuples containing the Z3-level class name and subsequently the names
+        of the accessor functions for the arguments.
+
+        To be executed after max_tuple_length and max_function_args have been set.
+        """
+        builtins = dict(BUILTINS)
+
+        for cur_len in range(self.max_tuple_length + 1):
+            name = 'tuple_' + str(cur_len)
+            tuple_args = []
+            for cur_arg in range(cur_len):
+                arg_name = name + '_arg_' + str(cur_arg + 1)
+                tuple_args.append(arg_name)
+            if tuple_args:
+                builtins[tuple([name] + tuple_args)] = ['tuple']
+            else:
+                builtins[name] = ['tuple']
+        for cur_len in range(self.max_function_args + 1):
+            name = 'func_' + str(cur_len)
+            func_args = [name + '_defaults_args']
+            for cur_arg in range(cur_len):
+                arg_name = name + '_arg_' + str(cur_arg + 1)
+                func_args.append(arg_name)
+            func_args.append(name + '_return')
+            builtins[tuple([name] + func_args)] = ['object']
+        self.all_classes = builtins
+        for key, val in self.class_to_base.items():
+            ukey = 'class_' + key
+            uval = [x if x == 'object' else 'class_' + x for x in val]
+            self.all_classes[ukey] = uval
+        return
+
+
+def get_non_empty_lists(lists):
+    """
+    
+    :param lists: list of lists 
+    :return: list of lists of positive length
+    """
+    return [l for l in lists if l]
+
+
+def merge(*lists):
+    """Merge the lists according to C3 algorithm
+    
+    - Select first head of the lists which doesn't appear in the tail of any other list.
+    - The selected element is removed from all the lists where it appears as a head and addead to the output list.
+    - Repeat the above two steps until all the lists are empty
+    - If no head can be removed and the lists are not yet empty, then no consistent MRO is possible.
+    """
+    res = []
+    while True:
+        lists = get_non_empty_lists(lists)  # Select only lists with positive length
+        if not lists:
+            # All lists are empty, then done.
+            break
+        removed_head = False
+        for l in lists:
+            head = l[0]
+            head_can_be_removed = True
+            # Check if the head doesn't appear in the tail of any list
+            for l2 in lists:
+                if head in l2[1:]:
+                    head_can_be_removed = False
+                    break
+            if head_can_be_removed:
+                # Can remove this head
+                removed_head = True
+                res.append(head)
+                for l2 in lists:
+                    if head in l2:
+                        l2.remove(head)
+                break
+
+        if not removed_head:
+            # Inconsistent MRO. Example:
+            # class A(X, Y): ...
+            # class B(Y, X): ...
+            # class C(A, B): ...
+            # C3 fails to resolve such structure
+            raise TypeError("Cannot create a consistent method resolution order (MRO)")
+    return res
+
+
+def get_linearization(cls, class_to_bases):
+    """Apply C3 linearization algorithm to resolve the MRO."""
+    bases = class_to_bases[cls]
+    bases_linearizations = [get_linearization(x, class_to_bases) for x in bases]
+    return [cls] + merge(*bases_linearizations, copy(bases))  # Copy `bases` so as not to modify the original mapping
 
 
 def propagate_attributes_to_subclasses(class_defs):
     """Start depth-first methods propagation from inheritance roots to subclasses"""
-    inheritance_forest = get_inheritance_forest(class_defs)
-    roots = get_forest_roots(inheritance_forest)
-    name_to_node = class_name_to_node(class_defs)
+    class_to_bases = {}
+    class_to_node = {}
+    for class_def in class_defs:
+        class_to_bases[class_def.name] = [x.id for x in class_def.bases]
+        class_to_node[class_def.name] = class_def
 
-    for root in roots:
-        propagate(root, inheritance_forest, name_to_node)
+    # Save the inherited functions separately. Don't add them to the AST until
+    # all classes are processed.
+    class_to_inherited_funcs = {}
+    for class_def in class_defs:
+        class_linearization = get_linearization(class_def.name, class_to_bases)
+        class_to_inherited_funcs[class_def.name] = []
+        # Traverse the parents in the order given by MRO
+        for parent in class_linearization:
+            # Keep track of all added method names, so as not to add a duplicate method.
+            class_funcs = {func.name for func in
+                           (class_def.body + class_to_inherited_funcs[class_def.name])
+                           if isinstance(func, ast.FunctionDef)}
 
+            parent_node = class_to_node[parent]
+            # Select only functions that are not overridden in the subclasses.
+            inherited_funcs = [func for func in parent_node.body
+                               if isinstance(func, ast.FunctionDef) and func.name not in class_funcs]
+            class_to_inherited_funcs[class_def.name] += inherited_funcs
 
-def propagate(node, inheritance_forest, name_to_node):
-    """Propagate methods to subclasses with depth first manner.
-    
-    :param node: The class node whose methods are to be propagated
-    :param inheritance_forest: A data-structure containing the inheritance hierarchy
-    :param name_to_node: A mapping from class names to their AST nodes 
-    """
-    for subclass in inheritance_forest[node]:
-        base_node = name_to_node[node]
-        sub_node = name_to_node[subclass]
-        sub_funcs_names = [func.name for func in sub_node.body if isinstance(func, ast.FunctionDef)]
-
-        # Select only functions that are not overridden in the subclasses.
-        inherited_funcs = [func for func in base_node.body
-                           if isinstance(func, ast.FunctionDef) and func.name not in sub_funcs_names]
-        sub_node.body += inherited_funcs
-        # Propagate to sub-subclasses..
-        propagate(subclass, inheritance_forest, name_to_node)
-
-
-def class_name_to_node(nodes):
-    """Return a mapping for the class name to its AST node."""
-    name_to_node = {}
-    for node in nodes:
-        name_to_node[node.name] = node
-    return name_to_node
-
-
-def get_forest_roots(forest):
-    """Return list of classes that have no super-class (other than object)"""
-    roots = list(forest.keys())
-    for node in forest:
-        for sub in forest[node]:
-            if sub in roots:
-                roots.remove(sub)
-    return roots
-
-
-def get_inheritance_forest(class_defs):
-    """Return a forest of class nodes
-    
-    Each tree represents an inheritance hierarchy. There is a directed edge between class 'a' and class 'b'
-    if 'b' extends 'a'.
-    """
-    tree = {}
-    for cls in class_defs:
-        tree[cls.name] = []
-    for cls in class_defs:
-        bases = cls.bases
-        for base in bases:
-            tree[base.id].append(cls.name)
-    return tree
+    # Add the inherited functions to the AST.
+    for class_def in class_defs:
+        class_def.body += class_to_inherited_funcs[class_def.name]
 
 
 def add_init_if_not_existing(class_node):

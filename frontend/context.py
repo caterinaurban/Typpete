@@ -1,5 +1,9 @@
 import ast
+
+import sys
+
 from z3 import simplify
+
 
 class Context:
     """Represents types scope in a python program.
@@ -8,8 +12,25 @@ class Context:
         types_map ({str, Type}): a dict mapping variable names to their inferred types.
     """
 
-    def __init__(self, parent_context=None):
+    def __init__(self, context_nodes, solver, name="", parent_context=None):
+        """
+        
+        :param context_nodes: The AST nodes that belong to this scope. Used to pre-store all class types in the scope. 
+        :param solver: The SMT solver for the inference. Used to create new Z3 constants for the class types.
+        :param name: The context name
+        :param parent_context: Reference to the parent scope (context)
+        """
+        self.name = name
         self.types_map = {}
+
+        # Store all the class types that appear in this context. This enables using
+        # classes in no specific order.
+        class_names = [node.name for node in context_nodes if isinstance(node, ast.ClassDef)]
+        for cls in class_names:
+            cls_type = solver.new_z3_const("class_type")
+            self.types_map[cls] = cls_type
+            solver.z3_types.all_types[cls] = cls_type
+
         self.builtin_methods = {}
         self.parent_context = parent_context
         self.children_contexts = []
@@ -116,12 +137,22 @@ class Context:
     def add_annotation_to_assignments(self, model, solver):
         """Add a type comment for every assignment statement in the context"""
         for node, z3_t in self.assignments:
-            inferred_type = model[z3_t]
-            node.type_comment = solver.annotation_resolver.unparse_annotation(inferred_type)
+            if (len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+               and sys.version_info[0] >= 3 and sys.version_info[1] >= 6):
+                # Replace the normal assignment node with annotated assignment
+                # Annotated assignment only supports single assignment (no tuples or lists)
+                # To unparse the assignment statement into the new syntax of the variable annotation,
+                # The class of the nodes needs to be AnnAssign, to be recognized by the unparser
+                node.__class__ = ast.AnnAssign
+                node.target = node.targets[0]
+                node.simple = 1
+                annotation_str = solver.annotation_resolver.unparse_annotation(
+                    model[self.get_type(node.targets[0].id)])
+                node.annotation = ast.parse(annotation_str).body[0].value
 
         # Add the type comment for assignments in children contexts
         for child in self.children_contexts:
-            child.add_annotation_to_assinments(model, solver)
+            child.add_annotation_to_assignments(model, solver)
 
     def get_matching_methods(self, method_name):
         """Return the built-in methods in this context (or a parent context) which match the given method name"""
@@ -133,8 +164,27 @@ class Context:
             return methods
         return methods + self.parent_context.get_matching_methods(method_name)
 
+    def has_context_in_children(self, context_name):
+        """Check if this context or one of the children contexts matches the given name."""
+        if self.name == context_name:
+            return True
+        for child in self.children_contexts:
+            if child.name == context_name:
+                return True
+        return False
+
+    def get_context_from_children(self, context_name):
+        """Get the context matching the given name."""
+        if self.name == context_name:
+            return self
+        for child in self.children_contexts:
+            if child.name == context_name:
+                return child
+        raise NameError("Context {} is not defined".format(context_name))
+
 
 class AnnotatedFunction:
-    def __init__(self, args_annotations, return_annotation):
+    def __init__(self, args_annotations, return_annotation, defaults_count):
         self.args_annotations = args_annotations
         self.return_annotation = return_annotation
+        self.defaults_count = defaults_count

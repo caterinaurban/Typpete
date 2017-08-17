@@ -2,6 +2,11 @@ classes_and_functions = [
     "frontend/stubs/functions.py",
 ]
 
+libraries = {
+    "math": "frontend/stubs/libraries/math.py",
+    "sys": "frontend/stubs/libraries/sys.py",
+}
+
 methods = [
     {
         "type": "list",

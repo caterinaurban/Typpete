@@ -18,8 +18,8 @@ def add(left, right, result, types):
     return [
         Or(
             And(types.subtype(left, types.seq), left == right, left == result),
-            And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+            And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+            And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
 
             # result from list addition is a list with a supertype of operands' types
             And(left == types.list(types.list_type(left)),
@@ -54,8 +54,8 @@ def mult(left, right, result, types):
                 Or(
                     And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
                     And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
-                    And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-                    And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+                    And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+                    And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
                     )
                 )
         )
@@ -73,7 +73,7 @@ def div(left, right, result, types):
         - 3 / (1 + 2j)
     """
     return [
-        And(types.subtype(left, types.num), types.subtype(right, types.num)),
+        And(types.subtype(left, types.complex), types.subtype(right, types.complex)),
         Implies(Or(left == types.complex, right == types.complex), result == types.complex),
         Implies(Not(Or(left == types.complex, right == types.complex)), result == types.float)
     ]
@@ -92,8 +92,8 @@ def arithmetic(left, right, result, is_mod, types):
         - "Case #%i: %i" % (u, v)
     """
     axioms = [
-        And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-        And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+        And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+        And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
     ]
 
     if is_mod:
@@ -152,7 +152,7 @@ def unary_other(unary, result, types):
         - +2.0
     """
     return [
-        types.subtype(unary, types.num),
+        types.subtype(unary, types.complex),
         Implies(unary == types.bool, result == types.int),
         Implies(unary != types.bool, result == unary)
     ]
@@ -197,7 +197,8 @@ def index(indexed, ind, result, types):
             [indexed == types.dict(ind, result),
              And(types.subtype(ind, types.int), indexed == types.list(result)),
              And(types.subtype(ind, types.int), indexed == types.string, result == types.string),
-             And(types.subtype(ind, types.int), indexed == types.bytes, result == types.bytes)]
+             And(types.subtype(ind, types.int), indexed == types.bytes, result == types.bytes),
+             ]
             + t
         )
     ]
@@ -249,45 +250,6 @@ def assignment(target, value, types):
     return [
         types.subtype(value, target)
     ]
-
-
-def multiple_assignment(target, value, position, types):
-    """Constraints for multiple assignments
-    
-    :param target: The type of the assignment target (LHS)
-    :param value: The type of the assignment value (RHS)
-    :param position: The position of the target/value in the multiple assignment
-    :param types: The types object containing z3 types
-    
-    Cases:
-        - List: a, b = [1, 2]
-        - types.set: a, b = 1, "string"
-        
-    Ex:
-        - a, b = [1, 2]
-        
-        The above example calls this function twice:
-            * first time: target := type(a), value := type(1), position := 0
-            * second time: target := type(b), value := type(2), position := 1
-    """
-
-    # List multiple assignment
-    lst = [value == types.list(target)]
-
-    # tuple multiple assignment:
-    # Assert with tuples of different lengths, maintaining the correct position of the target in the tuple.
-    t = []
-    for cur_len in range(position + 1, len(types.tuples)):
-        before_target = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(value)
-                         for i in range(position)]  # The tuple elements before the target
-        after_target = [getattr(types.type_sort, "tuple_{}_arg_{}".format(cur_len, i + 1))(value)
-                        for i in range(position + 1, cur_len)]  # The tuple elements after the target
-
-        params = before_target + [target] + after_target  # The parameters to instantiate the tuple
-
-        t.append(value == types.tuples[cur_len](*params))
-
-    return [Or(lst + t)]
 
 
 def subscript_assignment(target, types):
@@ -364,6 +326,44 @@ def try_except(then, orelse, final, result, types):
     ]
 
 
+def one_type_instantiation(class_name, args, result, types):
+    """Constraints for class instantiation, if the class name is known
+    
+    :param class_name: The class to be instantiated
+    :param args: the types of the arguments passed to the class instantiation
+    :param result: The resulting instance from instantiation
+    :param types: Z3Types object for this inference program
+    """
+    init_args_count = types.class_to_funcs[class_name]["__init__"][0]
+
+    # Get the instance accessor from the type_sort data type.
+    instance = getattr(types.type_sort, "instance")(types.all_types[class_name])
+
+    # Get the __init__ function of the this class
+    init_func = types.instance_attributes[class_name]["__init__"]
+
+    # Assert that it's a call to this __init__ function
+
+    # Get the default args count
+    defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(init_args_count))
+    default_count = defaults_accessor(init_func)
+
+    rem_args_count = init_args_count - len(args) - 1
+    rem_args = []
+    for i in range(rem_args_count):
+        arg_idx = len(args) + i + 2
+        # Get the default arg type
+        arg_accessor = getattr(types.type_sort, "func_{}_arg_{}".format(init_args_count, arg_idx))
+        rem_args.append(arg_accessor(init_func))
+
+    all_args = (instance,) + args + tuple(rem_args) + (types.none,)  # The return type of __init__ is None
+    z3_func_args = (default_count,) + all_args
+    # Assert that it's a call to this __init__ function
+    return And(
+        result == instance,
+        init_func == types.funcs[len(args) + len(rem_args) + 1](z3_func_args), default_count >= rem_args_count)
+
+
 def instance_axioms(called, args, result, types):
     """Constraints for class instantiation
     
@@ -380,28 +380,8 @@ def instance_axioms(called, args, result, types):
     # Assert with __init__ function of all classes in the program
     axioms = []
     for t in types.all_types:
-        # Get the instance accessor from the type_sort data type.
-        instance = getattr(types.type_sort, "instance")(types.all_types[t])
-
-        # Get the __init__ function of the current class
-        init_func = types.instance_attributes[t]["__init__"]
-
-        # Assert that it's a call to this __init__ function
-
-        # Get the default args count
-        defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(len(args) + 1))
-        default_count = defaults_accessor(init_func)
-
-        all_args = (instance,) + tuple(args) + (types.none,)  # The return type of __init__ is None
-        z3_func_args = (default_count,) + all_args
-
-        # TODO default args in __init__ function
-        axioms.append(
-            And(called == types.all_types[t],
-                result == instance,
-                init_func == types.funcs[len(args) + 1](z3_func_args),
-                ))
-
+        axioms.append(And(one_type_instantiation(t, args, result, types),
+                          called == types.all_types[t]))
     return axioms
 
 
@@ -414,6 +394,8 @@ def function_call_axioms(called, args, result, types):
     axioms = []
     for i in range(len(args), len(types.funcs)):  # Only assert with functions with length >= call arguments length
         rem_args = i - len(args)  # The remaining arguments are expected to have default value in the func definition.
+        if rem_args > types.config.max_default_args:
+            break
         rem_args_types = ()
         for j in range(rem_args):
             arg_idx = len(args) + j + 1
@@ -422,11 +404,12 @@ def function_call_axioms(called, args, result, types):
 
         # Get the default args count accessor
         defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(i))
-
+        defaults_count = defaults_accessor(called)
         # Add the axioms for function call, default args count, and arguments subtyping.
         axioms.append(And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
-                          defaults_accessor(called) >= rem_args))
 
+                          defaults_count >= rem_args,
+                          defaults_count <= types.config.max_default_args))
     return axioms
 
 
@@ -439,9 +422,26 @@ def call(called, args, result, types):
     """
     return [
         Or(
-           function_call_axioms(called, args, result, types) + instance_axioms(called, args, result, types)
+            function_call_axioms(called, args, result, types) + instance_axioms(called, args, result, types)
         )
     ]
+
+
+def staticmethod_call(class_type, args, result, attr, types):
+    """Constraints for staticmethod calls
+    
+    Assert with all classes which has the method `attr` which has decorator `staticmethod`
+    """
+    axioms = []
+    for t in types.all_types:
+        # Check that attr is a method and "staticmethod" is one of its decorators
+        if attr in types.class_to_funcs[t]:
+            decorators = types.class_to_funcs[t][attr][1]
+            if "staticmethod" in decorators:
+                attr_type = types.instance_attributes[t][attr]
+                axioms.append(And(class_type == types.all_types[t],
+                                  Or(function_call_axioms(attr_type, args, result, types))))
+    return axioms
 
 
 def attribute(instance, attr, result, types):
@@ -461,5 +461,4 @@ def attribute(instance, attr, result, types):
             class_type = types.all_types[t]
             attr_type = types.class_attributes[t][attr]
             axioms.append(And(instance == class_type, result == attr_type))
-
     return Or(axioms)

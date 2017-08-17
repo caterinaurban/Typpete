@@ -210,7 +210,7 @@ class LooseControlFlowGraph:
 
 
 def _dummy(id_gen):
-    return Basic(id_gen.next, list())
+    return Basic(id_gen.next)
 
 
 def _dummy_cfg(id_gen):
@@ -290,7 +290,7 @@ class CfgFactory:
         return len(self._stmts) > 0
 
 
-# noinspection PyMethodMayBeStatic,PyPep8Naming
+# noinspection PyPep8Naming
 class CfgVisitor(ast.NodeVisitor):
     """
     This AST visitor generates a CFG recursively.
@@ -375,7 +375,7 @@ class CfgVisitor(ast.NodeVisitor):
         return cfg
 
     def visit_While(self, node):
-        header_node = _dummy(self._id_gen)
+        header_node = Loop(self._id_gen.next)
 
         cfg = self._translate_body(node.body)
         body_in_node = cfg.in_node
@@ -461,6 +461,7 @@ class CfgVisitor(ast.NodeVisitor):
                           bool)
         return result
 
+    # noinspection PyMethodMayBeStatic
     def visit_NameConstant(self, node):
         return Literal(bool, str(node.value))
 
