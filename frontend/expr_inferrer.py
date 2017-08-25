@@ -406,6 +406,11 @@ def infer_func_call(node, context, solver):
 
     # Check if it's direct class instantiation
     if isinstance(node.func, ast.Name):
+        if node.func.id == 'cast':
+            if len(node.args) != 2:
+                raise TypeError("Casts need two arguments (target type and expression).")
+            infer(node.args[1], context, solver)
+            return solver.annotation_resolver.resolve(node.args[0], solver)
         called = context.get_type(node.func.id)
         # check if the type has the manually added flag for class-types
         if hasattr(called, "is_class"):
