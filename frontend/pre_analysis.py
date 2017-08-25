@@ -153,6 +153,11 @@ class PreAnalyzer:
                     class_attributes.add(cls_stmt.name)
                     if not cls_stmt.args.args:
                         continue
+
+                    if not config["allow_attributes_outside_init"] and cls_stmt.name != "__init__":
+                        # Check if to allow attributes being defined outside __init__ or not
+                        continue
+
                     first_arg = cls_stmt.args.args[0].arg  # In most cases it will be 'self'
 
                     # Get attribute assignments where attribute value is the same as the first argument
