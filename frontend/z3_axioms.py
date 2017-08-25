@@ -419,12 +419,32 @@ def call(called, args, result, types):
     Cases:
         - Function call
         - Class instantiation
+        - Callable classes
     """
     return [
         Or(
-            function_call_axioms(called, args, result, types) + instance_axioms(called, args, result, types)
+            (function_call_axioms(called, args, result, types)
+             + instance_axioms(called, args, result, types)
+             + class_call_axioms(called, args, result, types))
         )
     ]
+
+
+def class_call_axioms(called, args, result, types):
+    """Constraints for callable classes
+    
+    Assert with all classes which have the method `__call__`.
+    """
+    axioms = []
+    for t in types.all_types:
+        # Check that `__call__` is a method in the current class.
+        if "__call__" in types.class_to_funcs[t]:
+            call_type = types.instance_attributes[t]["__call__"]
+            instance = getattr(types.type_sort, "instance")(types.all_types[t])
+            args_types = (instance,) + args
+            axioms.append(And(called == instance,
+                              Or(function_call_axioms(call_type, args_types, result, types))))
+    return axioms
 
 
 def staticmethod_call(class_type, args, result, attr, types):
