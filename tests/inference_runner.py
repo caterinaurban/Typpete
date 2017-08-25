@@ -2,7 +2,7 @@ from frontend.stmt_inferrer import *
 import ast
 import time
 
-r = open("tests/example.py")
+r = open("/home/marco/infer_scion_types/scion/lib/path_store.py")
 t = ast.parse(r.read())
 r.close()
 

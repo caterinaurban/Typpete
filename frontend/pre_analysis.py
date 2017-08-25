@@ -308,7 +308,7 @@ def propagate_attributes_to_subclasses(class_defs):
     class_to_bases = {}
     class_to_node = {}
     for class_def in class_defs:
-        class_to_bases[class_def.name] = [x.id for x in class_def.bases]
+        class_to_bases[class_def.name] = [x.id for x in class_def.bases if x.id != 'object']
         class_to_node[class_def.name] = class_def
 
     # Save the inherited functions separately. Don't add them to the AST until

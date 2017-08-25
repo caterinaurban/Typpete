@@ -8,7 +8,7 @@ class ImportHandler:
     cached_asts = {}
 
     @staticmethod
-    def get_ast(path, module_name):
+    def get_ast(base_folders, module_name):
         """Get the AST of a python module
         
         :param path: the path to the python module
@@ -16,9 +16,19 @@ class ImportHandler:
         """
         if module_name in ImportHandler.cached_asts:
             return ImportHandler.cached_asts[module_name]
-        try:
-            r = open(path)
-        except FileNotFoundError:
+        for base in base_folders:
+            path_direct = base + '/' + module_name.replace('.', '/') + '.pyi'
+            path_init = base + '/' + module_name.replace('.', '/') + '/__init__.pyi'
+            try:
+                r = open(path_direct)
+                break
+            except Exception:
+                try:
+                    r = open(path_init)
+                    break
+                except Exception:
+                    continue
+        else:
             raise ImportError("No module named {}.".format(module_name))
 
         tree = ast.parse(r.read())
@@ -33,7 +43,7 @@ class ImportHandler:
         :param module_name: the name of the python module
         :param base_folder: the base folder containing the python module
         """
-        return ImportHandler.get_ast("{}/{}.py".format(base_folder, module_name), module_name)
+        return ImportHandler.get_ast(base_folder, module_name)
 
     @staticmethod
     def get_builtin_ast(module_name):

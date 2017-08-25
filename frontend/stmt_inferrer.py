@@ -345,7 +345,7 @@ def is_annotated(node):
     if not node.returns:
         return False
     for arg in node.args.args:
-        if not arg.annotation:
+        if not (arg.annotation or arg.arg == 'self'):
             return False
     return True
 
@@ -400,6 +400,8 @@ def has_type_var(node, solver):
 
 
 def _infer_func_def(node, context, solver):
+    if node.name == "deepcopy":
+        print("11")
     """Infer the type for a function definition"""
     if is_stub(node) or has_type_var(node, solver):
         return_annotation = node.returns
@@ -465,6 +467,8 @@ def _infer_class_def(node, context, solver):
     bases_attrs = {}
 
     for base in node.bases:
+        if base.id == 'object':
+            continue
         base_classes_to_funcs[base.id] = solver.z3_types.class_to_funcs[base.id]
         bases_attrs[base.id] = solver.z3_types.instance_attributes[base.id]
 
@@ -571,6 +575,8 @@ def _infer_import(node, context, solver):
     print(B.A.x)
     """
     for name in node.names:
+        if name.name == 'copy':
+            print("11")
         import_context = ImportHandler.infer_import(name.name, solver.config.base_folder, infer, solver)
 
         if name.asname:

@@ -41,7 +41,7 @@ class TypesSolver(Solver):
         self.assertions_vars = []
         self.assertions_errors = {}
         self.stubs_handler = StubsHandler()
-        analyzer = PreAnalyzer(tree, "tests", self.stubs_handler)     # TODO: avoid hard-coding
+        analyzer = PreAnalyzer(tree, ["/home/marco/infer_scion_types/scion/scion-stubs", "/home/marco/infer_scion_types/scion/stubs"], self.stubs_handler)     # TODO: avoid hard-coding
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config)
         self.annotation_resolver = AnnotationResolver(self.z3_types)
@@ -107,6 +107,7 @@ class Z3Types:
         # sequences
         self.seq = type_sort.sequence
         self.string = type_sort.str
+        self.str = type_sort.str
         self.bytes = type_sort.bytes
         self.tuple = type_sort.tuple
         self.tuples = list()
