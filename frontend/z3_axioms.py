@@ -1,6 +1,35 @@
 from frontend.z3_types import And, Or, Implies, Not
 
 
+def overloading_axioms(left, right, result, method_name, types):
+    """
+    Constraints for operator overloading
+    
+    :param left: The left operand of the operation 
+    :param right: The right operand of the operation
+    :param result: The result of the operation
+    :param method_name: The name of the magic method responsible for overloading the operation. e.g., __add__
+    :param types: the Z3Types object
+    :return: axioms of the operator overloading
+    """
+    axioms = []
+    for t in types.all_types:
+        # Check that `method_name` is a method in the current class.
+        if method_name in types.class_to_funcs[t]:
+            method_type = types.instance_attributes[t][method_name]
+
+            # the left operand is the instance
+            instance = getattr(types.type_sort, "instance")(types.all_types[t])
+
+            # the right operand is a subtype of the `other` arg in the magic method
+            other_type = getattr(types.type_sort, "func_2_arg_2")(method_type)
+
+            # the result is the return type of the magic method
+            return_type = getattr(types.type_sort, "func_2_return")(method_type)
+            axioms.append(And(left == instance, types.subtype(right, other_type), result == return_type))
+    return axioms
+
+
 def add(left, right, result, types):
     """Constraints for the addition operation
     
@@ -17,19 +46,22 @@ def add(left, right, result, types):
     """
     return [
         And(left != types.none, right != types.none),
-        Or(
-            And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
-            And(types.subtype(left, types.seq), left == right, left == result),
-            # result from list addition is a list with a supertype of operands' types
-            And(left == types.list(types.list_type(left)),
-                right == types.list(types.list_type(right)),
-                result == types.list(types.list_type(result)),
-                types.subtype(types.list_type(left), types.list_type(result)),
-                types.subtype(types.list_type(right), types.list_type(result)),
-                ),
-            And(left == types.string, right == types.string, result == types.string)
-        ),
+        Or([
+               And(types.subtype(left, types.num), types.subtype(right, left), result == left),
+               And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+               And(types.subtype(left, types.seq), left == right, left == result),
+
+               # result from list addition is a list with a supertype of operands' types
+               And(left == types.list(types.list_type(left)),
+                   right == types.list(types.list_type(right)),
+                   result == types.list(types.list_type(result)),
+                   types.subtype(types.list_type(left), types.list_type(result)),
+                   types.subtype(types.list_type(right), types.list_type(result)),
+                   ),
+               And(left == types.string, right == types.string, result == types.string)
+           ]
+           + overloading_axioms(left, right, result, "__add__", types)
+           ),
     ]
 
 
@@ -57,7 +89,7 @@ def mult(left, right, result, types):
                     And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
                     And(types.subtype(left, types.num), types.subtype(right, left), result == left),
                     And(types.subtype(right, types.num), types.subtype(left, right), result == right),
-                    )
+                )
                 )
         )
     ]
@@ -413,10 +445,11 @@ def function_call_axioms(called, args, result, types):
         defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(i))
         defaults_count = defaults_accessor(called)
         # Add the axioms for function call, default args count, and arguments subtyping.
-        axioms.append(And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
+        axioms.append(
+            And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
 
-                          defaults_count >= rem_args,
-                          defaults_count <= types.config.max_default_args))
+                defaults_count >= rem_args,
+                defaults_count <= types.config.max_default_args))
     return axioms
 
 
