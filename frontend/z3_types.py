@@ -41,7 +41,7 @@ class TypesSolver(Solver):
         self.assertions_vars = []
         self.assertions_errors = {}
         self.stubs_handler = StubsHandler()
-        analyzer = PreAnalyzer(tree, "tests", self.stubs_handler)     # TODO: avoid hard-coding
+        analyzer = PreAnalyzer(tree, "tests/imp", self.stubs_handler)     # TODO: avoid hard-coding
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config)
         self.annotation_resolver = AnnotationResolver(self.z3_types)
