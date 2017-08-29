@@ -557,6 +557,29 @@ def infer_attribute(node, context, from_call, solver):
     return result_type
 
 
+def _init_func_context(node, args, context, solver):
+    """Initialize the local function scope, and the arguments types"""
+    local_context = Context([node.body], solver, parent_context=context)
+
+    # TODO starred args
+
+    args_types = ()
+    for arg in args:
+        arg_type = solver.new_z3_const("func_arg")
+        local_context.set_type(arg.arg, arg_type)
+        args_types = args_types + (arg_type,)
+
+    return local_context, args_types
+
+
+def _infer_lambda(node, context, solver):
+    local_context, args = _init_func_context(node, node.args.args, context, solver)
+    return_type = infer(node.body, local_context, solver)
+
+    return solver.z3_types.funcs[len(args)](*((0, ) + args + (return_type,)))
+
+
+
 def infer(node, context, solver, from_call=False):
     """Infer the type of a given AST node"""
     if isinstance(node, ast.Num):
@@ -608,4 +631,6 @@ def infer(node, context, solver, from_call=False):
         return infer_func_call(node, context, solver)
     elif isinstance(node, ast.Attribute):
         return infer_attribute(node, context, from_call, solver)
+    elif isinstance(node, ast.Lambda):
+        return _infer_lambda(node, context, solver)
     raise NotImplementedError("Inference for expression {} is not implemented yet.".format(type(node).__name__))
