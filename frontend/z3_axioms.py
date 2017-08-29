@@ -16,11 +16,11 @@ def add(left, right, result, types):
     TODO: Tuples addition
     """
     return [
+        And(left != types.none, right != types.none),
         Or(
-            And(types.subtype(left, types.seq), left == right, left == result),
             And(types.subtype(left, types.num), types.subtype(right, left), result == left),
             And(types.subtype(right, types.num), types.subtype(left, right), result == right),
-
+            And(types.subtype(left, types.seq), left == right, left == result),
             # result from list addition is a list with a supertype of operands' types
             And(left == types.list(types.list_type(left)),
                 right == types.list(types.list_type(right)),
@@ -47,6 +47,7 @@ def mult(left, right, result, types):
         - b"string" * 4
     """
     return [
+        And(left != types.none, right != types.none),
         Or(
             # multiplication of two booleans is an integer. Handle it separately
             And(left == types.bool, right == types.bool, result == types.int),
@@ -73,6 +74,7 @@ def div(left, right, result, types):
         - 3 / (1 + 2j)
     """
     return [
+        And(left != types.none, right != types.none),
         And(types.subtype(left, types.num), types.subtype(right, types.num)),
         Implies(Or(left == types.complex, right == types.complex), result == types.complex),
         Implies(Not(Or(left == types.complex, right == types.complex)), result == types.float)
@@ -99,7 +101,10 @@ def arithmetic(left, right, result, is_mod, types):
     if is_mod:
         axioms += [And(Or(left == types.string, left == types.bytes), result == left)]
 
-    return [Or(axioms)]
+    return [
+        And(left != types.none, right != types.none),
+        Or(axioms)
+    ]
 
 
 def bitwise(left, right, result, types):
@@ -137,7 +142,8 @@ def unary_invert(unary, types):
     - ~231
     """
     return [
-        types.subtype(unary, types.int)
+        types.subtype(unary, types.int),
+        unary != types.none
     ]
 
 
@@ -152,6 +158,7 @@ def unary_other(unary, result, types):
         - +2.0
     """
     return [
+        unary != types.none,
         types.subtype(unary, types.num),
         Implies(unary == types.bool, result == types.int),
         Implies(unary != types.bool, result == unary)

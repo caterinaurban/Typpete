@@ -179,16 +179,17 @@ class Z3Types:
             x = Const("x", self.type_sort)
 
             # One which is triggered by subtype(C, X)
-            options = []
-            for base in c.all_parents():
-                options.append(x == base.get_literal())
-            subtype_expr = self.subtype(c_literal, x)
-            axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
-                           patterns=[subtype_expr])
-            axioms.append(axiom)
+            if c.name != 'none':
+                options = []
+                for base in c.all_parents():
+                    options.append(x == base.get_literal())
+                subtype_expr = self.subtype(c_literal, x)
+                axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
+                               patterns=[subtype_expr])
+                axioms.append(axiom)
 
             # And one which is triggered by subtype(X, C)
-            options = []
+            options = [x == type_sort.none]
             for sub in c.all_children():
                 if sub is c:
                     options.append(x == c_literal)

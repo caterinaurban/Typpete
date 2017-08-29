@@ -431,7 +431,8 @@ def _infer_func_def(node, context, solver):
 
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
-        if inference_config["ignore_fully_annotated_function"] and is_annotated(node):
+        if inference_config["ignore_fully_annotated_function"] and is_annotated(node)\
+                or isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Ellipsis):
             body_type = return_type
         else:
             body_type = _infer_body(node.body, func_context, node.lineno, solver)

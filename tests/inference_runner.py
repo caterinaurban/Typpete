@@ -2,7 +2,7 @@ from frontend.stmt_inferrer import *
 import ast
 import time
 
-r = open("tests/example.py")
+r = open("tests/test.py")
 t = ast.parse(r.read())
 r.close()
 
@@ -32,7 +32,11 @@ def print_context(ctx, ind=""):
         z3_t = ctx.types_map[v]
         if isinstance(z3_t, (Context, AnnotatedFunction)):
             continue
-        print(ind + "{}: {}".format(v, model[z3_t]))
+        try:
+            t = model[z3_t]
+            print(ind + "{}: {}".format(v, t if t is not None else z3_t))
+        except z3_types.Z3Exception:
+            print(ind + "{}: {}".format(v, z3_t))
         if ctx.has_context_in_children(v):
             print_context(ctx.get_context_from_children(v), "\t" + ind)
         if not ind:
