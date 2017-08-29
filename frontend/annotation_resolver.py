@@ -53,30 +53,36 @@ class AnnotationResolver:
         """
         if isinstance(annotation, ast.NameConstant) and annotation.value is None:
             return solver.z3_types.none
-        if isinstance(annotation, ast.Name):
-            if annotation.id in self.primitives:
-                return self.primitives[annotation.id]
-            if annotation.id in self.z3_types.all_types:
-                return getattr(self.z3_types.type_sort, "class_{}".format(annotation.id))
+        if isinstance(annotation, (ast.Name, ast.Str)):
+            if isinstance(annotation, ast.Str):
+                id = annotation.s
+            else:
+                id = annotation.id
+            if '.' in id:
+                id = id[id.rfind(".") + 1:]
+            if id in self.primitives:
+                return self.primitives[id]
+            if id in self.z3_types.all_types:
+                return getattr(self.z3_types.type_sort, "class_{}".format(id))
             
             # Check if it's a generic type var
             if generics_map is None:
-                raise ValueError("Invalid type annotation {} in line {}".format(annotation.id, annotation.lineno))
-            if annotation.id in generics_map:
-                return generics_map[annotation.id]
-            if annotation.id not in self.type_var_poss:
-                raise ValueError("Invalid type annotation {} in line {}".format(annotation.id, annotation.lineno))
+                raise ValueError("Invalid type annotation {} in line {}".format(id, annotation.lineno))
+            if id in generics_map:
+                return generics_map[id]
+            if id not in self.type_var_poss:
+                raise ValueError("Invalid type annotation {} in line {}".format(id, annotation.lineno))
 
             result_type = solver.new_z3_const("generic")
-            generics_map[annotation.id] = result_type
+            generics_map[id] = result_type
 
-            possible_types = [self.resolve(x, solver, generics_map) for x in self.type_var_poss[annotation.id]]
+            possible_types = [self.resolve(x, solver, generics_map) for x in self.type_var_poss[id]]
             if possible_types:
                 solver.add(Or([result_type == x for x in possible_types]),
                            fail_message="Generic type in line {}".format(annotation.lineno))
 
-            if annotation.id in self.type_var_super:
-                type_var_super = self.resolve(self.type_var_super[annotation.id], solver, generics_map)
+            if id in self.type_var_super:
+                type_var_super = self.resolve(self.type_var_super[id], solver, generics_map)
                 solver.add(solver.z3_types.subtype(result_type, type_var_super),
                            fail_message="Generic bound in line {}".format(annotation.lineno))
 
@@ -105,6 +111,9 @@ class AnnotationResolver:
             if annotation_val == "Set":
                 # Parse Set type
                 return self.z3_types.set(self.resolve(annotation.slice.value, solver, generics_map))
+
+            if annotation_val == 'Optional':
+                return self.resolve(annotation.slice.value, solver, generics_map)
             
             if annotation_val == "Type":
                 # Parse Type type

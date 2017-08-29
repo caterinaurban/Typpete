@@ -462,6 +462,7 @@ def _infer_class_def(node, context, solver):
         infer(stmt, class_context, solver)
 
     class_attrs = solver.z3_types.instance_attributes[node.name]
+    inherited_funcs_to_super = solver.config.inherited_funcs_to_super[node.name]
     instance_type = solver.z3_types.classes[node.name]
     class_to_funcs = solver.z3_types.class_to_funcs[node.name]
     base_classes_to_funcs = {}
@@ -472,11 +473,21 @@ def _infer_class_def(node, context, solver):
         bases_attrs[base.id] = solver.z3_types.instance_attributes[base.id]
 
     for attr in class_attrs:
-        if attr in class_to_funcs and "staticmethod" not in class_to_funcs[attr][1]:
+        if (attr in class_to_funcs and attr not in inherited_funcs_to_super
+           and "staticmethod" not in class_to_funcs[attr][1]):
+            # First arg (the method receiver) is the same as instance only if it is not an inherited method
+            # and not a static method
+
+            if not class_to_funcs[attr][0]:
+                raise TypeError("Instance method {} in class {} should have at least one argument (the receiver)."
+                                "If you wish to create a static method, please add the appropriate decorator."
+                                .format(attr, node.name))
+
             args_len = class_to_funcs[attr][0]
             arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_len))
             solver.add(arg_accessor(class_attrs[attr]) == instance_type,
-                       fail_message="First arg in instance methods has class instance type")
+                       fail_message="First arg in instance method {} in class {} has class instance type"
+                       .format(attr, node.name))
         for base in bases_attrs:
             if attr not in class_to_funcs and attr in bases_attrs[base]:
                 # Not a method and exists in superclass
@@ -489,15 +500,6 @@ def _infer_class_def(node, context, solver):
             continue
         solver.add(class_attrs[attr] == class_context.types_map[attr],
                    fail_message="Class attribute in {}".format(node.lineno))
-
-        if attr in class_to_funcs and "staticmethod" not in class_to_funcs[attr][1]:
-            # If the attribute is a non static method, set the type of the first arg to be an instance of this class
-
-            if not class_to_funcs[attr][0]:
-                raise TypeError("Instance method {} in class {} should have at least one argument (the receiver)."
-                                "If you wish to create a static method, please add the appropriate decorator."
-                                .format(attr, node.name))
-
 
         # Handle covariance/contravariance of overridden methods in all base classes
         for base in base_classes_to_funcs:
@@ -515,31 +517,45 @@ def _infer_class_def(node, context, solver):
 
                 if "staticmethod" in decorators:
                     if "staticmethod" not in base_classes_to_funcs[base][attr][1]:
-                        raise TypeError("Static method {} in class {} cannot override"
+                        raise TypeError("Static method {} in class {} cannot override "
                                         "non-static method.".format(attr, node.name))
                     if "staticmethod" not in class_to_funcs[attr][1]:
-                        raise TypeError("Non-static method {} in class {} cannot"
+                        raise TypeError("Non-static method {} in class {} cannot "
                                         "override static method.".format(attr, node.name))
                 else:
                     if base_args_len > sub_args_len:
-                        raise TypeError("Method {} in subclass {} should have total arguments length"
+                        raise TypeError("Method {} in subclass {} should have total arguments length "
                                         "more than or equal that in superclass.".format(attr, node.name))
                     if base_non_defaults_len > sub_non_defaults_len:
-                        raise TypeError("Method {} in subclass {} should have non-default arguments length less than"
+                        raise TypeError("Method {} in subclass {} should have non-default arguments length less than "
                                         "or equal that in superclass".format(attr, node.name))
 
                     # handle arguments and return contravariance/covariance
                     for i in range(1, base_args_len):
-                        arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}".format(base_args_len, i + 1))
-                        solver.add(solver.z3_types.subtype(arg_accessor(bases_attrs[base][attr]),
-                                                           arg_accessor(class_attrs[attr])),
-                                   fail_message="Arguments contravariance in line {}".format(node.lineno))
-                    return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(base_args_len))
-                    solver.add(solver.z3_types.subtype(return_accessor(class_attrs[attr]),
-                                                       return_accessor(bases_attrs[base][attr])),
-                               fail_message="Return covariance in line {}".format(node.lineno))
-                    solver.optimize.add_soft(return_accessor(class_attrs[attr])
-                                             == return_accessor(bases_attrs[base][attr]))
+                        base_arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}"
+                                                    .format(base_args_len, i + 1))
+                        sub_arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}"
+                                                   .format(sub_args_len, i + 1))
+                        if attr not in inherited_funcs_to_super or inherited_funcs_to_super[attr] != base:
+                            # Only add contravariant axioms if this method is not inherited from the current base class.
+                            solver.add(solver.z3_types.subtype(base_arg_accessor(bases_attrs[base][attr]),
+                                                               sub_arg_accessor(class_attrs[attr])),
+                                       fail_message="Arguments contravariance in line {}".format(node.lineno))
+                    base_return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(base_args_len))
+                    sub_return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(sub_args_len))
+
+                    if attr in inherited_funcs_to_super and inherited_funcs_to_super[attr] == base:
+                        # Add equality axioms if this method is inherited from the current base class.
+                        solver.add(class_attrs[attr] == bases_attrs[base][attr],
+                                   fail_message="Inherited function {} in class {} "
+                                                "has same type as that in class {}".format(attr, node.name, base))
+                    else:
+                        # Add covariant axiom otherwise
+                        solver.add(solver.z3_types.subtype(sub_return_accessor(class_attrs[attr]),
+                                                           base_return_accessor(bases_attrs[base][attr])),
+                                   fail_message="Return covariance in line {}".format(node.lineno))
+                    solver.optimize.add_soft(sub_return_accessor(class_attrs[attr])
+                                             == base_return_accessor(bases_attrs[base][attr]))
 
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
