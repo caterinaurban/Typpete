@@ -1,5 +1,9 @@
 import ast
 
+import sys
+
+from z3 import simplify
+
 
 class Context:
     """Represents types scope in a python program.
@@ -30,6 +34,8 @@ class Context:
         self.builtin_methods = {}
         self.parent_context = parent_context
         self.children_contexts = []
+        self.func_to_ast = {}
+        self.assignments = []
 
         if parent_context:
             parent_context.children_contexts.append(self)
@@ -82,6 +88,71 @@ class Context:
             except NameError:
                 continue
         raise NameError("Name {} is not defined".format(var_name))
+
+    def generate_typed_ast(self, model, solver):
+        """Add type annotations for all functions and assignments statements"""
+        self.add_annotations_to_funcs(model, solver)
+        self.add_annotation_to_assignments(model, solver)
+
+    def add_func_ast(self, func_name, ast_node):
+        """Map a function with name `func_name` fo its corresponding AST node"""
+        self.func_to_ast[func_name] = ast_node
+
+    def add_annotations_to_funcs(self, model, solver):
+        """Add the function types given by the SMT model as annotations to the AST nodes"""
+        type_sort = solver.z3_types.type_sort
+        for func, node in self.func_to_ast.items():
+            z3_t = self.types_map[func]
+            inferred_type = model[z3_t]
+            func_len = len(node.args.args)
+
+            # Add the type annotations for the function arguments
+            for i, arg in enumerate(node.args.args):
+                arg_accessor = getattr(type_sort, "func_{}_arg_{}".format(func_len, i + 1))
+                arg_type = simplify(arg_accessor(inferred_type))
+
+                # Get the annotation with PEP 484 syntax
+                arg_annotation_str = solver.annotation_resolver.unparse_annotation(arg_type)
+
+                # Add the type annotation as an AST node
+                arg.annotation = ast.parse(arg_annotation_str).body[0].value
+
+            # Similarly, add the return type annotation
+            return_accessor = getattr(type_sort, "func_{}_return".format(func_len))
+            return_type = simplify(return_accessor(inferred_type))
+            return_annotation_str = solver.annotation_resolver.unparse_annotation(return_type)
+            node.returns = ast.parse(return_annotation_str).body[0].value
+
+        # Add the type annotations for functions in children contexts
+        for child in self.children_contexts:
+            child.add_annotations_to_funcs(model, solver)
+
+    def add_assignment(self, z3_value_type, ast_node):
+        """Add assignment statement node along with its z3 type to the context
+
+        At the end of the inference, add the type comment to every assignment node.
+        """
+        self.assignments.append((ast_node, z3_value_type))
+
+    def add_annotation_to_assignments(self, model, solver):
+        """Add a type comment for every assignment statement in the context"""
+        for node, z3_t in self.assignments:
+            if (len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+               and sys.version_info[0] >= 3 and sys.version_info[1] >= 6):
+                # Replace the normal assignment node with annotated assignment
+                # Annotated assignment only supports single assignment (no tuples or lists)
+                # To unparse the assignment statement into the new syntax of the variable annotation,
+                # The class of the nodes needs to be AnnAssign, to be recognized by the unparser
+                node.__class__ = ast.AnnAssign
+                node.target = node.targets[0]
+                node.simple = 1
+                annotation_str = solver.annotation_resolver.unparse_annotation(
+                    model[self.get_type(node.targets[0].id)])
+                node.annotation = ast.parse(annotation_str).body[0].value
+
+        # Add the type comment for assignments in children contexts
+        for child in self.children_contexts:
+            child.add_annotation_to_assignments(model, solver)
 
     def get_matching_methods(self, method_name):
         """Return the built-in methods in this context (or a parent context) which match the given method name"""

@@ -104,7 +104,7 @@ class PreAnalyzer:
             
         """
         # TODO propagate attributes to subclasses.
-        class_defs = [node for node in self.all_nodes if isinstance(node, ast.ClassDef)]
+        class_defs = [node for node in self.all_nodes + self.stub_nodes if isinstance(node, ast.ClassDef)]
         inherited_funcs_to_super = propagate_attributes_to_subclasses(class_defs)
 
         class_to_instance_attributes = OrderedDict()
@@ -360,7 +360,14 @@ def add_init_if_not_existing(class_node):
             return
     class_node.body.append(ast.FunctionDef(
         name="__init__",
-        args=ast.arguments(args=[ast.arg(arg="self", annotation=None)], defaults=[]),
+        args=ast.arguments(
+            args=[ast.arg(arg="self", annotation=None, lineno=class_node.lineno)],
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=[]
+        ),
         body=[ast.Pass()],
         decorator_list=[],
         returns=None,

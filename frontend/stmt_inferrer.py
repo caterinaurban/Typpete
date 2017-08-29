@@ -100,8 +100,10 @@ def _infer_assign(node, context, solver):
     if _is_type_var_declaration(node.value):
         solver.annotation_resolver.add_type_var(node.targets[0], node.value)
     else:
+        value_type = expr.infer(node.value, context, solver)
+        context.add_assignment(value_type, node)
         for target in node.targets:
-            _infer_assignment_target(target, context, expr.infer(node.value, context, solver), solver)
+            _infer_assignment_target(target, context, value_type, solver)
 
     return solver.z3_types.none
 
@@ -421,6 +423,7 @@ def _infer_func_def(node, context, solver):
     result_type = solver.new_z3_const("func")
     result_type.args_count = len(node.args.args)
     context.set_type(node.name, result_type)
+    context.add_func_ast(node.name, node)
 
     if hasattr(node.args, "defaults"):
         # Use the default args to infer the function parameters
@@ -485,7 +488,6 @@ def _infer_class_def(node, context, solver):
             solver.add(arg_accessor(class_attrs[attr]) == instance_type,
                        fail_message="First arg in instance method {} in class {} has class instance type"
                        .format(attr, node.name))
-
         for base in bases_attrs:
             if attr not in class_to_funcs and attr in bases_attrs[base]:
                 # Not a method and exists in superclass

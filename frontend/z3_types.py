@@ -99,7 +99,6 @@ class Z3Types:
         self.type = type_sort.type
         self.none = type_sort.none
         # numbers
-        self.num = type_sort.number
         self.complex = type_sort.complex
         self.float = type_sort.float
         self.int = type_sort.int
@@ -210,7 +209,6 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
     type_sort.declare("type", ("instance", type_sort))
     type_sort.declare("none")
     # number
-    type_sort.declare("number")
     type_sort.declare("complex")
     type_sort.declare("float")
     type_sort.declare("int")

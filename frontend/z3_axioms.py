@@ -18,8 +18,8 @@ def add(left, right, result, types):
     return [
         Or(
             And(types.subtype(left, types.seq), left == right, left == result),
-            And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+            And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+            And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
 
             # result from list addition is a list with a supertype of operands' types
             And(left == types.list(types.list_type(left)),
@@ -54,8 +54,8 @@ def mult(left, right, result, types):
                 Or(
                     And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
                     And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
-                    And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-                    And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+                    And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+                    And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
                     )
                 )
         )
@@ -73,7 +73,7 @@ def div(left, right, result, types):
         - 3 / (1 + 2j)
     """
     return [
-        And(types.subtype(left, types.num), types.subtype(right, types.num)),
+        And(types.subtype(left, types.complex), types.subtype(right, types.complex)),
         Implies(Or(left == types.complex, right == types.complex), result == types.complex),
         Implies(Not(Or(left == types.complex, right == types.complex)), result == types.float)
     ]
@@ -92,8 +92,8 @@ def arithmetic(left, right, result, is_mod, types):
         - "Case #%i: %i" % (u, v)
     """
     axioms = [
-        And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-        And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+        And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+        And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
     ]
 
     if is_mod:
@@ -152,7 +152,7 @@ def unary_other(unary, result, types):
         - +2.0
     """
     return [
-        types.subtype(unary, types.num),
+        types.subtype(unary, types.complex),
         Implies(unary == types.bool, result == types.int),
         Implies(unary != types.bool, result == unary)
     ]
