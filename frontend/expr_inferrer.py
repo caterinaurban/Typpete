@@ -153,18 +153,41 @@ def _infer_div(left_type, right_type, lineno, solver):
     return result_type
 
 
-def _infer_arithmetic(left_type, right_type, is_mod, lineno, solver):
+def _infer_arithmetic(left_type, right_type, op, lineno, solver):
     """Infer the type of an arithmetic operation, and add the corresponding axioms"""
     result_type = solver.new_z3_const("arithmetic_result")
-    solver.add(axioms.arithmetic(left_type, right_type, result_type, is_mod, solver.z3_types),
+
+    magic_method = ""
+    if isinstance(op, ast.Sub):
+        magic_method = "__sub__"
+    elif isinstance(op, ast.FloorDiv):
+        magic_method = "__floordiv__"
+    elif isinstance(op, ast.Mod):
+        magic_method = "__mod__"
+    elif isinstance(op, ast.LShift):
+        magic_method = "__lshift__"
+    elif isinstance(op, ast.RShift):
+        magic_method = "__rshift__"
+
+    solver.add(axioms.arithmetic(left_type, right_type, result_type, magic_method,
+                                 isinstance(op, ast.Mod), solver.z3_types),
                fail_message="Arithmetic operation in line {}".format(lineno))
     return result_type
 
 
-def _infer_bitwise(left_type, right_type, lineno, solver):
+def _infer_bitwise(left_type, right_type, op, lineno, solver):
     """Infer the type of a bitwise operation, and add the corresponding axioms"""
     result_type = solver.new_z3_const("bitwise_result")
-    solver.add(axioms.bitwise(left_type, right_type, result_type, solver.z3_types),
+
+    magic_method = ""
+    if isinstance(op, ast.BitOr):
+        magic_method = "__or__"
+    elif isinstance(op, ast.BitXor):
+        magic_method = "__xor__"
+    elif isinstance(op, ast.BitAnd):
+        magic_method = "__and__"
+
+    solver.add(axioms.bitwise(left_type, right_type, result_type, magic_method, solver.z3_types),
                fail_message="Bitwise operation in line {}".format(lineno))
     return result_type
 
@@ -178,9 +201,9 @@ def binary_operation_type(left_type, op, right_type, lineno, solver):
     elif isinstance(op, ast.Div):
         inference_func = _infer_div
     elif isinstance(op, (ast.BitOr, ast.BitXor, ast.BitAnd)):
-        inference_func = _infer_bitwise
+        return _infer_bitwise(left_type, right_type, op, lineno, solver)
     else:
-        return _infer_arithmetic(left_type, right_type, isinstance(op, ast.Mod), lineno, solver)
+        return _infer_arithmetic(left_type, right_type, op, lineno, solver)
 
     return inference_func(left_type, right_type, lineno, solver)
 

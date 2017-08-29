@@ -80,7 +80,7 @@ def mult(left, right, result, types):
     """
     return [
         And(left != types.none, right != types.none),
-        Or(
+        Or([
             # multiplication of two booleans is an integer. Handle it separately
             And(left == types.bool, right == types.bool, result == types.int),
             And(Or(left != types.bool, right != types.bool),
@@ -91,6 +91,8 @@ def mult(left, right, result, types):
                     And(types.subtype(right, types.num), types.subtype(left, right), result == right),
                 )
                 )
+            ]
+           + overloading_axioms(left, right, result, "__mul__", types)
         )
     ]
 
@@ -113,7 +115,7 @@ def div(left, right, result, types):
     ]
 
 
-def arithmetic(left, right, result, is_mod, types):
+def arithmetic(left, right, result, magic_method, is_mod, types):
     """Constraints for arithmetic operation
 
     Cases:
@@ -128,7 +130,7 @@ def arithmetic(left, right, result, is_mod, types):
     axioms = [
         And(types.subtype(left, types.num), types.subtype(right, left), result == left),
         And(types.subtype(right, types.num), types.subtype(left, right), result == right),
-    ]
+    ] + overloading_axioms(left, right, result, magic_method, types)
 
     if is_mod:
         axioms += [And(Or(left == types.string, left == types.bytes), result == left)]
@@ -139,7 +141,7 @@ def arithmetic(left, right, result, is_mod, types):
     ]
 
 
-def bitwise(left, right, result, types):
+def bitwise(left, right, result, magic_method, types):
     """Constraints for arithmetic operation
 
     Cases:
@@ -149,8 +151,9 @@ def bitwise(left, right, result, types):
         - 1 & 2
         - True ^ False
     """
-    return arithmetic(left, right, result, False, types) + [
-        And(types.subtype(left, types.int), types.subtype(right, types.int))]
+    return arithmetic(left, right, result, magic_method, False, types) + [
+            Implies(And(types.subtype(left, types.num), types.subtype(right, types.num)),
+                    types.subtype(left, types.int), types.subtype(right, types.int))]
 
 
 def bool_op(values, result, types):
