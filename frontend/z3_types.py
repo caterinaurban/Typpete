@@ -177,10 +177,29 @@ class Z3Types:
         for c in tree.all_children():
             c_literal = c.get_literal()
             x = Const("x", self.type_sort)
-
             # One which is triggered by subtype(C, X)
             if c.name != 'none':
-                options = []
+                if isinstance(c.name, tuple) and (c.name[0].startswith("tuple") or c.name[0].startswith("func")):
+                    accessors = []
+                    for acc_name in c.name[1:]:
+                        accessors.append(getattr(type_sort, acc_name)(x))
+
+                    args_sub = []
+                    consts = c.quantified()
+
+                    if c.name[0].startswith("tuple"):
+                        for i, accessor in enumerate(accessors):
+                            args_sub.append(self.subtype(consts[i], accessor))
+                    else:
+                        for i, accessor in enumerate(accessors[1:-1]):
+                            args_sub.append(self.subtype(consts[i + 1], accessor))
+                        args_sub.append(self.subtype(accessors[-1], consts[-1]))
+
+                    options = [
+                        And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub)
+                    ]
+                else:
+                    options = []
                 for base in c.all_parents():
                     options.append(x == base.get_literal())
                 subtype_expr = self.subtype(c_literal, x)
@@ -190,6 +209,24 @@ class Z3Types:
 
             # And one which is triggered by subtype(X, C)
             options = [x == type_sort.none]
+            if isinstance(c.name, tuple) and (c.name[0].startswith("tuple") or c.name[0].startswith("func")):
+                accessors = []
+                for acc_name in c.name[1:]:
+                    accessors.append(getattr(type_sort, acc_name)(x))
+
+                args_sub = []
+                consts = c.quantified()
+
+                if c.name[0].startswith("tuple"):
+                    for i, accessor in enumerate(accessors):
+                        args_sub.append(self.subtype(accessor, consts[i]))
+                else:
+                    for i, accessor in enumerate(accessors[1:-1]):
+                        args_sub.append(self.subtype(accessor, consts[i + 1]))
+                    args_sub.append(self.subtype(consts[-1], accessors[-1]))
+
+                options.append(And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub))
+
             for sub in c.all_children():
                 if sub is c:
                     options.append(x == c_literal)

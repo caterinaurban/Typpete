@@ -27,6 +27,11 @@ class Context:
             self.types_map[cls] = cls_type
             solver.z3_types.all_types[cls] = cls_type
 
+        func_names = [node.name for node in context_nodes if isinstance(node, ast.FunctionDef)]
+        for func in func_names:
+            func_type = solver.new_z3_const("func")
+            self.types_map[func] = func_type
+
         self.builtin_methods = {}
         self.parent_context = parent_context
         self.children_contexts = []

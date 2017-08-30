@@ -507,6 +507,28 @@ def staticmethod_call(class_type, args, result, attr, types):
     return axioms
 
 
+def instancemethod_call(instance, args, result, attr, types):
+    """Constraints for staticmethod calls
+
+    Assert with all classes which has the method `attr` which has decorator `staticmethod`
+    """
+    axioms = []
+    for t in types.all_types:
+        # Check that attr is a method and "staticmethod" is one of its decorators
+        if attr in types.class_to_funcs[t]:
+            decorators = types.class_to_funcs[t][attr][1]
+            if "staticmethod" not in decorators:
+                attr_type = types.instance_attributes[t][attr]
+                axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
+                                  Or(function_call_axioms(attr_type, args, result, types))))
+
+        elif attr in types.instance_attributes[t]:
+            attr_type = types.instance_attributes[t][attr]
+            axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
+                              Or(function_call_axioms(attr_type, args[1:], result, types) + class_call_axioms(attr_type, args[1:], result, types))))
+    return axioms
+
+
 def attribute(instance, attr, result, types):
     """Constraints for attribute access
     

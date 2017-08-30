@@ -40,8 +40,7 @@ class IO:
 
 
 class TextIO():
-    def write(self, arg: str) -> None:
-        pass
+    def write(self, arg: str) -> None: ...
 
 
 argv = [""]

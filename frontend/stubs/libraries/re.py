@@ -17,7 +17,7 @@ UNICODE = 0
 T = 0
 TEMPLATE = 0
 
-class Match():
+class Match:
     pos = 0
     endpos = 0
     lastindex = 0

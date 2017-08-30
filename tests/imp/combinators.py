@@ -32,7 +32,6 @@ class Tag(Parser):
         else:
             return None
 
-
 class Reserved(Parser):
     def __init__(self, value, tag):
         self.value = value
@@ -46,18 +45,15 @@ class Reserved(Parser):
         else:
             return None
 
-
 class Concat(Parser):
     def __init__(self, left, right):
         self.left = left
         self.right = right
 
     def __call__(self, tokens, pos):
-        x = self.left
-        y = self.right
-        left_result = x(tokens, pos)
+        left_result = self.left(tokens, pos)
         if left_result:
-            right_result = y(tokens, left_result.pos)
+            right_result = self.right(tokens, left_result.pos)
             if right_result:
                 combined_value = (left_result.value, right_result.value)
                 return Result(combined_value, right_result.pos)
@@ -69,13 +65,12 @@ class Exp(Parser):
         self.separator = separator
 
     def __call__(self, tokens, pos):
-        x = self.parser
-        y = self.separator
-        result = x(tokens, pos)
+        result = self.parser(tokens, pos)
 
         def process_next(parsed):
-            pass
-        next_parser = y + x ^ process_next
+            (sepfunc, right) = parsed
+            return sepfunc(result.value, right)
+        next_parser = self.separator + self.parser ^ process_next
 
         next_result = result
         while next_result:
@@ -84,20 +79,17 @@ class Exp(Parser):
                 result = next_result
         return result
 
-
 class Alternate(Parser):
     def __init__(self, left, right):
         self.left = left
         self.right = right
 
     def __call__(self, tokens, pos):
-        x = self.left
-        y = self.right
-        left_result = x(tokens, pos)
+        left_result = self.left(tokens, pos)
         if left_result:
             return left_result
         else:
-            right_result = y(tokens, pos)
+            right_result = self.right(tokens, pos)
             return right_result
 
 class Opt(Parser):
@@ -105,8 +97,7 @@ class Opt(Parser):
         self.parser = parser
 
     def __call__(self, tokens, pos):
-        x = self.parser
-        result = x(tokens, pos)
+        result = self.parser(tokens, pos)
         if result:
             return result
         else:
@@ -117,15 +108,13 @@ class Rep(Parser):
         self.parser = parser
 
     def __call__(self, tokens, pos):
-        x = self.parser
         results = []
-        result = x(tokens, pos)
+        result = self.parser(tokens, pos)
         while result:
             results.append(result.value)
             pos = result.pos
-            result = x(tokens, pos)
+            result = self.parser(tokens, pos)
         return Result(results, pos)
-
 
 class Process(Parser):
     def __init__(self, parser, function):
@@ -133,11 +122,9 @@ class Process(Parser):
         self.function = function
 
     def __call__(self, tokens, pos):
-        x = self.parser
-        y = self.function
-        result = x(tokens, pos)
+        result = self.parser(tokens, pos)
         if result:
-            result.value = y(result.value)
+            result.value = self.function(result.value)
             return result
 
 class Lazy(Parser):
@@ -146,19 +133,16 @@ class Lazy(Parser):
         self.parser_func = parser_func
 
     def __call__(self, tokens, pos):
-        x = self.parser
-        y = self.parser_func
         if not self.parser:
-            self.parser = y()
-        return x(tokens, pos)
+            self.parser = self.parser_func()
+        return self.parser(tokens, pos)
 
 class Phrase(Parser):
     def __init__(self, parser):
         self.parser = parser
 
     def __call__(self, tokens, pos):
-        x = self.parser
-        result = x(tokens, pos)
+        result = self.parser(tokens, pos)
         if result and result.pos == len(tokens):
             return result
         else:

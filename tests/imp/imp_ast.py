@@ -1,16 +1,13 @@
 from equality import *
 
 class Statement(Equality):
-    def eval(self, env):
-        pass
+    pass
 
 class Aexp(Equality):
-    def eval(self, env):
-        pass
+    pass
 
 class Bexp(Equality):
-    def eval(self, env):
-        pass
+    pass
 
 class AssignStatement(Statement):
     def __init__(self, name, aexp):

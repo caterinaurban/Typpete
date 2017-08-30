@@ -475,6 +475,13 @@ def infer_func_call(node, context, solver):
             # Remove the first arg (which is the method receiver) from the call args types.
             call_axioms += axioms.staticmethod_call(instance, args_types[1:], result_type,
                                                     node.func.attr, solver.z3_types)
+
+            call_axioms += axioms.instancemethod_call(instance, args_types, result_type,
+                                                    node.func.attr, solver.z3_types)
+
+            solver.add(Or(call_axioms),
+                       fail_message="Call in line {}".format(node.lineno))
+            return result_type
     called = infer(node.func, context, solver)
     if isinstance(called, AnnotatedFunction):
         func_axioms = solver.annotation_resolver.get_annotated_function_axioms(args_types, solver, called, result_type)
