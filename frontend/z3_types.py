@@ -192,8 +192,8 @@ class Z3Types:
                             args_sub.append(self.subtype(consts[i], accessor))
                     else:
                         for i, accessor in enumerate(accessors[1:-1]):
-                            args_sub.append(self.subtype(consts[i + 1], accessor))
-                        args_sub.append(self.subtype(accessors[-1], consts[-1]))
+                            args_sub.append(self.subtype(accessor, consts[i + 1]))
+                        args_sub.append(self.subtype(consts[-1], accessors[-1]))
 
                     options = [
                         And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub)
@@ -222,8 +222,8 @@ class Z3Types:
                         args_sub.append(self.subtype(accessor, consts[i]))
                 else:
                     for i, accessor in enumerate(accessors[1:-1]):
-                        args_sub.append(self.subtype(accessor, consts[i + 1]))
-                    args_sub.append(self.subtype(consts[-1], accessors[-1]))
+                        args_sub.append(self.subtype(consts[i + 1], accessor))
+                    args_sub.append(self.subtype(accessors[-1], consts[-1]))
 
                 options.append(And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub))
 
