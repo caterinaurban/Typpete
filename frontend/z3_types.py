@@ -7,6 +7,7 @@ Limitations:
 from collections import OrderedDict
 from frontend.annotation_resolver import AnnotationResolver
 from frontend.class_node import ClassNode
+from frontend.config import config
 from frontend.pre_analysis import PreAnalyzer
 from frontend.stubs.stubs_handler import StubsHandler
 from z3 import *
@@ -177,12 +178,16 @@ class Z3Types:
             c_literal = c.get_literal()
             x = Const("x", self.type_sort)
             # One which is triggered by subtype(C, X)
-            if c.name != 'none':
+            # Check whether to make non subtype of everything or not
+            if c.name != 'none' or c.name == 'none' and not config["none_subtype_of_all"]:
+                # Handle tuples and functions variance
                 if isinstance(c.name, tuple) and (c.name[0].startswith("tuple") or c.name[0].startswith("func")):
+                    # Get the accessors of X
                     accessors = []
                     for acc_name in c.name[1:]:
                         accessors.append(getattr(type_sort, acc_name)(x))
 
+                    # Add subtype relationship between args of X and C
                     args_sub = []
                     consts = c.quantified()
 
@@ -207,8 +212,9 @@ class Z3Types:
                 axioms.append(axiom)
 
             # And one which is triggered by subtype(X, C)
-            options = [x == type_sort.none]
+            options = [x == type_sort.none] if config["none_subtype_of_all"] else []
             if isinstance(c.name, tuple) and (c.name[0].startswith("tuple") or c.name[0].startswith("func")):
+                # Handle tuples and functions variance as above
                 accessors = []
                 for acc_name in c.name[1:]:
                     accessors.append(getattr(type_sort, acc_name)(x))

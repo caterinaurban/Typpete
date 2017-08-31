@@ -509,13 +509,23 @@ def staticmethod_call(class_type, args, result, attr, types):
 
 
 def instancemethod_call(instance, args, result, attr, types):
-    """Constraints for staticmethod calls
+    """Constraints for calls on instances
 
-    Assert with all classes which has the method `attr` which has decorator `staticmethod`
+    There are two cases:
+    - The called is an instance method
+    - The called is a normal instance attribute which happens to be callable
+
+    In the first case, check that it appears in the class instance methods and is not static method
+    In the second case, check that it does not appear in the class instance methods but appears in the
+        class attributes
+        
+    Add the receiver argument in the first case only
+    `
     """
     axioms = []
     for t in types.all_types:
-        # Check that attr is a method and "staticmethod" is one of its decorators
+        # Check that attr is an instance method and "staticmethod" is not of its decorators,
+        # if so, add call axioms with a receiver
         if attr in types.class_to_funcs[t]:
             decorators = types.class_to_funcs[t][attr][1]
             if "staticmethod" not in decorators:
@@ -523,6 +533,7 @@ def instancemethod_call(instance, args, result, attr, types):
                 axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
                                   Or(function_call_axioms(attr_type, args, result, types))))
 
+        # Otherwise, check if it is an instance attribute, if so add call axioms with no receiver
         elif attr in types.instance_attributes[t]:
             attr_type = types.instance_attributes[t][attr]
             axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),

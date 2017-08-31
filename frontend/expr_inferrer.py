@@ -476,6 +476,7 @@ def infer_func_call(node, context, solver):
             call_axioms += axioms.staticmethod_call(instance, args_types[1:], result_type,
                                                     node.func.attr, solver.z3_types)
 
+            # Fixes #21: https://github.com/caterinaurban/Typpete/issues/21
             call_axioms += axioms.instancemethod_call(instance, args_types, result_type,
                                                     node.func.attr, solver.z3_types)
 
@@ -564,11 +565,12 @@ def infer_attribute(node, context, from_call, solver):
     return result_type
 
 
-def _init_func_context(node, args, context, solver):
-    """Initialize the local function scope, and the arguments types"""
+def _init_lambda_context(node, args, context, solver):
+    """Initialize the local function scope, and the arguments types
+    
+    # TODO: Reuse the _init_func_context function
+    """
     local_context = Context([node.body], solver, parent_context=context)
-
-    # TODO starred args
 
     args_types = ()
     for arg in args:
@@ -580,11 +582,14 @@ def _init_func_context(node, args, context, solver):
 
 
 def _infer_lambda(node, context, solver):
-    local_context, args = _init_func_context(node, node.args.args, context, solver)
+    """Infer the type of lambda functions
+    
+    Inferred as normal function definition where the body has a single node"""
+    local_context, args = _init_lambda_context(node, node.args.args, context, solver)
     return_type = infer(node.body, local_context, solver)
 
-    return solver.z3_types.funcs[len(args)](*((0, ) + args + (return_type,)))
-
+    default_args = 0  # Lambdas cannot have default args
+    return solver.z3_types.funcs[len(args)](*((default_args, ) + args + (return_type,)))
 
 
 def infer(node, context, solver, from_call=False):

@@ -438,6 +438,9 @@ def _infer_func_def(node, context, solver):
         return_type = solver.resolve_annotation(node.returns)
         if inference_config["ignore_fully_annotated_function"] and is_annotated(node)\
                 or isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Ellipsis):
+            # Ignore the body if it has return annotation and one of the following conditions:
+            # The configuration flag for doing so is set
+            # The body begins with ellipsis
             body_type = return_type
         else:
             body_type = _infer_body(node.body, func_context, node.lineno, solver)

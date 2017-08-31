@@ -16,5 +16,8 @@ config = {
     "decorators": ["staticmethod"],
 
     # Whether to allow to define instance attribute outside __init__
-    "allow_attributes_outside_init": True
+    "allow_attributes_outside_init": True,
+
+    # Whether to make None a subtype of all types
+    "none_subtype_of_all": True
 }
