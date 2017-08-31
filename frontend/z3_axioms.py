@@ -47,8 +47,8 @@ def add(left, right, result, types):
     return [
         And(left != types.none, right != types.none),
         Or([
-               And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-               And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+               And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+               And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
                And(types.subtype(left, types.seq), left == right, left == result),
 
                # result from list addition is a list with a supertype of operands' types
@@ -87,9 +87,10 @@ def mult(left, right, result, types):
                 Or(
                     And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
                     And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
-                    And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-                    And(types.subtype(right, types.num), types.subtype(left, right), result == right),
-                )
+
+                    And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+                    And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
+                    )
                 )
             ]
            + overloading_axioms(left, right, result, "__mul__", types)
@@ -109,7 +110,7 @@ def div(left, right, result, types):
     """
     return [
         And(left != types.none, right != types.none),
-        And(types.subtype(left, types.num), types.subtype(right, types.num)),
+        And(types.subtype(left, types.complex), types.subtype(right, types.complex)),
         Implies(Or(left == types.complex, right == types.complex), result == types.complex),
         Implies(Not(Or(left == types.complex, right == types.complex)), result == types.float)
     ]
@@ -128,8 +129,8 @@ def arithmetic(left, right, result, magic_method, is_mod, types):
         - "Case #%i: %i" % (u, v)
     """
     axioms = [
-        And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-        And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+        And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+        And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
     ] + overloading_axioms(left, right, result, magic_method, types)
 
     if is_mod:
@@ -152,7 +153,7 @@ def bitwise(left, right, result, magic_method, types):
         - True ^ False
     """
     return arithmetic(left, right, result, magic_method, False, types) + [
-            Implies(And(types.subtype(left, types.num), types.subtype(right, types.num)),
+            Implies(And(types.subtype(left, types.complex), types.subtype(right, types.complex)),
                     types.subtype(left, types.int), types.subtype(right, types.int))]
 
 
@@ -194,7 +195,7 @@ def unary_other(unary, result, types):
     """
     return [
         unary != types.none,
-        types.subtype(unary, types.num),
+        types.subtype(unary, types.complex),
         Implies(unary == types.bool, result == types.int),
         Implies(unary != types.bool, result == unary)
     ]

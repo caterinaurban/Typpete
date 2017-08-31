@@ -1,8 +1,13 @@
 from frontend.stmt_inferrer import *
 import ast
 import time
+import astunparse
 
-r = open("tests/imp/imp.py")
+file_path = "tests/imp/imp.py"
+file_name = file_path.split("/")[-1]
+
+r = open(file_path)
+
 t = ast.parse(r.read())
 r.close()
 
@@ -61,6 +66,14 @@ if check == z3_types.unsat:
     print([solver.assertions_errors[x] for x in solver.unsat_core()])
 else:
     model = solver.optimize.model()
-    print_context(context)
+    context.generate_typed_ast(model, solver)
+
+    # uncomment this to write typed source into a file
+    # write_path = "inference_output/" + file_name
+    # file = open(write_path, 'w')
+    # file.write(astunparse.unparse(t))
+    # file.close()
+    print(astunparse.unparse(t))
+
 
 print("Ran in {} seconds".format(end_time - start_time))

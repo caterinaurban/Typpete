@@ -1,7 +1,6 @@
 BUILTINS = {
     'none': ['object'],
-    'number': ['object'],
-    'complex': ['number'],
+    'complex': ['object'],
     'float': ['complex'],
     'int': ['float'],
     'bool': ['int'],
