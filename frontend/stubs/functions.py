@@ -149,6 +149,11 @@ def int(_: NumOrStrNoComplex = None, base: int = 10) -> int:
     pass
 
 
+def isinstance(x: object, y: object) -> bool:
+    """Check if object x is an instance of type y"""
+    pass
+
+
 def len(_: Seq) -> int:
     """ Return the number of items in a container. """
     pass

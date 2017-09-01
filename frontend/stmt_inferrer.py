@@ -361,6 +361,8 @@ def is_stub(node):
     if not is_annotated(node):
         return False
 
+    if len(node.body) == 1 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Ellipsis):
+        return True
     return ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
             or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass)))
 
@@ -420,7 +422,7 @@ def _infer_func_def(node, context, solver):
         return solver.z3_types.none
 
     func_context, args_types = _init_func_context(node, node.args.args, context, solver)
-    result_type = solver.new_z3_const("func")
+    result_type = context.get_type(node.name)
     result_type.args_count = len(node.args.args)
     context.set_type(node.name, result_type)
     context.add_func_ast(node.name, node)
@@ -434,7 +436,11 @@ def _infer_func_def(node, context, solver):
 
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
-        if inference_config["ignore_fully_annotated_function"] and is_annotated(node):
+        if inference_config["ignore_fully_annotated_function"] and is_annotated(node)\
+                or isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Ellipsis):
+            # Ignore the body if it has return annotation and one of the following conditions:
+            # The configuration flag for doing so is set
+            # The body begins with ellipsis
             body_type = return_type
         else:
             body_type = _infer_body(node.body, func_context, node.lineno, solver)

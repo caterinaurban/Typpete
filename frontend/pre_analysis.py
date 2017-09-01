@@ -60,8 +60,8 @@ class PreAnalyzer:
 
     def maximum_function_args(self):
         """Get the maximum number of function arguments appearing in the AST"""
-        user_func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
-        stub_func_defs = [node for node in self.stub_nodes if isinstance(node, ast.FunctionDef)]
+        user_func_defs = [node for node in self.all_nodes if isinstance(node, (ast.FunctionDef, ast.Lambda))]
+        stub_func_defs = [node for node in self.stub_nodes if isinstance(node, (ast.FunctionDef, ast.Lambda))]
 
         # A minimum value of 1 because a default __init__ with one argument function
         # is added to classes that doesn't contain one
