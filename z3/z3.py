@@ -197,6 +197,7 @@ _main_ctx = None
 def main_ctx():
     """Return a reference to the global Z3 context.
 
+
     >>> x = Real('x')
     >>> x.ctx == main_ctx()
     True
@@ -6086,7 +6087,7 @@ class Solver(Z3PPObject):
         >>> s.check()
         unsat
         >>> s.reset()
-        >>> s.add(2**x == 4)
+        >>> s.add(2**x == 4)e
         >>> s.check()
         unknown
         """

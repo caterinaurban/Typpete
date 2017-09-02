@@ -105,6 +105,12 @@ class PreAnalyzer:
         """
         # TODO propagate attributes to subclasses.
         class_defs = [node for node in self.all_nodes if isinstance(node, ast.ClassDef)]
+        exc = ast.ClassDef()
+        exc.name = "Exception"
+        exc.bases = []
+        exc.body = []
+        exc.lineno = -1
+        class_defs.append(exc)
         propagate_attributes_to_subclasses(class_defs)
 
         class_to_instance_attributes = OrderedDict()
@@ -226,9 +232,9 @@ class Configuration:
                 arg_name = name + '_arg_' + str(cur_arg + 1)
                 tuple_args.append(arg_name)
             if tuple_args:
-                builtins[tuple([name] + tuple_args)] = ['tuple']
+                builtins[tuple([name] + tuple_args)] = [('tuple_var', 'tuple_type')]
             else:
-                builtins[name] = ['tuple']
+                builtins[name] = [('tuple_var', 'tuple_type')]
         for cur_len in range(self.max_function_args + 1):
             name = 'func_' + str(cur_len)
             func_args = [name + '_defaults_args']
@@ -238,10 +244,13 @@ class Configuration:
             func_args.append(name + '_return')
             builtins[tuple([name] + func_args)] = ['object']
         self.all_classes = builtins
+        self.builtins = dict(builtins)
+        self.others = {}
         for key, val in self.class_to_base.items():
             ukey = 'class_' + key
             uval = [x if x == 'object' else 'class_' + x for x in val]
             self.all_classes[ukey] = uval
+            self.others[ukey] = uval
         return
 
 

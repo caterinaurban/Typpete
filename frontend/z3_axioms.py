@@ -288,7 +288,7 @@ def body(result, new, types):
     The body type is the super-type of all its statements, or none if no statement returns type.
     """
     return [
-        Implies(new != types.none, result == new)
+        Implies(new != types.none, types.subtype(new, result))
     ]
 
 

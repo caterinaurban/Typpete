@@ -108,14 +108,19 @@ class AnnotationResolver:
                 if not isinstance(annotation.slice.value, (ast.Name, ast.Tuple)):
                     raise TypeError("Invalid tuple type annotation in line {}".format(annotation.lineno))
 
+                var_num = False
                 # Get the types of the tuple args
                 if isinstance(annotation.slice.value, ast.Name):
                     tuple_args_types = [self.resolve(annotation.slice.value, solver, generics_map)]
                 else:
-                    tuple_args_types = [self.resolve(x, solver, generics_map) for x in annotation.slice.value.elts]
+                    var_num = len(annotation.slice.value.elts) == 2 and isinstance(annotation.slice.value.elts[1], ast.Ellipsis)
+                    tuple_args_types = [self.resolve(x, solver, generics_map) for x in annotation.slice.value.elts
+                                        if not isinstance(x, ast.Ellipsis)]
 
                 if len(tuple_args_types) == 0:
                     return self.z3_types.tuples[0]
+                if var_num:
+                    return self.z3_types.tuple_var(tuple_args_types[0])
                 return self.z3_types.tuples[len(tuple_args_types)](*tuple_args_types)
             
             if annotation_val == "Callable":

@@ -411,6 +411,11 @@ def infer_func_call(node, context, solver):
                 raise TypeError("Casts need two arguments (target type and expression).")
             infer(node.args[1], context, solver)
             return solver.annotation_resolver.resolve(node.args[0], solver)
+        if node.func.id == 'isinstance':
+            infer(node.args[0], context, solver)
+            infer(node.args[1], context, solver)
+            return solver.z3_types.bool
+
         called = context.get_type(node.func.id)
         # check if the type has the manually added flag for class-types
         if hasattr(called, "is_class"):

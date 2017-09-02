@@ -84,7 +84,7 @@ def _infer_assignment_target(target, context, value_type, solver):
     """
     target_type = _infer_one_target(target, context, solver)
     solver.add(axioms.assignment(target_type, value_type, solver.z3_types),
-               fail_message="Assignment in line {}".format(target.lineno))
+               fail_message="Assignment in line {}".format(target.lineno), force=True)
 
     # Adding weight of 2 to give the assignment soft constraint a higher priority over others.
     solver.optimize.add_soft(target_type == value_type, weight=2)
@@ -197,10 +197,34 @@ def _infer_control_flow(node, context, solver):
 
     body_type = _infer_body(node.body, body_context, node.lineno, solver)
     else_type = _infer_body(node.orelse, else_context, node.lineno, solver)
+    var_is_instance = None
+
+    if hasattr(node, "test") and (isinstance(node.test, ast.Call) and isinstance(node.test.func, ast.Name)
+            and node.test.func.id == "isinstance" and len(node.test.args) == 2
+            and isinstance(node.test.args[0], ast.Name) and isinstance(node.test.args[1], ast.Name)):
+        # isinstance(x, t) test: Make `x` to be of type `t` in the then branch
+        # The only allowed case is when `x` is variable and `t` is a single type (not a tuple).
+
+        # Get the type `t`
+        t = expr.infer(node.test.args[1], context, solver)
+
+        # Set `x` to be an instance of `t` in the then branch
+        instance_accessor = solver.z3_types.type_sort.instance
+        body_context.set_type(node.test.args[0].id, instance_accessor(t))
+
+        # Set `x` to a new uninterpreted constant in the else branch
+        # This constant will be then a subtype of the original x in the parent context.
+        else_context.set_type(node.test.args[0].id, solver.new_z3_const("isinstance_else"))
+
+        # Keep track of the name of the variable `x`
+        var_is_instance = node.test.args[0].id
+        expr.infer(node.test.args[0], context, solver)
+    elif hasattr(node, "test"):
+        expr.infer(node.test, context, solver)
 
     # Re-assigning variables in the body branch
     for v in body_context.types_map:
-        if context.has_variable(v):
+        if context.has_variable(v) and v != var_is_instance:
             t1 = body_context.types_map[v]
             t2 = context.get_type(v)
             solver.add(t1 == t2,
@@ -231,10 +255,11 @@ def _infer_control_flow(node, context, solver):
 
             solver.optimize.add_soft(t1 == var_type)
             solver.optimize.add_soft(t2 == var_type)
-            context.set_type(v, var_type)
-
-    if hasattr(node, "test"):
-        expr.infer(node.test, context, solver)
+            if v == var_is_instance:
+                solver.add(context.get_type(v) == var_type,
+                fail_message = "isinstance type in line {}".format(node.lineno))
+            else:
+                context.set_type(v, var_type)
 
     result_type = solver.new_z3_const("control_flow")
     solver.add(axioms.control_flow(body_type, else_type, result_type, solver.z3_types),
@@ -296,7 +321,11 @@ def _infer_try(node, context, solver):
     # TODO: Infer exception handlers as classes
 
     for handler in node.handlers:
-        handler_body_type = _infer_body(handler.body, context, handler.lineno, solver)
+        handler_context = context
+        if handler.name:
+            handler_context = Context(node.body, solver, parent_context=context)
+            handler_context.set_type(handler.name, solver.annotation_resolver.resolve(handler.type, solver))
+        handler_body_type = _infer_body(handler.body, handler_context, handler.lineno, solver)
         solver.add(solver.z3_types.subtype(handler_body_type, result_type),
                    fail_message="Exception handler in line {}".format(handler.lineno))
 
@@ -321,7 +350,7 @@ def _init_func_context(node, args, context, solver):
     return local_context, args_types
 
 
-def _infer_args_defaults(args_types, defaults, context, solver):
+def _infer_args_defaults(args_types, defaults, func_name, context, solver):
     """Infer the default values of function arguments (if any)
 
     :param args_types: Z3 constants for arguments types
@@ -336,7 +365,7 @@ def _infer_args_defaults(args_types, defaults, context, solver):
         arg_idx = i + len(args_types) - len(defaults)  # The defaults array correspond to the last arguments
         default_type = expr.infer(default, context, solver)
         solver.add(solver.z3_types.subtype(default_type, args_types[arg_idx]),
-                   fail_message="Function default argument in line {}".format(defaults[i].lineno))
+                   fail_message="Function default argument {} in line {}".format(func_name, defaults[i].lineno))
         solver.optimize.add_soft(default_type == args_types[arg_idx])
 
 
@@ -358,6 +387,7 @@ def is_stub(node):
     """
     if not is_annotated(node):
         return False
+    return True
 
     return ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
             or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass)))
@@ -400,8 +430,6 @@ def has_type_var(node, solver):
 
 
 def _infer_func_def(node, context, solver):
-    if node.name == "deepcopy":
-        print("11")
     """Infer the type for a function definition"""
     if is_stub(node) or has_type_var(node, solver):
         return_annotation = node.returns
@@ -426,7 +454,7 @@ def _infer_func_def(node, context, solver):
 
     if hasattr(node.args, "defaults"):
         # Use the default args to infer the function parameters
-        _infer_args_defaults(args_types, node.args.defaults, context, solver)
+        _infer_args_defaults(args_types, node.args.defaults, node.name, context, solver)
         defaults_len = len(node.args.defaults)
     else:
         defaults_len = 0
@@ -449,8 +477,11 @@ def _infer_func_def(node, context, solver):
         solver.optimize.add_soft(body_type == return_type, weight=2)
     func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
     solver.add(result_type == func_type,
-               fail_message="Function definition in line {}".format(node.lineno))
+               fail_message="Function definition {} in line {}".format(node.name, node.lineno))
     return solver.z3_types.none
+
+
+return_st_pairs = []
 
 
 def _infer_class_def(node, context, solver):
@@ -483,6 +514,10 @@ def _infer_class_def(node, context, solver):
             # The context doesn't contain the types of the instance attributes (e.g., self.x)
             # The axioms for such attributes are already added in the condition above.
             continue
+        if isinstance(class_context.types_map[attr], AnnotatedFunction):
+            continue
+        if node.lineno == 185:
+            print("!!!!!!!!!!   " + attr)
         solver.add(class_attrs[attr] == class_context.types_map[attr],
                    fail_message="Class attribute in {}".format(node.lineno))
 
@@ -535,6 +570,8 @@ def _infer_class_def(node, context, solver):
                                                            arg_accessor(class_attrs[attr])),
                                    fail_message="Arguments contravariance in line {}".format(node.lineno))
                     return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(base_args_len))
+                    if node.lineno == 185:
+                        return_st_pairs.append((return_accessor(class_attrs[attr]),return_accessor(bases_attrs[base][attr])))
                     solver.add(solver.z3_types.subtype(return_accessor(class_attrs[attr]),
                                                        return_accessor(bases_attrs[base][attr])),
                                fail_message="Return covariance in line {}".format(node.lineno))
@@ -542,7 +579,7 @@ def _infer_class_def(node, context, solver):
                                              == return_accessor(bases_attrs[base][attr]))
 
     class_type = solver.z3_types.type(instance_type)
-    solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
+    solver.add(result_type == class_type, fail_message="Class definition {} in line {}".format(node.name, node.lineno))
     result_type.is_class = True
 
     return solver.z3_types.none

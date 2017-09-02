@@ -6,6 +6,7 @@ from frontend.stubs.stubs_paths import libraries
 class ImportHandler:
     """Handler for importing other modules during the type inference"""
     cached_asts = {}
+    already_inferred = {}
 
     @staticmethod
     def get_ast(base_folders, module_name):
@@ -52,6 +53,9 @@ class ImportHandler:
 
     @staticmethod
     def infer_import(module_name, base_folder, infer_func, solver):
+        if module_name in ImportHandler.already_inferred:
+            return ImportHandler.already_inferred[module_name]
+        print(module_name)
         """Infer the types of a python module"""
         if ImportHandler.is_builtin(module_name):
             return solver.stubs_handler.infer_builtin_lib(module_name, solver,
@@ -62,7 +66,7 @@ class ImportHandler:
             solver.infer_stubs(context, infer_func)
             for stmt in t.body:
                 infer_func(stmt, context, solver)
-
+        ImportHandler.already_inferred[module_name] = context
         return context
 
     @staticmethod

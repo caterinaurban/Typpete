@@ -27,6 +27,7 @@ set_param("smt.qi.eager_threshold", 100)
 set_param("smt.qi.cost",  "(+ weight generation)")
 set_param("type_check", True)
 set_param("smt.bv.reflect", True)
+set_param("timeout", 1000 * 300)
 # set_option(":smt.qi.profile", True)
 # set_param(verbose=10)
 
@@ -36,6 +37,7 @@ class TypesSolver(Solver):
 
     def __init__(self, tree, solver=None, ctx=None):
         super().__init__(solver, ctx)
+        # self.set(auto_config=False, mbqi=False, unsat_core=True)
         self.set(auto_config=False, mbqi=False, unsat_core=True)
         self.element_id = 0     # unique id given to newly created Z3 consts
         self.assertions_vars = []
@@ -47,17 +49,22 @@ class TypesSolver(Solver):
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         self.optimize = Optimize(ctx)
         # self.optimize.set("timeout", 30000)
+        self.all_assertions = []
         self.init_axioms()
 
-    def add(self, *args, fail_message):
+    def add(self, *args, fail_message, force=False):
         assertion = self.new_z3_const("assertion_bool", BoolSort())
         self.assertions_vars.append(assertion)
         self.assertions_errors[assertion] = fail_message
         self.optimize.add(*args)
-        super().add(Implies(assertion, And(*args)))
+        implication = Implies(assertion, And(*args))
+        super().add(implication)
+        self.all_assertions.append(implication)
+        if force:
+            self.all_assertions.append(And(*args))
 
     def init_axioms(self):
-        self.add(self.z3_types.subtyping, fail_message="Subtyping error")
+        self.add(self.z3_types.subtyping, fail_message="Subtyping error", force=True)
 
     def infer_stubs(self, context, infer_func):
         self.stubs_handler.infer_all_files(context, self, self.config.used_names, infer_func)
@@ -109,6 +116,7 @@ class Z3Types:
         self.string = type_sort.str
         self.str = type_sort.str
         self.bytes = type_sort.bytes
+        self.tuple_var = type_sort.tuple_var
         self.tuple = type_sort.tuple
         self.tuples = list()
         for cur_len in range(max_tuple_length + 1):
@@ -137,14 +145,14 @@ class Z3Types:
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
         self.subtyping = self.create_subtype_axioms(config.all_classes, type_sort)
 
-    @staticmethod
-    def create_class_tree(all_classes, type_sort):
+    def create_class_tree(self, all_classes, type_sort):
         """
         Creates a tree consisting of ClassNodes which contains all classes in all_classes,
         where child nodes are subclasses. The root will be object.
         """
         graph = ClassNode('object', [], type_sort)
-        to_cover = list(all_classes.keys())
+        to_cover = list(self.config.builtins.keys()) + list(self.config.others.keys())
+        covered_again = []
         covered = {'object'}
         i = 0
         while i < len(to_cover):
@@ -158,6 +166,7 @@ class Z3Types:
                     break
             if cont:
                 to_cover.append(current)
+                covered_again.append(current)
                 continue
 
             current_node = ClassNode(current, [], type_sort)
@@ -178,11 +187,24 @@ class Z3Types:
         for c in tree.all_children():
             c_literal = c.get_literal()
             x = Const("x", self.type_sort)
+            is_tuple_var = str(c_literal).startswith('tuple_var')
+            is_tuple_n = str(c_literal).startswith('tuple') and not str(c_literal).startswith('tuple_var')
 
             # One which is triggered by subtype(C, X)
             options = []
-            for base in c.all_parents():
-                options.append(x == base.get_literal())
+            if is_tuple_n:
+                for base in c.all_parents():
+                    if base.name == ('tuple_var', 'tuple_type'):
+                        arg_subtypes = []
+                        for arg in c.quantified():
+                            arg_subtypes.append(self.subtype(arg, base.get_arg_list(x)[0]))
+                        _res = And(x == base.get_literal_with_args(x), *arg_subtypes)
+                        options.append(_res)
+                    else:
+                        options.append(x == base.get_literal())
+            else:
+                for base in c.all_parents():
+                    options.append(x == base.get_literal())
             subtype_expr = self.subtype(c_literal, x)
             axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                            patterns=[subtype_expr])
@@ -190,11 +212,23 @@ class Z3Types:
 
             # And one which is triggered by subtype(X, C)
             options = []
-            for sub in c.all_children():
-                if sub is c:
-                    options.append(x == c_literal)
-                else:
-                    options.append(x == sub.get_literal_with_args(x))
+            if is_tuple_var:
+                for sub in c.all_children():
+                    if sub is c:
+                        options.append(x == c_literal)
+                    else:
+                        arg_subtypes = []
+                        for arg in sub.get_arg_list(x):
+                            arg_subtypes.append(
+                                self.subtype(arg, c.quantified()[0]))
+                        _res = And(x == sub.get_literal_with_args(x), *arg_subtypes)
+                        options.append(_res)
+            else:
+                for sub in c.all_children():
+                    if sub is c:
+                        options.append(x == c_literal)
+                    else:
+                        options.append(x == sub.get_literal_with_args(x))
             subtype_expr = self.subtype(x, c_literal)
             axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                            patterns=[subtype_expr])
@@ -221,6 +255,7 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
     type_sort.declare("str")
     type_sort.declare("bytes")
     type_sort.declare("tuple")
+    type_sort.declare("tuple_var", ("tuple_type", type_sort))
     for cur_len in range(max_tuple_length + 1):     # declare type constructors for tuples up to max length
         accessors = []
         # create accessors for the tuple

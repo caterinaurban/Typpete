@@ -1,5 +1,5 @@
 BUILTINS = {
-    'none': ['object'],
+    'none': ['object', 'int', 'str'],
     'number': ['object'],
     'complex': ['number'],
     'float': ['complex'],
@@ -9,6 +9,7 @@ BUILTINS = {
     'str': ['sequence'],
     'bytes': ['sequence'],
     'tuple': ['sequence'],
+    ('tuple_var', 'tuple_type'): ['tuple'],
     ('list', 'list_type'): ['sequence'],
     ('set', 'set_type'): ['object'],
     ('dict', 'dict_key_type', 'dict_value_type'): ['object'],
