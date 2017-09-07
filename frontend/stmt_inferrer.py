@@ -532,7 +532,7 @@ def _infer_class_def(node, context, solver):
                     if base_args_len > sub_args_len:
                         raise TypeError("Method {} in subclass {} should have total arguments length "
                                         "more than or equal that in superclass.".format(attr, node.name))
-                    if base_non_defaults_len > sub_non_defaults_len:
+                    if base_non_defaults_len < sub_non_defaults_len:
                         raise TypeError("Method {} in subclass {} should have non-default arguments length less than "
                                         "or equal that in superclass".format(attr, node.name))
 
