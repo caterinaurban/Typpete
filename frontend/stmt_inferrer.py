@@ -298,7 +298,12 @@ def _infer_try(node, context, solver):
     # TODO: Infer exception handlers as classes
 
     for handler in node.handlers:
-        handler_body_type = _infer_body(handler.body, context, handler.lineno, solver)
+        handler_context = context
+        if handler.name:
+            handler_context = Context(node.body, solver, parent_context=context)
+            handler_context.set_type(handler.name,
+                                     solver.annotation_resolver.resolve(handler.type, solver))
+        handler_body_type = _infer_body(handler.body, handler_context, handler.lineno, solver)
         solver.add(solver.z3_types.subtype(handler_body_type, result_type),
                    fail_message="Exception handler in line {}".format(handler.lineno))
 
@@ -475,6 +480,8 @@ def _infer_class_def(node, context, solver):
     bases_attrs = {}
 
     for base in node.bases:
+        if base.id == 'object':
+            continue
         base_classes_to_funcs[base.id] = solver.z3_types.class_to_funcs[base.id]
         bases_attrs[base.id] = solver.z3_types.instance_attributes[base.id]
 

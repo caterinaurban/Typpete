@@ -317,7 +317,8 @@ def propagate_attributes_to_subclasses(class_defs):
     class_to_node = {}
     class_inherited_funcs_to_super = {}
     for class_def in class_defs:
-        class_to_bases[class_def.name] = [x.id for x in class_def.bases]
+        class_to_bases[class_def.name] = [x.id for x in class_def.bases
+                                          if x.id != 'object']
         class_to_node[class_def.name] = class_def
         class_inherited_funcs_to_super[class_def.name] = {}
 
