@@ -229,7 +229,7 @@ def gcd(x: int, y: int) -> int:  # real signature unknown; restored from __doc__
     gcd(x, y) -> int
     greatest common divisor of x and y
     """
-    return 0
+    pass
 
 
 def hypot(x: float, y: float) -> float:  # real signature unknown; restored from __doc__
@@ -272,7 +272,7 @@ def isfinite(x: float) -> bool:  # real signature unknown; restored from __doc__
 
     Return True if x is neither an infinity nor a NaN, and False otherwise.
     """
-    return False
+    pass
 
 
 def isinf(x: float) -> bool:  # real signature unknown; restored from __doc__
@@ -281,7 +281,7 @@ def isinf(x: float) -> bool:  # real signature unknown; restored from __doc__
 
     Return True if x is a positive or negative infinity, and False otherwise.
     """
-    return False
+    pass
 
 
 def isnan(x: float) -> bool:  # real signature unknown; restored from __doc__
@@ -290,7 +290,7 @@ def isnan(x: float) -> bool:  # real signature unknown; restored from __doc__
 
     Return True if x is a NaN (not a number), and False otherwise.
     """
-    return False
+    pass
 
 
 def ldexp(x: float, i: int) -> float:  # real signature unknown; restored from __doc__

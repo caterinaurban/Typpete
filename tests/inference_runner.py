@@ -1,14 +1,19 @@
 from frontend.stmt_inferrer import *
 import ast
 import time
+import astunparse
 
-r = open("tests/inference/example.py")
+file_path = "tests/imp/imp.py"
+file_name = file_path.split("/")[-1]
+
+r = open(file_path)
+
 t = ast.parse(r.read())
 r.close()
 
 solver = z3_types.TypesSolver(t)
 
-context = Context()
+context = Context(t.body, solver)
 solver.infer_stubs(context, infer)
 
 for stmt in t.body:
@@ -32,7 +37,11 @@ def print_context(ctx, ind=""):
         z3_t = ctx.types_map[v]
         if isinstance(z3_t, (Context, AnnotatedFunction)):
             continue
-        print(ind + "{}: {}".format(v, model[z3_t]))
+        try:
+            t = model[z3_t]
+            print(ind + "{}: {}".format(v, t if t is not None else z3_t))
+        except z3_types.Z3Exception:
+            print(ind + "{}: {}".format(v, z3_t))
         if ctx.has_context_in_children(v):
             print_context(ctx.get_context_from_children(v), "\t" + ind)
         if not ind:
@@ -57,6 +66,14 @@ if check == z3_types.unsat:
     print([solver.assertions_errors[x] for x in solver.unsat_core()])
 else:
     model = solver.optimize.model()
-    print_context(context)
+    context.generate_typed_ast(model, solver)
+
+    # uncomment this to write typed source into a file
+    # write_path = "inference_output/" + file_name
+    # file = open(write_path, 'w')
+    # file.write(astunparse.unparse(t))
+    # file.close()
+    print(astunparse.unparse(t))
+
 
 print("Ran in {} seconds".format(end_time - start_time))

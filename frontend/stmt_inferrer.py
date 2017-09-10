@@ -35,8 +35,8 @@ from z3 import Or, Not
 def _infer_one_target(target, context, solver):
     """
     Get the type of the left hand side of an assignment
-    
-    :param target: The target on the left hand side 
+
+    :param target: The target on the left hand side
     :param context: The current context level
     :param solver: The SMT solver
     :return: the type of the target
@@ -86,7 +86,9 @@ def _infer_assignment_target(target, context, value_type, solver):
     target_type = _infer_one_target(target, context, solver)
     solver.add(axioms.assignment(target_type, value_type, solver.z3_types),
                fail_message="Assignment in line {}".format(target.lineno))
-    solver.optimize.add_soft(target_type == value_type)
+
+    # Adding weight of 2 to give the assignment soft constraint a higher priority over others.
+    solver.optimize.add_soft(target_type == value_type, weight=2)
 
 
 def _is_type_var_declaration(node):
@@ -99,8 +101,10 @@ def _infer_assign(node, context, solver):
     if _is_type_var_declaration(node.value):
         solver.annotation_resolver.add_type_var(node.targets[0], node.value)
     else:
+        value_type = expr.infer(node.value, context, solver)
+        context.add_assignment(value_type, node)
         for target in node.targets:
-            _infer_assignment_target(target, context, expr.infer(node.value, context, solver), solver)
+            _infer_assignment_target(target, context, value_type, solver)
 
     return solver.z3_types.none
 
@@ -191,8 +195,8 @@ def _infer_control_flow(node, context, solver):
 
         type: super{String, Float}
     """
-    body_context = Context(parent_context=context)
-    else_context = Context(parent_context=context)
+    body_context = Context(node.body, solver, parent_context=context)
+    else_context = Context(node.body, solver, parent_context=context)
 
     var_is_instance = None
     if hasattr(node, "test"):
@@ -327,9 +331,9 @@ def _infer_try(node, context, solver):
     return result_type
 
 
-def _init_func_context(name, args, context, solver):
+def _init_func_context(node, args, context, solver):
     """Initialize the local function scope, and the arguments types"""
-    local_context = Context(name=name, parent_context=context)
+    local_context = Context(node.body, solver, name=node.name, parent_context=context)
 
     # TODO starred args
 
@@ -347,13 +351,13 @@ def _init_func_context(name, args, context, solver):
 
 def _infer_args_defaults(args_types, defaults, context, solver):
     """Infer the default values of function arguments (if any)
-    
+
     :param args_types: Z3 constants for arguments types
     :param defaults: AST nodes for default values of arguments
     :param context: The parent of the function context
     :param solver: The inference Z3 solver
-    
-    
+
+
     A default array of length `n` represents the default values of the last `n` arguments
     """
     for i, default in enumerate(defaults):
@@ -376,20 +380,22 @@ def is_annotated(node):
 
 def is_stub(node):
     """Check if the function is a stub definition:
-    
+
     For the function to be a stub, it should be fully annotated and should have no body.
     The body should be a single `Pass` statement with optional docstring.
     """
     if not is_annotated(node):
         return False
 
+    if len(node.body) == 1 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Ellipsis):
+        return True
     return ((len(node.body) == 1 and isinstance(node.body[0], ast.Pass))
             or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass)))
 
 
 def has_type_var(node, solver):
     """Check if the function definition has a generic type variable annotation
-    
+
     Inspect all the nodes of the type annotations and look for relevant generic type vars
     """
     found_type_var = False
@@ -439,12 +445,13 @@ def _infer_func_def(node, context, solver):
                                                                                      defaults_count)
         else:
             context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count))
-        return
+        return solver.z3_types.none
 
-    func_context, args_types = _init_func_context(node.name, node.args.args, context, solver)
-    result_type = solver.new_z3_const("func")
+    func_context, args_types = _init_func_context(node, node.args.args, context, solver)
+    result_type = context.get_type(node.name)
     result_type.args_count = len(node.args.args)
     context.set_type(node.name, result_type)
+    context.add_func_ast(node.name, node)
 
     if hasattr(node.args, "defaults"):
         # Use the default args to infer the function parameters
@@ -455,7 +462,11 @@ def _infer_func_def(node, context, solver):
 
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
-        if inference_config["ignore_fully_annotated_function"] and is_annotated(node):
+        if inference_config["ignore_fully_annotated_function"] and is_annotated(node)\
+                or isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Ellipsis):
+            # Ignore the body if it has return annotation and one of the following conditions:
+            # The configuration flag for doing so is set
+            # The body begins with ellipsis
             body_type = return_type
         else:
             body_type = _infer_body(node.body, func_context, node.lineno, solver)
@@ -463,65 +474,152 @@ def _infer_func_def(node, context, solver):
                    fail_message="Return type annotation in line {}".format(node.lineno))
     else:
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
-
-    func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (body_type,))
+        return_type = solver.new_z3_const("return")
+        solver.add(solver.z3_types.subtype(body_type, return_type),
+                   fail_message="Return type in line {}".format(node.lineno))
+        # Putting higher weight for this soft constraint to give it higher priority over soft-constraint
+        # added by inheritance covariance/contravariance return type
+        solver.optimize.add_soft(body_type == return_type, weight=2)
+    func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
     solver.add(result_type == func_type,
                fail_message="Function definition in line {}".format(node.lineno))
+    return solver.z3_types.none
 
 
 def _infer_class_def(node, context, solver):
-    class_context = Context(name=node.name, parent_context=context)
-    result_type = solver.new_z3_const("class_type")
-    solver.z3_types.all_types[node.name] = result_type
+    class_context = Context(node.body, solver, name=node.name, parent_context=context)
+    result_type = context.get_type(node.name)
 
     for stmt in node.body:
         infer(stmt, class_context, solver)
 
     class_attrs = solver.z3_types.instance_attributes[node.name]
+    inherited_funcs_to_super = solver.config.inherited_funcs_to_super[node.name]
     instance_type = solver.z3_types.classes[node.name]
+    class_to_funcs = solver.z3_types.class_to_funcs[node.name]
+    base_classes_to_funcs = {}
+    bases_attrs = {}
 
-    for attr in class_context.types_map:
+    for base in node.bases:
+        base_classes_to_funcs[base.id] = solver.z3_types.class_to_funcs[base.id]
+        bases_attrs[base.id] = solver.z3_types.instance_attributes[base.id]
+
+    for attr in class_attrs:
+        if (attr in class_to_funcs and attr not in inherited_funcs_to_super
+           and "staticmethod" not in class_to_funcs[attr][1]):
+            # First arg (the method receiver) is the same as instance only if it is not an inherited method
+            # and not a static method
+
+            if not class_to_funcs[attr][0]:
+                raise TypeError("Instance method {} in class {} should have at least one argument (the receiver)."
+                                "If you wish to create a static method, please add the appropriate decorator."
+                                .format(attr, node.name))
+
+            args_len = class_to_funcs[attr][0]
+            arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_len))
+            solver.add(arg_accessor(class_attrs[attr]) == instance_type,
+                       fail_message="First arg in instance method {} in class {} has class instance type"
+                       .format(attr, node.name))
+        for base in bases_attrs:
+            if attr not in class_to_funcs and attr in bases_attrs[base]:
+                # Not a method and exists in superclass
+                solver.add(class_attrs[attr] == bases_attrs[base][attr],
+                           fail_message="Field {} in subclass {} has same type"
+                                        "as that in the superclass".format(node.name, attr))
+        if attr not in class_context.types_map:
+            # The context doesn't contain the types of the instance attributes (e.g., self.x)
+            # The axioms for such attributes are already added in the condition above.
+            continue
         solver.add(class_attrs[attr] == class_context.types_map[attr],
                    fail_message="Class attribute in {}".format(node.lineno))
 
-    # Set the type of the first arg in the class methods to be instance of this class
-    # TODO check staticmethod decorator
-    for func_name, args_count in solver.config.class_to_funcs[node.name]:
-        func_type = class_context.get_type(func_name)
-        arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_count))
-        solver.add(arg_accessor(func_type) == instance_type,
-                   fail_message="First arg in class methods has class instance type")
+        # Handle covariance/contravariance of overridden methods in all base classes
+        for base in base_classes_to_funcs:
+            if attr != "__init__" and attr in base_classes_to_funcs[base]:
+                # attr is an overridden method
+                # class_to_funcs[attr] is a tuple of three elements.
+                # The first is the args length, the second is the decorators list, the third is default args length
+                base_args_len = base_classes_to_funcs[base][attr][0]
+                base_defaults_len = base_classes_to_funcs[base][attr][2]
+                base_non_defaults_len = base_args_len - base_defaults_len
+                sub_args_len = class_to_funcs[attr][0]
+                sub_defaults_len = class_to_funcs[attr][2]
+                sub_non_defaults_len = sub_args_len - sub_defaults_len
+                decorators = base_classes_to_funcs[base][attr][1] + class_to_funcs[attr][1]
+
+                if "staticmethod" in decorators:
+                    if "staticmethod" not in base_classes_to_funcs[base][attr][1]:
+                        raise TypeError("Static method {} in class {} cannot override "
+                                        "non-static method.".format(attr, node.name))
+                    if "staticmethod" not in class_to_funcs[attr][1]:
+                        raise TypeError("Non-static method {} in class {} cannot "
+                                        "override static method.".format(attr, node.name))
+                else:
+                    if base_args_len > sub_args_len:
+                        raise TypeError("Method {} in subclass {} should have total arguments length "
+                                        "more than or equal that in superclass.".format(attr, node.name))
+                    if base_non_defaults_len < sub_non_defaults_len:
+                        raise TypeError("Method {} in subclass {} should have non-default arguments length less than "
+                                        "or equal that in superclass".format(attr, node.name))
+
+                    # handle arguments and return contravariance/covariance
+                    for i in range(1, base_args_len):
+                        base_arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}"
+                                                    .format(base_args_len, i + 1))
+                        sub_arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}"
+                                                   .format(sub_args_len, i + 1))
+                        if attr not in inherited_funcs_to_super or inherited_funcs_to_super[attr] != base:
+                            # Only add contravariant axioms if this method is not inherited from the current base class.
+                            solver.add(solver.z3_types.subtype(base_arg_accessor(bases_attrs[base][attr]),
+                                                               sub_arg_accessor(class_attrs[attr])),
+                                       fail_message="Arguments contravariance in line {}".format(node.lineno))
+                    base_return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(base_args_len))
+                    sub_return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(sub_args_len))
+
+                    if attr in inherited_funcs_to_super and inherited_funcs_to_super[attr] == base:
+                        # Add equality axioms if this method is inherited from the current base class.
+                        solver.add(class_attrs[attr] == bases_attrs[base][attr],
+                                   fail_message="Inherited function {} in class {} "
+                                                "has same type as that in class {}".format(attr, node.name, base))
+                    else:
+                        # Add covariant axiom otherwise
+                        solver.add(solver.z3_types.subtype(sub_return_accessor(class_attrs[attr]),
+                                                           base_return_accessor(bases_attrs[base][attr])),
+                                   fail_message="Return covariance in line {}".format(node.lineno))
+                    solver.optimize.add_soft(sub_return_accessor(class_attrs[attr])
+                                             == base_return_accessor(bases_attrs[base][attr]))
 
     class_type = solver.z3_types.type(instance_type)
     solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
     result_type.is_class = True
-    context.set_type(node.name, result_type)
+
+    return solver.z3_types.none
 
 
 def _infer_import(node, context, solver):
     """Infer the imported module in normal import statement
-    
+
     The imported modules can be used with direct module access only.
     Which means, re-assigning the module to a variable or passing it as a function arg is not supported.
-    
+
     For example, the following is not possible:
         - import X
           x = X
-          
+
         - import X
           f(X)
-          
+
     The importing supports deep module access. For example, the following is supported.
-    
+
     >> A.py
     x = 1
-    
+
     >> B.py
     import A
-    
+
     >> C.py
     import B
-    
+
     print(B.A.x)
     """
     for name in node.names:

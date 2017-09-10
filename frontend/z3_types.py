@@ -7,6 +7,7 @@ Limitations:
 from collections import OrderedDict
 from frontend.annotation_resolver import AnnotationResolver
 from frontend.class_node import ClassNode
+from frontend.config import config
 from frontend.pre_analysis import PreAnalyzer
 from frontend.stubs.stubs_handler import StubsHandler
 from z3 import *
@@ -41,7 +42,7 @@ class TypesSolver(Solver):
         self.assertions_vars = []
         self.assertions_errors = {}
         self.stubs_handler = StubsHandler()
-        analyzer = PreAnalyzer(tree, "tests/inference", self.stubs_handler)     # TODO: avoid hard-coding
+        analyzer = PreAnalyzer(tree, "tests/imp", self.stubs_handler)     # TODO: avoid hard-coding
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config)
         self.annotation_resolver = AnnotationResolver(self.z3_types)
@@ -82,7 +83,7 @@ class Z3Types:
         self.all_types = OrderedDict()
         self.instance_attributes = OrderedDict()
         self.class_attributes = OrderedDict()
-        self.class_to_init_count = config.class_to_init_count
+        self.class_to_funcs = config.class_to_funcs
 
         max_tuple_length = config.max_tuple_length
         max_function_args = config.max_function_args
@@ -91,6 +92,7 @@ class Z3Types:
         class_to_base = config.class_to_base
 
         type_sort = declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_attrs)
+
         self.type_sort = type_sort
 
         # type constructors and accessors
@@ -98,7 +100,6 @@ class Z3Types:
         self.type = type_sort.type
         self.none = type_sort.none
         # numbers
-        self.num = type_sort.number
         self.complex = type_sort.complex
         self.float = type_sort.float
         self.int = type_sort.int
@@ -141,22 +142,30 @@ class Z3Types:
         Creates a tree consisting of ClassNodes which contains all classes in all_classes,
         where child nodes are subclasses. The root will be object.
         """
-        tree = ClassNode('object', None, type_sort)
+        graph = ClassNode('object', [], type_sort)
         to_cover = list(all_classes.keys())
         covered = {'object'}
         i = 0
         while i < len(to_cover):
             current = to_cover[i]
             i += 1
-            base = all_classes[current]
-            if base not in covered:
+            bases = all_classes[current]
+            cont = False
+            for base in bases:
+                if base not in covered:
+                    cont = True
+                    break
+            if cont:
                 to_cover.append(current)
                 continue
-            base_node = tree.find(base)
-            current_node = ClassNode(current, base_node, type_sort)
-            base_node.children.append(current_node)
+
+            current_node = ClassNode(current, [], type_sort)
+            for base in bases:
+                base_node = graph.find(base)
+                current_node.parents.append(base_node)
+                base_node.children.append(current_node)
             covered.add(current)
-        return tree
+        return graph
 
     def create_subtype_axioms(self, all_classes, type_sort):
         """
@@ -168,18 +177,61 @@ class Z3Types:
         for c in tree.all_children():
             c_literal = c.get_literal()
             x = Const("x", self.type_sort)
-
             # One which is triggered by subtype(C, X)
-            options = []
-            for base in c.all_parents():
-                options.append(x == base.get_literal())
-            subtype_expr = self.subtype(c_literal, x)
-            axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
-                           patterns=[subtype_expr])
-            axioms.append(axiom)
+            # Check whether to make non subtype of everything or not
+            if c.name != 'none' or c.name == 'none' and not config["none_subtype_of_all"]:
+                # Handle tuples and functions variance
+                if isinstance(c.name, tuple) and (c.name[0].startswith("tuple") or c.name[0].startswith("func")):
+                    # Get the accessors of X
+                    accessors = []
+                    for acc_name in c.name[1:]:
+                        accessors.append(getattr(type_sort, acc_name)(x))
+
+                    # Add subtype relationship between args of X and C
+                    args_sub = []
+                    consts = c.quantified()
+
+                    if c.name[0].startswith("tuple"):
+                        for i, accessor in enumerate(accessors):
+                            args_sub.append(self.subtype(consts[i], accessor))
+                    else:
+                        for i, accessor in enumerate(accessors[1:-1]):
+                            args_sub.append(self.subtype(accessor, consts[i + 1]))
+                        args_sub.append(self.subtype(consts[-1], accessors[-1]))
+
+                    options = [
+                        And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub)
+                    ]
+                else:
+                    options = []
+                for base in c.all_parents():
+                    options.append(x == base.get_literal())
+                subtype_expr = self.subtype(c_literal, x)
+                axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
+                               patterns=[subtype_expr])
+                axioms.append(axiom)
 
             # And one which is triggered by subtype(X, C)
-            options = []
+            options = [x == type_sort.none] if config["none_subtype_of_all"] else []
+            if isinstance(c.name, tuple) and (c.name[0].startswith("tuple") or c.name[0].startswith("func")):
+                # Handle tuples and functions variance as above
+                accessors = []
+                for acc_name in c.name[1:]:
+                    accessors.append(getattr(type_sort, acc_name)(x))
+
+                args_sub = []
+                consts = c.quantified()
+
+                if c.name[0].startswith("tuple"):
+                    for i, accessor in enumerate(accessors):
+                        args_sub.append(self.subtype(accessor, consts[i]))
+                else:
+                    for i, accessor in enumerate(accessors[1:-1]):
+                        args_sub.append(self.subtype(consts[i + 1], accessor))
+                    args_sub.append(self.subtype(accessors[-1], consts[-1]))
+
+                options.append(And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub))
+
             for sub in c.all_children():
                 if sub is c:
                     options.append(x == c_literal)
@@ -201,7 +253,6 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
     type_sort.declare("type", ("instance", type_sort))
     type_sort.declare("none")
     # number
-    type_sort.declare("number")
     type_sort.declare("complex")
     type_sort.declare("float")
     type_sort.declare("int")
