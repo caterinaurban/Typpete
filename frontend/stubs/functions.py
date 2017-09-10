@@ -121,6 +121,16 @@ def hash(_: object) -> int:
     pass
 
 
+def hex(_: int) -> str:
+    """
+    Return the hexadecimal representation of an integer.
+
+       >>> hex(12648430)
+       '0xc0ffee'
+    """
+    pass
+
+
 def id(_: object) -> int:
     """
     Return the identity of an object.

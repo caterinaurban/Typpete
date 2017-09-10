@@ -20,6 +20,14 @@ def count(s: str, str: str) -> int:
     pass
 
 
+def format(s: str, arg1: object = '', arg2: object = '', arg3: object = '', arg4: object = '') -> str:
+    """
+    Return a formatted version of S, using substitutions from args and kwargs.
+        The substitutions are identified by braces ('{' and '}').
+    """
+    pass
+
+
 def isalnum(s: str) -> bool:
     """Returns true if string has at least 1 character and all characters are alphanumeric and false otherwise."""
     pass
