@@ -22,6 +22,7 @@ class Context:
         """
         self.name = name
         self.types_map = {}
+        self.isinstance_nodes = {}
 
         # Store all the class types that appear in this context. This enables using
         # classes in no specific order.
@@ -53,6 +54,15 @@ class Context:
         if self.parent_context is None:
             raise NameError("Name {} is not defined.".format(var_name))
         return self.parent_context.get_type(var_name)
+
+
+    def get_isinstance_type(self, dump):
+        if dump in self.isinstance_nodes:
+            return self.isinstance_nodes[dump]
+        if self.parent_context is None:
+            raise NameError("Cannot find isinstance node")
+        return self.parent_context.get_isinstance_type(dump)
+
 
     def set_type(self, var_name, var_type):
         """Sets the type of a variable in this context."""

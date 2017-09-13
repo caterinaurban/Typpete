@@ -26,10 +26,15 @@ class Move:
         elif c == 'prop!=':
             condition = ' if prop %d != %d' % self.condition[1:]
 
+        if isinstance(self.action, Room):
+            act = 'moves to %r' % (self.action.short_description
+                                      or self.action.long_description[:20]).strip()
+        elif isinstance(self.action, Message):
+            act = 'prints %r' % self.action.text
+        else:
+            act = 'special %d' % self.action
 
-        action = ''
-
-        return '<{}{} {}>'.format('|'.join(verblist), condition, action)
+        return '<{}{} {}>'.format('|'.join(verblist), condition, act)
 
 class Room:
     """A location in the game."""

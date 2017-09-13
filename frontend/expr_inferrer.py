@@ -594,6 +594,11 @@ def _infer_lambda(node, context, solver):
 
 def infer(node, context, solver, from_call=False):
     """Infer the type of a given AST node"""
+    try:
+        return context.get_isinstance_type(ast.dump(node, annotate_fields=False))
+    except NameError:
+        pass
+
     if isinstance(node, ast.Num):
         return infer_numeric(node, solver)
     elif isinstance(node, ast.Str):

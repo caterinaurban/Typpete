@@ -201,8 +201,7 @@ def _infer_control_flow(node, context, solver):
     if hasattr(node, "test"):
         expr.infer(node.test, context, solver)
         if (isinstance(node.test, ast.Call) and isinstance(node.test.func, ast.Name)
-           and node.test.func.id == "isinstance" and len(node.test.args) == 2
-           and isinstance(node.test.args[0], ast.Name)):
+           and node.test.func.id == "isinstance" and len(node.test.args) == 2):
             # isinstance(x, t) test: Make `x` to be of type `t` in the then branch
             # The only allowed case is when `x` is variable and `t` is a single type (not a tuple).
 
@@ -210,10 +209,11 @@ def _infer_control_flow(node, context, solver):
             t = solver.resolve_annotation(node.test.args[1])
 
             # Set `x` to be an instance of `t` in the then branch
-            body_context.set_type(node.test.args[0].id, t)
+            body_context.isinstance_nodes[ast.dump(node.test.args[0], annotate_fields=False)] = t
 
             # Keep track of the name of the variable `x`
-            var_is_instance = node.test.args[0].id
+            if isinstance(node.test.args[0], ast.Name):
+                var_is_instance = node.test.args[0].id
 
     body_type = _infer_body(node.body, body_context, node.lineno, solver)
     else_type = _infer_body(node.orelse, else_context, node.lineno, solver)
