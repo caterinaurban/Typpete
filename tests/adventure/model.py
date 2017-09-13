@@ -14,17 +14,17 @@ class Move:
         verblist = [ verb.text for verb in self.verbs ]
 
         c = self.condition[0]
-        condition = ''
+        cond = ''
         if c == '%':
-            condition = ' %d%% of the time' % self.condition[1]
+            cond = ' %d%% of the time' % self.condition[1]
         elif c == 'not_dwarf':
-            condition = ' if not a dwarf'
+            cond = ' if not a dwarf'
         elif c == 'carrying':
-            condition = ' if carrying %s' % self.condition[1]
+            cond = ' if carrying %s' % self.condition[1]
         elif c == 'carrying_or_in_room_with':
-            condition = ' if carrying or in room with %s' % self.condition[1]
+            cond = ' if carrying or in room with %s' % self.condition[1]
         elif c == 'prop!=':
-            condition = ' if prop %d != %d' % self.condition[1:]
+            cond = ' if prop %d != %d' % self.condition[1:]
 
         if isinstance(self.action, Room):
             act = 'moves to %r' % (self.action.short_description
@@ -34,7 +34,7 @@ class Move:
         else:
             act = 'special %d' % self.action
 
-        return '<{}{} {}>'.format('|'.join(verblist), condition, act)
+        return '<{}{} {}>'.format('|'.join(verblist), cond, act)
 
 class Room:
     """A location in the game."""
@@ -77,7 +77,7 @@ class Room:
 
 class Word:
     """A word that can be used as part of a command."""
-
+    n = 0
     text = None
     kind = None
     default_message = None
@@ -172,12 +172,13 @@ class Dwarf:
         self.old_room = room
 
     def can_move(self, move):
-        if not isinstance(move.action, Room):
+        if isinstance(move.action, Room):
+            room = move.action
+            return (room.is_after_hall_of_mists()
+                    and not room.is_forced()
+                    and not move.condition == ('%', 100))
+        else:
             return False
-        room = move.action
-        return (room.is_after_hall_of_mists()
-                and not room.is_forced()
-                and not move.condition == ('%', 100))
 
 class Pirate(Dwarf):
     is_dwarf = False

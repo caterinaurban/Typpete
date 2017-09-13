@@ -1,6 +1,6 @@
 config = {
     # Whether to ignore the body of fully annotated functions and just take the provided types for args/return
-    "ignore_fully_annotated_function": False,
+    "ignore_fully_annotated_function": True,
 
     # Whether to allow different branches to use different types of same variable.
     # Example:

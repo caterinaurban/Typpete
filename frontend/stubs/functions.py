@@ -1,6 +1,7 @@
 """Stub file for built in functions"""
 from typing import TypeVar, List, Tuple, Dict
 
+
 T = TypeVar("T")
 U = TypeVar("U")
 Num = TypeVar("Num", bound=complex)

@@ -15,7 +15,7 @@ def copy(dict: Dict[T, U]) -> Dict[T, U]:
     pass
 
 
-def get(dict: Dict[T, U], key: T) -> U:
+def get(dict: Dict[T, U], key: T, default: U = None) -> U:
     """For key key, returns value"""
     pass
 
