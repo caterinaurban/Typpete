@@ -60,8 +60,8 @@ class PreAnalyzer:
 
     def maximum_function_args(self):
         """Get the maximum number of function arguments appearing in the AST"""
-        user_func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
-        stub_func_defs = [node for node in self.stub_nodes if isinstance(node, ast.FunctionDef)]
+        user_func_defs = [node for node in self.all_nodes if isinstance(node, (ast.FunctionDef, ast.Lambda))]
+        stub_func_defs = [node for node in self.stub_nodes if isinstance(node, (ast.FunctionDef, ast.Lambda))]
 
         # A minimum value of 1 because a default __init__ with one argument function
         # is added to classes that doesn't contain one
@@ -104,14 +104,15 @@ class PreAnalyzer:
             
         """
         # TODO propagate attributes to subclasses.
-        class_defs = [node for node in self.all_nodes if isinstance(node, ast.ClassDef)]
+
+        class_defs = [node for node in self.all_nodes + self.stub_nodes if isinstance(node, ast.ClassDef)]
         exc = ast.ClassDef()
         exc.name = "Exception"
         exc.bases = []
         exc.body = []
         exc.lineno = -1
         class_defs.append(exc)
-        propagate_attributes_to_subclasses(class_defs)
+        inherited_funcs_to_super = propagate_attributes_to_subclasses(class_defs)
 
         class_to_instance_attributes = OrderedDict()
         class_to_class_attributes = OrderedDict()
@@ -159,6 +160,11 @@ class PreAnalyzer:
                     class_attributes.add(cls_stmt.name)
                     if not cls_stmt.args.args:
                         continue
+
+                    if not config["allow_attributes_outside_init"] and cls_stmt.name != "__init__":
+                        # Check if to allow attributes being defined outside __init__ or not
+                        continue
+
                     first_arg = cls_stmt.args.args[0].arg  # In most cases it will be 'self'
 
                     # Get attribute assignments where attribute value is the same as the first argument
@@ -177,7 +183,9 @@ class PreAnalyzer:
                         if isinstance(target, ast.Name):
                             class_attributes.add(target.id)
                             instance_attributes.add(target.id)
-        return class_to_instance_attributes, class_to_class_attributes, class_to_base, class_to_funcs
+        return (class_to_instance_attributes, class_to_class_attributes,
+                class_to_base, class_to_funcs,
+                inherited_funcs_to_super)
 
     def get_all_configurations(self):
         config = Configuration()
@@ -190,6 +198,7 @@ class PreAnalyzer:
         config.classes_to_class_attrs = class_analysis[1]
         config.class_to_base = class_analysis[2]
         config.class_to_funcs = class_analysis[3]
+        config.inherited_funcs_to_super = class_analysis[4]
 
         config.used_names = self.get_all_used_names()
         config.max_default_args = self.max_default_args()
@@ -316,9 +325,12 @@ def propagate_attributes_to_subclasses(class_defs):
     """Start depth-first methods propagation from inheritance roots to subclasses"""
     class_to_bases = {}
     class_to_node = {}
+    class_inherited_funcs_to_super = {}
     for class_def in class_defs:
-        class_to_bases[class_def.name] = [x.id for x in class_def.bases if x.id != 'object']
+        class_to_bases[class_def.name] = [x.id for x in class_def.bases
+                                          if x.id != 'object']
         class_to_node[class_def.name] = class_def
+        class_inherited_funcs_to_super[class_def.name] = {}
 
     # Save the inherited functions separately. Don't add them to the AST until
     # all classes are processed.
@@ -337,11 +349,19 @@ def propagate_attributes_to_subclasses(class_defs):
             # Select only functions that are not overridden in the subclasses.
             inherited_funcs = [func for func in parent_node.body
                                if isinstance(func, ast.FunctionDef) and func.name not in class_funcs]
+
+            # Store a mapping from the inherited function names to the super class from which they are inherited
+            class_inherited_funcs_to_super[class_def.name].update(
+                {func.name: parent for func in inherited_funcs}
+            )
+
             class_to_inherited_funcs[class_def.name] += inherited_funcs
 
     # Add the inherited functions to the AST.
     for class_def in class_defs:
         class_def.body += class_to_inherited_funcs[class_def.name]
+
+    return class_inherited_funcs_to_super
 
 
 def add_init_if_not_existing(class_node):
@@ -351,7 +371,14 @@ def add_init_if_not_existing(class_node):
             return
     class_node.body.append(ast.FunctionDef(
         name="__init__",
-        args=ast.arguments(args=[ast.arg(arg="self", annotation=None)], defaults=[]),
+        args=ast.arguments(
+            args=[ast.arg(arg="self", annotation=None, lineno=class_node.lineno)],
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=[]
+        ),
         body=[ast.Pass()],
         decorator_list=[],
         returns=None,

@@ -2,6 +2,12 @@ from frontend.stmt_inferrer import *
 from z3 import Optimize, Tactic, ParOr, ParThen
 import ast
 import time
+import astunparse
+
+file_path = "tests/imp/imp.py"
+file_name = file_path.split("/")[-1]
+
+r = open(file_path)
 
 r = open("/home/marco/infer_scion_types/scion/infrastructure/router/main.py")
 #r = open("/home/marco/infer_scion_types/scion/lib/path_store.py")
@@ -72,6 +78,9 @@ end_time = time.time()
 
 if check == z3_types.unsat:
     print("Check: unsat")
+    solver.check(solver.assertions_vars)
+    for uc in solver.unsat_core():
+        print(solver.assertions_errors[uc])
     opt = Optimize(solver.ctx)
     for av in solver.assertions_vars:
         opt.add_soft(av)
@@ -99,6 +108,14 @@ if check == z3_types.unsat:
 else:
     #model = m
     model = solver.optimize.model()
-    print_context(context)
+    context.generate_typed_ast(model, solver)
+
+    # uncomment this to write typed source into a file
+    # write_path = "inference_output/" + file_name
+    # file = open(write_path, 'w')
+    # file.write(astunparse.unparse(t))
+    # file.close()
+    print(astunparse.unparse(t))
+
 
 print("Ran in {} seconds".format(end_time - start_time))

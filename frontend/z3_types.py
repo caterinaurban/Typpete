@@ -7,6 +7,7 @@ Limitations:
 from collections import OrderedDict
 from frontend.annotation_resolver import AnnotationResolver
 from frontend.class_node import ClassNode
+from frontend.config import config
 from frontend.pre_analysis import PreAnalyzer
 from frontend.stubs.stubs_handler import StubsHandler
 from z3 import *
@@ -27,7 +28,7 @@ set_param("smt.qi.eager_threshold", 100)
 set_param("smt.qi.cost",  "(+ weight generation)")
 set_param("type_check", True)
 set_param("smt.bv.reflect", True)
-set_param("timeout", 1000 * 300)
+# set_param("timeout", 1000 * 300)
 # set_option(":smt.qi.profile", True)
 # set_param(verbose=10)
 
@@ -106,7 +107,6 @@ class Z3Types:
         self.type = type_sort.type
         self.none = type_sort.none
         # numbers
-        self.num = type_sort.number
         self.complex = type_sort.complex
         self.float = type_sort.float
         self.int = type_sort.int
@@ -191,27 +191,28 @@ class Z3Types:
             is_tuple_n = str(c_literal).startswith('tuple') and not str(c_literal).startswith('tuple_var')
 
             # One which is triggered by subtype(C, X)
-            options = []
-            if is_tuple_n:
-                for base in c.all_parents():
-                    if base.name == ('tuple_var', 'tuple_type'):
-                        arg_subtypes = []
-                        for arg in c.quantified():
-                            arg_subtypes.append(self.subtype(arg, base.get_arg_list(x)[0]))
-                        _res = And(x == base.get_literal_with_args(x), *arg_subtypes)
-                        options.append(_res)
-                    else:
+            if c.name != 'none' or not config["none_subtype_of_all"]:
+                options = []
+                if is_tuple_n:
+                    for base in c.all_parents():
+                        if base.name == ('tuple_var', 'tuple_type'):
+                            arg_subtypes = []
+                            for arg in c.quantified():
+                                arg_subtypes.append(self.subtype(arg, base.get_arg_list(x)[0]))
+                            _res = And(x == base.get_literal_with_args(x), *arg_subtypes)
+                            options.append(_res)
+                        else:
+                            options.append(x == base.get_literal())
+                else:
+                    for base in c.all_parents():
                         options.append(x == base.get_literal())
-            else:
-                for base in c.all_parents():
-                    options.append(x == base.get_literal())
-            subtype_expr = self.subtype(c_literal, x)
-            axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
-                           patterns=[subtype_expr])
-            axioms.append(axiom)
+                subtype_expr = self.subtype(c_literal, x)
+                axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
+                               patterns=[subtype_expr])
+                axioms.append(axiom)
 
             # And one which is triggered by subtype(X, C)
-            options = []
+            options = [x == type_sort.none] if config["none_subtype_of_all"] else []
             if is_tuple_var:
                 for sub in c.all_children():
                     if sub is c:
@@ -229,6 +230,66 @@ class Z3Types:
                         options.append(x == c_literal)
                     else:
                         options.append(x == sub.get_literal_with_args(x))
+            # # One which is triggered by subtype(C, X)
+            # # Check whether to make non subtype of everything or not
+            # if c.name != 'none' or c.name == 'none' and not config["none_subtype_of_all"]:
+            #     # Handle tuples and functions variance
+            #     if isinstance(c.name, tuple) and (c.name[0].startswith("tuple") or c.name[0].startswith("func")):
+            #         # Get the accessors of X
+            #         accessors = []
+            #         for acc_name in c.name[1:]:
+            #             accessors.append(getattr(type_sort, acc_name)(x))
+            #
+            #         # Add subtype relationship between args of X and C
+            #         args_sub = []
+            #         consts = c.quantified()
+            #
+            #         if c.name[0].startswith("tuple"):
+            #             for i, accessor in enumerate(accessors):
+            #                 args_sub.append(self.subtype(consts[i], accessor))
+            #         else:
+            #             for i, accessor in enumerate(accessors[1:-1]):
+            #                 args_sub.append(self.subtype(accessor, consts[i + 1]))
+            #             args_sub.append(self.subtype(consts[-1], accessors[-1]))
+            #
+            #         options = [
+            #             And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub)
+            #         ]
+            #     else:
+            #         options = []
+            #     for base in c.all_parents():
+            #         options.append(x == base.get_literal())
+            #     subtype_expr = self.subtype(c_literal, x)
+            #     axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
+            #                    patterns=[subtype_expr])
+            #     axioms.append(axiom)
+            #
+            # # And one which is triggered by subtype(X, C)
+            # options = [x == type_sort.none] if config["none_subtype_of_all"] else []
+            # if isinstance(c.name, tuple) and (c.name[0].startswith("tuple") or c.name[0].startswith("func")):
+            #     # Handle tuples and functions variance as above
+            #     accessors = []
+            #     for acc_name in c.name[1:]:
+            #         accessors.append(getattr(type_sort, acc_name)(x))
+            #
+            #     args_sub = []
+            #     consts = c.quantified()
+            #
+            #     if c.name[0].startswith("tuple"):
+            #         for i, accessor in enumerate(accessors):
+            #             args_sub.append(self.subtype(accessor, consts[i]))
+            #     else:
+            #         for i, accessor in enumerate(accessors[1:-1]):
+            #             args_sub.append(self.subtype(consts[i + 1], accessor))
+            #         args_sub.append(self.subtype(accessors[-1], consts[-1]))
+            #
+            #     options.append(And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub))
+            #
+            # for sub in c.all_children():
+            #     if sub is c:
+            #         options.append(x == c_literal)
+            #     else:
+            #         options.append(x == sub.get_literal_with_args(x))
             subtype_expr = self.subtype(x, c_literal)
             axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                            patterns=[subtype_expr])
@@ -245,7 +306,6 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
     type_sort.declare("type", ("instance", type_sort))
     type_sort.declare("none")
     # number
-    type_sort.declare("number")
     type_sort.declare("complex")
     type_sort.declare("float")
     type_sort.declare("int")

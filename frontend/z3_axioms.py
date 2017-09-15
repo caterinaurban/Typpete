@@ -1,6 +1,35 @@
 from frontend.z3_types import And, Or, Implies, Not
 
 
+def overloading_axioms(left, right, result, method_name, types):
+    """
+    Constraints for operator overloading
+    
+    :param left: The left operand of the operation 
+    :param right: The right operand of the operation
+    :param result: The result of the operation
+    :param method_name: The name of the magic method responsible for overloading the operation. e.g., __add__
+    :param types: the Z3Types object
+    :return: axioms of the operator overloading
+    """
+    axioms = []
+    for t in types.all_types:
+        # Check that `method_name` is a method in the current class.
+        if method_name in types.class_to_funcs[t]:
+            method_type = types.instance_attributes[t][method_name]
+
+            # the left operand is the instance
+            instance = getattr(types.type_sort, "instance")(types.all_types[t])
+
+            # the right operand is a subtype of the `other` arg in the magic method
+            other_type = getattr(types.type_sort, "func_2_arg_2")(method_type)
+
+            # the result is the return type of the magic method
+            return_type = getattr(types.type_sort, "func_2_return")(method_type)
+            axioms.append(And(left == instance, types.subtype(right, other_type), result == return_type))
+    return axioms
+
+
 def add(left, right, result, types):
     """Constraints for the addition operation
     
@@ -16,20 +45,23 @@ def add(left, right, result, types):
     TODO: Tuples addition
     """
     return [
-        Or(
-            And(types.subtype(left, types.seq), left == right, left == result),
-            And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-            And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+        And(left != types.none, right != types.none),
+        Or([
+               And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+               And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
+               And(types.subtype(left, types.seq), left == right, left == result),
 
-            # result from list addition is a list with a supertype of operands' types
-            And(left == types.list(types.list_type(left)),
-                right == types.list(types.list_type(right)),
-                result == types.list(types.list_type(result)),
-                types.subtype(types.list_type(left), types.list_type(result)),
-                types.subtype(types.list_type(right), types.list_type(result)),
-                ),
-            And(left == types.string, right == types.string, result == types.string)
-        ),
+               # result from list addition is a list with a supertype of operands' types
+               And(left == types.list(types.list_type(left)),
+                   right == types.list(types.list_type(right)),
+                   result == types.list(types.list_type(result)),
+                   types.subtype(types.list_type(left), types.list_type(result)),
+                   types.subtype(types.list_type(right), types.list_type(result)),
+                   ),
+               And(left == types.string, right == types.string, result == types.string)
+           ]
+           + overloading_axioms(left, right, result, "__add__", types)
+           ),
     ]
 
 
@@ -47,17 +79,21 @@ def mult(left, right, result, types):
         - b"string" * 4
     """
     return [
-        Or(
+        And(left != types.none, right != types.none),
+        Or([
             # multiplication of two booleans is an integer. Handle it separately
             And(left == types.bool, right == types.bool, result == types.int),
             And(Or(left != types.bool, right != types.bool),
                 Or(
                     And(types.subtype(left, types.seq), types.subtype(right, types.int), result == left),
                     And(types.subtype(left, types.int), types.subtype(right, types.seq), result == right),
-                    And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-                    And(types.subtype(right, types.num), types.subtype(left, right), result == right),
+
+                    And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+                    And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
                     )
                 )
+            ]
+           + overloading_axioms(left, right, result, "__mul__", types)
         )
     ]
 
@@ -73,13 +109,14 @@ def div(left, right, result, types):
         - 3 / (1 + 2j)
     """
     return [
-        And(types.subtype(left, types.num), types.subtype(right, types.num)),
+        And(left != types.none, right != types.none),
+        And(types.subtype(left, types.complex), types.subtype(right, types.complex)),
         Implies(Or(left == types.complex, right == types.complex), result == types.complex),
         Implies(Not(Or(left == types.complex, right == types.complex)), result == types.float)
     ]
 
 
-def arithmetic(left, right, result, is_mod, types):
+def arithmetic(left, right, result, magic_method, is_mod, types):
     """Constraints for arithmetic operation
 
     Cases:
@@ -92,17 +129,20 @@ def arithmetic(left, right, result, is_mod, types):
         - "Case #%i: %i" % (u, v)
     """
     axioms = [
-        And(types.subtype(left, types.num), types.subtype(right, left), result == left),
-        And(types.subtype(right, types.num), types.subtype(left, right), result == right),
-    ]
+        And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
+        And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
+    ] + overloading_axioms(left, right, result, magic_method, types)
 
     if is_mod:
         axioms += [And(Or(left == types.string, left == types.bytes), result == left)]
 
-    return [Or(axioms)]
+    return [
+        And(left != types.none, right != types.none),
+        Or(axioms)
+    ]
 
 
-def bitwise(left, right, result, types):
+def bitwise(left, right, result, magic_method, types):
     """Constraints for arithmetic operation
 
     Cases:
@@ -112,8 +152,9 @@ def bitwise(left, right, result, types):
         - 1 & 2
         - True ^ False
     """
-    return arithmetic(left, right, result, False, types) + [
-        And(types.subtype(left, types.int), types.subtype(right, types.int))]
+    return arithmetic(left, right, result, magic_method, False, types) + [
+            Implies(And(types.subtype(left, types.complex), types.subtype(right, types.complex)),
+                    types.subtype(left, types.int), types.subtype(right, types.int))]
 
 
 def bool_op(values, result, types):
@@ -137,7 +178,8 @@ def unary_invert(unary, types):
     - ~231
     """
     return [
-        types.subtype(unary, types.int)
+        types.subtype(unary, types.int),
+        unary != types.none
     ]
 
 
@@ -152,7 +194,8 @@ def unary_other(unary, result, types):
         - +2.0
     """
     return [
-        types.subtype(unary, types.num),
+        unary != types.none,
+        types.subtype(unary, types.complex),
         Implies(unary == types.bool, result == types.int),
         Implies(unary != types.bool, result == unary)
     ]
@@ -406,10 +449,11 @@ def function_call_axioms(called, args, result, types):
         defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(i))
         defaults_count = defaults_accessor(called)
         # Add the axioms for function call, default args count, and arguments subtyping.
-        axioms.append(And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
+        axioms.append(
+            And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
 
-                          defaults_count >= rem_args,
-                          defaults_count <= types.config.max_default_args))
+                defaults_count >= rem_args,
+                defaults_count <= types.config.max_default_args))
     return axioms
 
 
@@ -419,12 +463,32 @@ def call(called, args, result, types):
     Cases:
         - Function call
         - Class instantiation
+        - Callable classes
     """
     return [
         Or(
-            function_call_axioms(called, args, result, types) + instance_axioms(called, args, result, types)
+            (function_call_axioms(called, args, result, types)
+             + instance_axioms(called, args, result, types)
+             + class_call_axioms(called, args, result, types))
         )
     ]
+
+
+def class_call_axioms(called, args, result, types):
+    """Constraints for callable classes
+    
+    Assert with all classes which have the method `__call__`.
+    """
+    axioms = []
+    for t in types.all_types:
+        # Check that `__call__` is a method in the current class.
+        if "__call__" in types.class_to_funcs[t]:
+            call_type = types.instance_attributes[t]["__call__"]
+            instance = getattr(types.type_sort, "instance")(types.all_types[t])
+            args_types = (instance,) + args
+            axioms.append(And(called == instance,
+                              Or(function_call_axioms(call_type, args_types, result, types))))
+    return axioms
 
 
 def staticmethod_call(class_type, args, result, attr, types):
@@ -441,6 +505,39 @@ def staticmethod_call(class_type, args, result, attr, types):
                 attr_type = types.instance_attributes[t][attr]
                 axioms.append(And(class_type == types.all_types[t],
                                   Or(function_call_axioms(attr_type, args, result, types))))
+    return axioms
+
+
+def instancemethod_call(instance, args, result, attr, types):
+    """Constraints for calls on instances
+
+    There are two cases:
+    - The called is an instance method
+    - The called is a normal instance attribute which happens to be callable
+
+    In the first case, check that it appears in the class instance methods and is not static method
+    In the second case, check that it does not appear in the class instance methods but appears in the
+        class attributes
+        
+    Add the receiver argument in the first case only
+    `
+    """
+    axioms = []
+    for t in types.all_types:
+        # Check that attr is an instance method and "staticmethod" is not of its decorators,
+        # if so, add call axioms with a receiver
+        if attr in types.class_to_funcs[t]:
+            decorators = types.class_to_funcs[t][attr][1]
+            if "staticmethod" not in decorators:
+                attr_type = types.instance_attributes[t][attr]
+                axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
+                                  Or(function_call_axioms(attr_type, args, result, types))))
+
+        # Otherwise, check if it is an instance attribute, if so add call axioms with no receiver
+        elif attr in types.instance_attributes[t]:
+            attr_type = types.instance_attributes[t][attr]
+            axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
+                              Or(function_call_axioms(attr_type, args[1:], result, types) + class_call_axioms(attr_type, args[1:], result, types))))
     return axioms
 
 
