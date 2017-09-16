@@ -528,7 +528,7 @@ def instancemethod_call(instance, args, result, attr, types):
         # if so, add call axioms with a receiver
         if attr in types.class_to_funcs[t]:
             decorators = types.class_to_funcs[t][attr][1]
-            if "staticmethod" not in decorators:
+            if "staticmethod" not in decorators and "property" not in decorators:
                 attr_type = types.instance_attributes[t][attr]
                 axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
                                   Or(function_call_axioms(attr_type, args, result, types))))
@@ -551,8 +551,16 @@ def attribute(instance, attr, result, types):
         if attr in types.instance_attributes[t]:
             # instance access. Ex: A().x
             type_instance = getattr(types.type_sort, "instance")(types.all_types[t])
-            attr_type = types.instance_attributes[t][attr]
-            axioms.append(And(instance == type_instance, result == attr_type))
+            # Check if it is a property access
+            if attr in types.class_to_funcs[t] and "property" in types.class_to_funcs[t][attr][1]:
+                # Set the attribute type to be the return type of the property method
+                method_type = types.instance_attributes[t][attr]
+                arg_accessor = getattr(types.type_sort, "func_1_arg_1")
+                axioms.append(And(instance == type_instance, method_type == types.funcs[1](0, arg_accessor(method_type),
+                                                                                           result)))
+            else:
+                attr_type = types.instance_attributes[t][attr]
+                axioms.append(And(instance == type_instance, result == attr_type))
         if attr in types.class_attributes[t]:
             # class access. Ex: A.x
             class_type = types.all_types[t]
