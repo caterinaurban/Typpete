@@ -62,6 +62,7 @@ def _get_elements_type(elts, context, lineno, solver):
         all_types.append(cur_type)
 
         solver.add(solver.z3_types.subtype(cur_type, elts_type),
+                   weight=context.definition(),
                    fail_message="List literal in line {}".format(lineno))
 
     solver.optimize.add_soft(z3.Or([elts_type == elt for elt in all_types]))
@@ -127,33 +128,36 @@ def infer_set(node, context, solver):
     return solver.z3_types.set(_get_elements_type(node.elts, context, node.lineno, solver))
 
 
-def _infer_add(left_type, right_type, lineno, solver):
+def _infer_add(left_type, right_type, lineno, context, solver):
     """Infer the type of an addition operation, and add the corresponding axioms"""
     result_type = solver.new_z3_const("addition_result")
     solver.add(axioms.add(left_type, right_type, result_type, solver.z3_types),
+               weight=context.definition(),
                fail_message="Addition in line {}".format(lineno))
 
     solver.optimize.add_soft(z3.Or(result_type == left_type, result_type == right_type))
     return result_type
 
 
-def _infer_mult(left_type, right_type, lineno, solver):
+def _infer_mult(left_type, right_type, lineno, context, solver):
     """Infer the type of a multiplication operation, and add the corresponding axioms"""
     result_type = solver.new_z3_const("multiplication_result")
     solver.add(axioms.mult(left_type, right_type, result_type, solver.z3_types),
+               weight=context.definition(),
                fail_message="Multiplication in line {}".format(lineno))
     return result_type
 
 
-def _infer_div(left_type, right_type, lineno, solver):
+def _infer_div(left_type, right_type, lineno, context, solver):
     """Infer the type of a division operation, and add the corresponding axioms"""
     result_type = solver.new_z3_const("division_result")
     solver.add(axioms.div(left_type, right_type, result_type, solver.z3_types),
+               weight=context.definition(),
                fail_message="Division in line {}".format(lineno))
     return result_type
 
 
-def _infer_arithmetic(left_type, right_type, op, lineno, solver):
+def _infer_arithmetic(left_type, right_type, op, lineno, context, solver):
     """Infer the type of an arithmetic operation, and add the corresponding axioms"""
     result_type = solver.new_z3_const("arithmetic_result")
 
@@ -171,11 +175,12 @@ def _infer_arithmetic(left_type, right_type, op, lineno, solver):
 
     solver.add(axioms.arithmetic(left_type, right_type, result_type, magic_method,
                                  isinstance(op, ast.Mod), solver.z3_types),
+               weight=context.definition(),
                fail_message="Arithmetic operation in line {}".format(lineno))
     return result_type
 
 
-def _infer_bitwise(left_type, right_type, op, lineno, solver):
+def _infer_bitwise(left_type, right_type, op, lineno, context, solver):
     """Infer the type of a bitwise operation, and add the corresponding axioms"""
     result_type = solver.new_z3_const("bitwise_result")
 
@@ -188,11 +193,12 @@ def _infer_bitwise(left_type, right_type, op, lineno, solver):
         magic_method = "__and__"
 
     solver.add(axioms.bitwise(left_type, right_type, result_type, magic_method, solver.z3_types),
+               weight=context.definition(),
                fail_message="Bitwise operation in line {}".format(lineno))
     return result_type
 
 
-def binary_operation_type(left_type, op, right_type, lineno, solver):
+def binary_operation_type(left_type, op, right_type, lineno, context, solver):
     """Infer the type of a binary operation result"""
     if isinstance(op, ast.Add):
         inference_func = _infer_add
@@ -201,11 +207,11 @@ def binary_operation_type(left_type, op, right_type, lineno, solver):
     elif isinstance(op, ast.Div):
         inference_func = _infer_div
     elif isinstance(op, (ast.BitOr, ast.BitXor, ast.BitAnd)):
-        return _infer_bitwise(left_type, right_type, op, lineno, solver)
+        return _infer_bitwise(left_type, right_type, op, lineno, context, solver)
     else:
-        return _infer_arithmetic(left_type, right_type, op, lineno, solver)
+        return _infer_arithmetic(left_type, right_type, op, lineno, context, solver)
 
-    return inference_func(left_type, right_type, lineno, solver)
+    return inference_func(left_type, right_type, lineno, context, solver)
 
 
 def infer_binary_operation(node, context, solver):
@@ -219,7 +225,7 @@ def infer_binary_operation(node, context, solver):
     left_type = infer(node.left, context, solver)
     right_type = infer(node.right, context, solver)
 
-    return binary_operation_type(left_type, node.op, right_type, node.lineno, solver)
+    return binary_operation_type(left_type, node.op, right_type, node.lineno, context, solver)
 
 
 def infer_boolean_operation(node, context, solver):
@@ -235,6 +241,7 @@ def infer_boolean_operation(node, context, solver):
 
     result_type = solver.new_z3_const("boolOp")
     solver.add(axioms.bool_op(values_types, result_type, solver.z3_types),
+               weight=context.definition(),
                fail_message="Boolean operation in line {}".format(node.lineno))
 
     for value in values_types:
@@ -253,11 +260,13 @@ def infer_unary_operation(node, context, solver):
 
     if isinstance(node.op, ast.Invert):
         solver.add(axioms.unary_invert(unary_type, solver.z3_types),
+                   weight=context.definition(),
                    fail_message="Invert operation in line {}".format(node.lineno))
         return solver.z3_types.int
     else:
         result_type = solver.new_z3_const("unary_result")
         solver.add(axioms.unary_other(unary_type, result_type, solver.z3_types),
+                   weight=context.definition(),
                    fail_message="Unary operation in line {}".format(node.lineno))
         return result_type
 
@@ -272,6 +281,7 @@ def infer_if_expression(node, context, solver):
 
     result_type = solver.new_z3_const("if_expr")
     solver.add(axioms.if_expr(a_type, b_type, result_type, solver.z3_types),
+               weight=context.definition(),
                fail_message="If expression in line {}".format(node.lineno))
     solver.optimize.add_soft(z3.Or(result_type == a_type, result_type == b_type))
     return result_type
@@ -291,6 +301,7 @@ def infer_subscript(node, context, solver):
         index_type = infer(node.slice.value, context, solver)
         result_type = solver.new_z3_const("index")
         solver.add(axioms.index(indexed_type, index_type, result_type, solver.z3_types),
+                   weight=context.definition(),
                    fail_message="Indexing in line {}".format(node.lineno))
         return result_type
     else:  # Slicing
@@ -306,6 +317,7 @@ def infer_subscript(node, context, solver):
         result_type = solver.new_z3_const("slice")
 
         solver.add(axioms.slicing(lower_type, upper_type, step_type, indexed_type, result_type, solver.z3_types),
+                   weight=context.definition(),
                    fail_message="Slicing in line {}".format(node.lineno))
         return result_type
 
@@ -337,6 +349,7 @@ def infer_generators(generators, local_context, lineno, solver):
         iter_type = infer(gen.iter, local_context, solver)
         target_type = solver.new_z3_const("generator_target")
         solver.add(axioms.generator(iter_type, target_type, solver.z3_types),
+                   weight=local_context.definition(),
                    fail_message="Generator in line {}".format(lineno))
 
         if not isinstance(gen.target, ast.Name):
@@ -399,6 +412,7 @@ def _get_args_types(args, context, instance, solver):
         # The instance represents the method receiver. It is a subtype of the first argument in the method.
         arg_type = solver.new_z3_const("call_arg")
         solver.add(solver.z3_types.subtype(instance, arg_type),
+                   weight=context.use(),
                    fail_message="Method receiver subtyping in line {}")
         solver.optimize.add_soft(instance == arg_type)
         args_types = (arg_type,)
@@ -410,6 +424,7 @@ def _get_args_types(args, context, instance, solver):
 
         # The call arguments should be subtype of the corresponding function arguments
         solver.add(solver.z3_types.subtype(call_type, arg_type),
+                   weight=context.use(),
                    fail_message="Call argument subtyping in line {}".format(arg.lineno))
         solver.optimize.add_soft(call_type == arg_type)
         args_types += (arg_type,)
@@ -455,6 +470,7 @@ def infer_func_call(node, context, solver):
                                                      args_types,
                                                      result_type,
                                                      solver.z3_types),
+                       weight = context.definition(),
                        fail_message="Class instantiation in line {}.".format(node.lineno))
             return result_type
 
@@ -486,7 +502,7 @@ def infer_func_call(node, context, solver):
                                                     node.func.attr, solver.z3_types)
             if not call_axioms:
                 raise NameError("Unknown call to ." + node.func.attr)
-            solver.add(Or(call_axioms),
+            solver.add(Or(call_axioms), weight = context.use(),
                        fail_message="Call in line {}, {}".format(node.lineno, context.fqn))
             return result_type
     called = infer(node.func, context, solver)
@@ -498,7 +514,7 @@ def infer_func_call(node, context, solver):
         call_axioms += axioms.call(called, args_types, result_type, solver.z3_types)
     if not call_axioms:
         raise NameError("Unknown call to " + (node.func.id if isinstance(node.func, ast.Name) else "." + node.func.attr))
-    solver.add(Or(call_axioms),
+    solver.add(Or(call_axioms), weight = context.use(),
                fail_message="Call in line {}, {}".format(node.lineno, context.fqn))
 
     return result_type
@@ -567,7 +583,8 @@ def infer_attribute(node, context, from_call, solver):
     if not builtin_axioms and str(user_defined_attribute_axioms) == "Or":
         raise NameError("Unknown attribute " + node.attr)
     solver.add(Or([user_defined_attribute_axioms] + builtin_axioms),
-               fail_message="Attribute access in line {}, {}".format(node.lineno, context.fqn))
+               weight=context.definition(),
+               fail_message="Attribute access .{} in line {}, {}".format(node.attr, node.lineno, context.fqn))
 
     if from_call:
         return result_type, instance

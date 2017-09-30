@@ -5,6 +5,10 @@ import sys
 from z3 import simplify
 
 
+DEFINITION_START = 500000
+
+USE_START = 100000
+
 class Context:
     """Represents types scope in a python program.
 
@@ -22,6 +26,9 @@ class Context:
         """
         self.name = name
         self.types_map = {}
+        if not parent_context:
+            self._current_weight = 0
+
 
         # Store all the class types that appear in this context. This enables using
         # classes in no specific order.
@@ -45,6 +52,30 @@ class Context:
 
         if parent_context:
             parent_context.children_contexts.append(self)
+
+    @property
+    def current_weight(self):
+        if self.parent_context:
+            return self.parent_context.current_weight
+        else:
+            return self._current_weight
+
+    @current_weight.setter
+    def current_weight(self, val):
+        if val >= USE_START:
+            raise Exception(val)
+        if self.parent_context:
+            self.parent_context.current_weight = val
+        else:
+            self._current_weight = val
+
+    def definition(self):
+        self.current_weight += 1
+        return DEFINITION_START - self.current_weight
+
+    def use(self):
+        self.current_weight += 1
+        return USE_START - self.current_weight
 
     def get_type(self, var_name):
         """Get the type of `var_name` from this context (or a parent context)"""
@@ -175,7 +206,7 @@ class Context:
         if self.name == context_name:
             return True
         for child in self.children_contexts:
-            if child.name == context_name:
+            if child.has_context_in_children(context_name):
                 return True
         return False
 
@@ -184,8 +215,8 @@ class Context:
         if self.name == context_name:
             return self
         for child in self.children_contexts:
-            if child.name == context_name:
-                return child
+            if child.has_context_in_children(context_name):
+                return child.get_context_from_children(context_name)
         raise NameError("Context {} is not defined".format(context_name))
 
     @property

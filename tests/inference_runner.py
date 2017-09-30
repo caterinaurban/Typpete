@@ -11,7 +11,9 @@ r = open(file_path)
 
 r = open("/home/marco/infer_scion_types/scion/infrastructure/router/main.py")
 #r = open("/home/marco/infer_scion_types/scion/lib/path_store.py")
-# r = open("/home/marco/git/Typpete/unittests/inference/expressions1.py")
+# r = open("/home/marco/git/Typpete/unittests/inference/error_rep.py")
+
+USE_WEIGHTS = True
 
 t = ast.parse(r.read())
 r.close()
@@ -37,7 +39,7 @@ def print_solver(z3solver):
     printer.pp(z3solver)
 
 
-def print_context(ctx, ind=""):
+def print_context(ctx, ind="", top = True):
     for v in sorted(ctx.types_map):
         z3_t = ctx.types_map[v]
         if isinstance(z3_t, (Context, AnnotatedFunction)):
@@ -47,15 +49,29 @@ def print_context(ctx, ind=""):
         except:
             mz3_t = str(z3_t)
         print(ind + "{}: {}".format(v, mz3_t))
-        if ctx.has_context_in_children(v):
-            print_context(ctx.get_context_from_children(v), "\t" + ind)
+        if v in solver.z3_types.all_types:
+            for attr in solver.z3_types.instance_attributes[v]:
+                if attr in solver.z3_types.class_to_funcs[v]:
+                    continue
+                # instance access. Ex: A().x
+                attr_type = model[solver.z3_types.instance_attributes[v][attr]]
+                print(ind + "\t{}: {}".format(attr, attr_type))
+            for attr in solver.z3_types.class_attributes[v]:
+                if attr in solver.z3_types.class_to_funcs[v]:
+                    continue
+                # class access. Ex: A.x
+                attr_type = model[solver.z3_types.class_attributes[v][attr]]
+                print(ind + "\t{}: {}".format(attr, attr_type))
+        for c in set(list(ImportHandler.cached_modules.values()) + [ctx]) if top else [ctx]:
+            if c.has_context_in_children(v):
+                print_context(c.get_context_from_children(v), "\t" + ind, False)
         if not ind:
             print("---------------------------")
     children = False
     for child in ctx.children_contexts:
         if ctx.name == "" and child.name == "":
             children = True
-            print_context(child, "\t" + ind)
+            print_context(child, "\t" + ind, False)
     if not ind and children:
         print("---------------------------")
 
@@ -83,7 +99,10 @@ if check == z3_types.unsat:
         print(solver.assertions_errors[uc])
     opt = Optimize(solver.ctx)
     for av in solver.assertions_vars:
-        opt.add_soft(av)
+        if USE_WEIGHTS:
+            opt.add_soft(av, solver.assertion_weights[av])
+        else:
+            opt.add_soft(av)
     for a in solver.all_assertions:
         opt.add(a)
     checkres = opt.check()
@@ -116,6 +135,7 @@ else:
     # file.write(astunparse.unparse(t))
     # file.close()
     print(astunparse.unparse(t))
+    print_context(context)
 
 
 print("Ran in {} seconds".format(end_time - start_time))

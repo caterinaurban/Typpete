@@ -1,4 +1,5 @@
 from z3 import Or, And, simplify
+from frontend.context import DEFINITION_START, USE_START
 import ast
 import re
 
@@ -79,11 +80,13 @@ class AnnotationResolver:
             possible_types = [self.resolve(x, solver, generics_map) for x in self.type_var_poss[id]]
             if possible_types:
                 solver.add(Or([result_type == x for x in possible_types]),
+                           weight=DEFINITION_START,
                            fail_message="Generic type in line {}".format(annotation.lineno))
 
             if id in self.type_var_super:
                 type_var_super = self.resolve(self.type_var_super[id], solver, generics_map)
                 solver.add(solver.z3_types.subtype(result_type, type_var_super),
+                           weight=USE_START,
                            fail_message="Generic bound in line {}".format(annotation.lineno))
 
             return result_type
@@ -177,6 +180,7 @@ class AnnotationResolver:
                 # TODO add support for above example using union
                 result_type = solver.new_z3_const("union")
                 solver.add(Or([result_type == arg for arg in union_args_types]),
+                           weight=DEFINITION_START,
                            fail_message="Union in type annotation in line {}".format(annotation.lineno))
 
                 return result_type
@@ -284,6 +288,13 @@ class AnnotationResolver:
             set_type_accessor = self.z3_types.set_type
             set_type = simplify(set_type_accessor(z3_type))
             return "Set[{}]".format(self.unparse_annotation(set_type))
+
+        match = re.match("tuple_var", type_str)
+        # unparse tuple_var type. tuple_var(int) -> Tuple[int, ...]
+        if match:
+            tuple_type_accessor = self.z3_types.tuple_var_type
+            tuple_type = simplify(tuple_type_accessor(z3_type))
+            return "Tuple[{}, ...]".format(self.unparse_annotation(tuple_type))
 
         match = re.match("dict", type_str)
         # unparse dict type. dict(int, str) -> Dict[int, str]

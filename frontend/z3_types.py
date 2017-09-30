@@ -43,6 +43,7 @@ class TypesSolver(Solver):
         self.element_id = 0     # unique id given to newly created Z3 consts
         self.assertions_vars = []
         self.assertions_errors = {}
+        self.assertion_weights = {}
         self.stubs_handler = StubsHandler()
         analyzer = PreAnalyzer(tree, ["/home/marco/infer_scion_types/scion/scion-stubs", "/home/marco/infer_scion_types/scion/stubs"], self.stubs_handler)     # TODO: avoid hard-coding
         self.config = analyzer.get_all_configurations()
@@ -53,10 +54,11 @@ class TypesSolver(Solver):
         self.all_assertions = []
         self.init_axioms()
 
-    def add(self, *args, fail_message, force=False):
+    def add(self, *args, fail_message, weight=1, force=False):
         assertion = self.new_z3_const("assertion_bool", BoolSort())
         self.assertions_vars.append(assertion)
         self.assertions_errors[assertion] = fail_message
+        self.assertion_weights[assertion] = weight
         self.optimize.add(*args)
         implication = Implies(assertion, And(*args))
         super().add(implication)
@@ -117,6 +119,7 @@ class Z3Types:
         self.str = type_sort.str
         self.bytes = type_sort.bytes
         self.tuple_var = type_sort.tuple_var
+        self.tuple_var_type = type_sort.tuple_type
         self.tuple = type_sort.tuple
         self.tuples = list()
         for cur_len in range(max_tuple_length + 1):
