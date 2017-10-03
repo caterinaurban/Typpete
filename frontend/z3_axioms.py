@@ -237,7 +237,8 @@ def index(indexed, ind, result, types):
 
     return [
         Or(
-            [indexed == types.dict(ind, result),
+            [And(indexed == types.dict(types.dict_key_type(indexed), result),
+                 types.subtype(ind, types.dict_key_type(indexed))),
              And(types.subtype(ind, types.int), indexed == types.list(result)),
              And(types.subtype(ind, types.int), indexed == types.string, result == types.string),
              And(types.subtype(ind, types.int), indexed == types.bytes, result == types.bytes),

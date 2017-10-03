@@ -12,15 +12,17 @@ class Context:
         types_map ({str, Type}): a dict mapping variable names to their inferred types.
     """
 
-    def __init__(self, context_nodes, solver, name="", parent_context=None):
+    def __init__(self, context_nodes, solver, name="", parent_context=None, is_class=False):
         """
         
         :param context_nodes: The AST nodes that belong to this scope. Used to pre-store all class types in the scope. 
         :param solver: The SMT solver for the inference. Used to create new Z3 constants for the class types.
         :param name: The context name
         :param parent_context: Reference to the parent scope (context)
+        :param is_class: True if the context is a class local context
         """
         self.name = name
+        self.is_class = is_class
         self.types_map = {}
         self.isinstance_nodes = {}
 
@@ -47,9 +49,9 @@ class Context:
         if parent_context:
             parent_context.children_contexts.append(self)
 
-    def get_type(self, var_name):
+    def get_type(self, var_name, method=False):
         """Get the type of `var_name` from this context (or a parent context)"""
-        if var_name in self.types_map:
+        if var_name in self.types_map and (method or not self.is_class):
             return self.types_map[var_name]
         if self.parent_context is None:
             raise NameError("Name {} is not defined.".format(var_name))

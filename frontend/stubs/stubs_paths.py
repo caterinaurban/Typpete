@@ -5,7 +5,9 @@ classes_and_functions = [
 libraries = {
     "math": "frontend/stubs/libraries/math.py",
     "sys": "frontend/stubs/libraries/sys.py",
-    "re": "frontend/stubs/libraries/re.py"
+    "re": "frontend/stubs/libraries/re.py",
+    "random": "frontend/stubs/libraries/random.py"
+
 }
 
 methods = [

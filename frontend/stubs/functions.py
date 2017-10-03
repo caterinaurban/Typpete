@@ -1,5 +1,5 @@
 """Stub file for built in functions"""
-from typing import TypeVar, List, Tuple, Dict
+from typing import TypeVar, List, Tuple, Dict, Set
 
 
 T = TypeVar("T")
@@ -237,6 +237,15 @@ def round(_: float) -> int:
     Round a number to a given precision in decimal digits (default 0 digits).
     This returns an int when called with one argument, otherwise the
     same type as the number. ndigits may be negative.
+    """
+    pass
+
+
+def set(l: List[T] = None) -> Set[T]:
+    """Create a set of unique elements
+
+    If the parameter is provided, use the elements in the list to create the set,
+    otherwise, create an empty set.
     """
     pass
 
