@@ -32,14 +32,12 @@ class Pin:
 
         self.high = val
         if not self.output and self.chip:
-            # self.chip.update()
-            pass
+            self.chip.update()
 
         if self.output:
             wired_chips = self.propagate_to()
             for chip in wired_chips:
-                pass
-                # chip.update()
+                chip.update()
 
         def sethigh(self):
             self.set(True)

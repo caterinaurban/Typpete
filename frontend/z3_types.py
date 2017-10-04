@@ -45,6 +45,10 @@ class TypesSolver(Solver):
         analyzer = PreAnalyzer(tree, "tests/icemu", self.stubs_handler)     # TODO: avoid hard-coding
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config)
+
+        for cls in self.z3_types.classes:
+            self.z3_types.all_types[cls] = self.z3_types.type(self.z3_types.classes[cls])
+
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         self.optimize = Optimize(ctx)
         # self.optimize.set("timeout", 30000)

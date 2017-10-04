@@ -30,9 +30,8 @@ class Context:
         # classes in no specific order.
         class_names = [node.name for node in context_nodes if isinstance(node, ast.ClassDef)]
         for cls in class_names:
-            cls_type = solver.new_z3_const("class_type")
+            cls_type = solver.z3_types.all_types[cls]
             self.types_map[cls] = cls_type
-            solver.z3_types.all_types[cls] = cls_type
 
         # Similarly, store function types that appear in this context
         func_names = [node.name for node in context_nodes if isinstance(node, ast.FunctionDef)]
@@ -165,7 +164,7 @@ class Context:
                 node.target = node.targets[0]
                 node.simple = 1
                 annotation_str = solver.annotation_resolver.unparse_annotation(
-                    model[self.get_type(node.targets[0].id)])
+                    model[self.get_type(node.targets[0].id, True)])
                 node.annotation = ast.parse(annotation_str).body[0].value
 
         # Add the type comment for assignments in children contexts

@@ -83,6 +83,12 @@ def lower(s: str) -> str:
     pass
 
 
+def ljust(s: str, w: int, fill: str = ' ') -> str:
+    """Return the string `s` left justified in a string of length `w`.
+    Padding is done using the specified fillchar `fill` (default is a space)."""
+    pass
+
+
 def lstrip(s: str) -> str:
     """Removes all leading whitespace in string."""
     pass
@@ -90,6 +96,12 @@ def lstrip(s: str) -> str:
 
 def replace(s: str, old: str, new: str) -> str:
     """Replaces all occurrences of old in string with new"""
+    pass
+
+
+def rjust(s: str, w: int, fill: str = ' ') -> str:
+    """Return the string `s` right justified in a string of length `w`.
+    Padding is done using the specified fillchar `fill` (default is a space)."""
     pass
 
 

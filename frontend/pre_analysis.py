@@ -22,7 +22,24 @@ class PreAnalyzer:
         """
         # List all the nodes existing in the AST
         self.base_folder = base_folder
-        self.all_nodes = self.walk(prog_ast)
+
+        # Pre-analyze predefined modules in the project
+        modules = [
+            'pin',
+            'chip',
+            # 'util',
+            # 'counters',
+            # 'decoders',
+            # 'gates',
+            # 'seg7',
+            # 'shiftregisters'
+        ]
+        self.all_nodes = []
+        if modules:
+            for m in modules:
+                self.all_nodes += self.walk(ImportHandler.get_module_ast(m, self.base_folder))
+        else:
+            self.all_nodes = self.walk(prog_ast)
 
         # Pre-analyze only used constructs from the stub files.
         used_names = self.get_all_used_names()
@@ -30,6 +47,7 @@ class PreAnalyzer:
         self.stub_nodes = []
         for stub_ast in stub_asts:
             self.stub_nodes += list(ast.walk(stub_ast))
+
 
     def walk(self, prog_ast):
         result = list(ast.walk(prog_ast))

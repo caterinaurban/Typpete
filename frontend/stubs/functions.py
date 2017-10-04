@@ -103,6 +103,11 @@ def divmod(_: float, __: float) -> Tuple[int, int]:
     pass
 
 
+def enumerate(l: List[T]) -> List[Tuple[int, T]]:
+    """"""
+    pass
+
+
 def float(_: NumOrStrNoComplex = None) -> float:
     """Convert a string or a number to floating point."""
     pass
@@ -285,4 +290,10 @@ def sum(_: List[Num]) -> Num:
     
     TODO: Add support for different iterable objects
     """
+    pass
+
+
+def zip(x: List[T], y: List[U]) -> List[Tuple[T, U]]:
+    """This function returns a list of tuples,
+    where the i-th tuple contains the i-th element from each of the argument lists"""
     pass
