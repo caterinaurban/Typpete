@@ -32,7 +32,7 @@ class PreAnalyzer:
             'decoders',
             # 'gates',
             # 'seg7',
-            # 'shiftregisters'
+            'shiftregisters'
         ]
         self.all_nodes = []
         if modules:

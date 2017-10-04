@@ -39,31 +39,31 @@ class Pin:
             for chip in wired_chips:
                 chip.update()
 
-        def sethigh(self):
-            self.set(True)
+    def sethigh(self):
+        self.set(True)
 
-        def setlow(self):
-            self.set(False)
+    def setlow(self):
+        self.set(False)
 
-        def toggle(self):
-            self.set(not self.ishigh())
+    def toggle(self):
+        self.set(not self.ishigh())
 
-        def enable(self):
-            self.set(not self.low_means_enabled)
+    def enable(self):
+        self.set(not self.low_means_enabled)
 
-        def disable(self):
-            self.set(self.low_means_enabled)
+    def disable(self):
+        self.set(self.low_means_enabled)
 
-        def isenabled(self):
-            return self.low_means_enabled != self.ishigh()
+    def isenabled(self):
+        return self.low_means_enabled != self.ishigh()
 
-        def wire_to(self, output_pin):
-            assert not self.output
-            assert output_pin.output
-            self.wires.add(output_pin)
-            output_pin.wires.add(self)
-            if self.chip:
-                pass
+    def wire_to(self, output_pin):
+        assert not self.output
+        assert output_pin.output
+        self.wires.add(output_pin)
+        output_pin.wires.add(self)
+        if self.chip:
+            pass
                 # self.chip.update()
 
     @staticmethod
