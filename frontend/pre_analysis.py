@@ -27,9 +27,9 @@ class PreAnalyzer:
         modules = [
             'pin',
             'chip',
-            # 'util',
+            'util',
             # 'counters',
-            # 'decoders',
+            'decoders',
             # 'gates',
             # 'seg7',
             # 'shiftregisters'
