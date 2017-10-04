@@ -22,5 +22,9 @@ methods = [
     {
         "type": "dict",
         "path": "frontend/stubs/dict_methods.py"
+    },
+    {
+        "type": "set",
+        "path": "frontend/stubs/set_methods.py"
     }
 ]

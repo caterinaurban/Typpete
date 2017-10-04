@@ -113,6 +113,16 @@ def format(_: object) -> str:
     pass
 
 
+def getattr(o: object, name: str) -> object:
+    """
+    Return the value of the named attribute of object.
+    Name must be a string. If the string is the name of one of the object’s attributes,
+    the result is the value of that attribute.
+    For example, getattr(x, 'foobar') is equivalent to x.foobar.
+    """
+    pass
+
+
 def hash(_: object) -> int:
     """
     Return the hash value for the given object.
@@ -205,7 +215,7 @@ def print(_: object) -> None:
     pass
 
 
-def range(x: int) -> List[int]:
+def range(x: int, y:int=None, z:int=None) -> List[int]:
     """Return a list of int from 0 (inclusive) to `x` (exclusive)
     
     TODO: make it RangeObject after implementing interfaces
@@ -246,6 +256,13 @@ def set(l: List[T] = None) -> Set[T]:
 
     If the parameter is provided, use the elements in the list to create the set,
     otherwise, create an empty set.
+    """
+    pass
+
+
+def setattr(o: object, name: str, val: object) -> None:
+    """Assign `val` to the attribute, provided the object allows it.
+    For example, setattr(x, 'foobar', 123) is equivalent to x.foobar = 123.
     """
     pass
 

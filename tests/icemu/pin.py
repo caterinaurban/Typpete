@@ -1,0 +1,74 @@
+class Pin:
+    def __init__(self, code, high=False, chip=None, output=False):
+        self.code = code.replace('~', '')
+        self.high = high
+        self.chip = chip
+        self.output = output
+        self.low_means_enabled = code.startswith('~')
+        self.wires = set()
+
+    def __str__(self):
+        return '{}/{}'.format(self.code, 'H' if self.ishigh() else 'L')
+
+    def ishigh(self):
+        if not self.output and self.wires:
+            wired_outputs = [p for p in self.wires if p.output]
+            return any([p.ishigh() for p in wired_outputs])
+        else:
+            return self.high
+
+    def propagate_to(self):
+        if self.output:
+            return {
+                p.chip for p in self.wires
+                if not p.output and p.chip is not self and p.chip is not None
+            }
+        else:
+            return set()
+
+    def set(self, val):
+        if val == self.high:
+            return
+
+        self.high = val
+        if not self.output and self.chip:
+            # self.chip.update()
+            pass
+
+        if self.output:
+            wired_chips = self.propagate_to()
+            for chip in wired_chips:
+                pass
+                # chip.update()
+
+        def sethigh(self):
+            self.set(True)
+
+        def setlow(self):
+            self.set(False)
+
+        def toggle(self):
+            self.set(not self.ishigh())
+
+        def enable(self):
+            self.set(not self.low_means_enabled)
+
+        def disable(self):
+            self.set(self.low_means_enabled)
+
+        def isenabled(self):
+            return self.low_means_enabled != self.ishigh()
+
+        def wire_to(self, output_pin):
+            assert not self.output
+            assert output_pin.output
+            self.wires.add(output_pin)
+            output_pin.wires.add(self)
+            if self.chip:
+                pass
+                # self.chip.update()
+
+    @staticmethod
+    def pinrange(prefix, start, end):
+        # pinrange('Y', 0, 3) -> ['Y0', 'Y1', 'Y2', 'Y3']
+        return [prefix + str(1) for i in range(start, end + 1)]
