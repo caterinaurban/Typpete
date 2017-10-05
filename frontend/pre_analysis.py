@@ -30,7 +30,7 @@ class PreAnalyzer:
             'util',
             # 'counters',
             'decoders',
-            # 'gates',
+            'gates',
             # 'seg7',
             'shiftregisters'
         ]

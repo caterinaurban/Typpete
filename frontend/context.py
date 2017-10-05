@@ -48,13 +48,15 @@ class Context:
         if parent_context:
             parent_context.children_contexts.append(self)
 
-    def get_type(self, var_name, method=False):
+    def get_type(self, var_name, method=False, original_context=None):
         """Get the type of `var_name` from this context (or a parent context)"""
-        if var_name in self.types_map and (method or not self.is_class):
+        if not original_context:
+            original_context = self
+        if var_name in self.types_map and (method or not self.is_class or original_context and self.name == original_context.name):
             return self.types_map[var_name]
         if self.parent_context is None:
             raise NameError("Name {} is not defined.".format(var_name))
-        return self.parent_context.get_type(var_name)
+        return self.parent_context.get_type(var_name, method, self)
 
 
     def get_isinstance_type(self, dump):

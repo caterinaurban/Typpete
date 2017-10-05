@@ -124,3 +124,4 @@ class Inverter(Chip):
 class SN74HC14(Inverter):
     INPUT_PINS = ['1A', '2A', '3A', '4A', '5A', '6A']
     OUTPUT_PINS = ['1Y', '2Y', '3Y', '4Y', '5Y', '6Y']
+
