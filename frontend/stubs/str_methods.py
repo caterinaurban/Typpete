@@ -119,7 +119,7 @@ def startswith(s: str, c: str) -> bool:
     pass
 
 
-def strip(s: str) -> str:
+def strip(s: str, dl: str = None) -> str:
     """Performs both lstrip() and rstrip() on string"""
     pass
 
