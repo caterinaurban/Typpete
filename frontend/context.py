@@ -12,7 +12,7 @@ class Context:
         types_map ({str, Type}): a dict mapping variable names to their inferred types.
     """
 
-    def __init__(self, context_nodes, solver, name="", parent_context=None, is_class=False):
+    def __init__(self, context_nodes, solver, name="", parent_context=None, is_class=False, is_func=False):
         """
         
         :param context_nodes: The AST nodes that belong to this scope. Used to pre-store all class types in the scope. 
@@ -23,6 +23,7 @@ class Context:
         """
         self.name = name
         self.is_class = is_class
+        self.is_func = is_func
         self.types_map = {}
         self.isinstance_nodes = {}
 
@@ -48,15 +49,15 @@ class Context:
         if parent_context:
             parent_context.children_contexts.append(self)
 
-    def get_type(self, var_name, method=False, original_context=None):
+    def get_type(self, var_name, passed_func=False):
         """Get the type of `var_name` from this context (or a parent context)"""
-        if not original_context:
-            original_context = self
-        if var_name in self.types_map and (method or not self.is_class or original_context and self.name == original_context.name):
+        if not passed_func:
+            passed_func = self.is_func
+        if var_name in self.types_map and not (self.is_class and passed_func):
             return self.types_map[var_name]
         if self.parent_context is None:
             raise NameError("Name {} is not defined.".format(var_name))
-        return self.parent_context.get_type(var_name, method, self)
+        return self.parent_context.get_type(var_name, passed_func)
 
 
     def get_isinstance_type(self, dump):
@@ -166,7 +167,7 @@ class Context:
                 node.target = node.targets[0]
                 node.simple = 1
                 annotation_str = solver.annotation_resolver.unparse_annotation(
-                    model[self.get_type(node.targets[0].id, True)])
+                    model[self.get_type(node.targets[0].id)])
                 node.annotation = ast.parse(annotation_str).body[0].value
 
         # Add the type comment for assignments in children contexts

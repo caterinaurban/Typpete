@@ -327,7 +327,7 @@ def _infer_try(node, context, solver):
 
 def _init_func_context(node, args, context, solver):
     """Initialize the local function scope, and the arguments types"""
-    local_context = Context(node.body, solver, name=node.name, parent_context=context)
+    local_context = Context(node.body, solver, name=node.name, parent_context=context, is_func=True)
 
     # TODO starred args
 
@@ -442,9 +442,11 @@ def _infer_func_def(node, context, solver):
         return solver.z3_types.none
 
     func_context, args_types = _init_func_context(node, node.args.args, context, solver)
-    result_type = context.get_type(node.name, True)
+    result_type = context.get_type(node.name)
     result_type.args_count = len(node.args.args)
     context.set_type(node.name, result_type)
+    if hasattr(node, 'super') and node.super != context.name:
+        return
     context.add_func_ast(node.name, node)
 
     if hasattr(node.args, "defaults"):
@@ -482,8 +484,7 @@ def _infer_func_def(node, context, solver):
 
 def _infer_class_def(node, context, solver):
     class_context = Context(node.body, solver, name=node.name, parent_context=context, is_class=True)
-    result_type = context.get_type(node.name, True)
-
+    result_type = context.get_type(node.name)
     for stmt in node.body:
         infer(stmt, class_context, solver)
 

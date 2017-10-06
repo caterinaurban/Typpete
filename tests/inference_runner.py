@@ -1,17 +1,16 @@
 from frontend.stmt_inferrer import *
+from frontend.import_handler import ImportHandler
+
 import ast
 import time
 import astunparse
 
-file_path = "tests/icemu/chip.py"
-file_name = file_path.split("/")[-1]
+base_folder = 'tests/icemu'
+file_name = 'gates'
 
-r = open(file_path)
+t = ImportHandler.get_module_ast(file_name, base_folder)
 
-t = ast.parse(r.read())
-r.close()
-
-solver = z3_types.TypesSolver(t)
+solver = z3_types.TypesSolver(t, base_folder=base_folder)
 
 context = Context(t.body, solver)
 solver.infer_stubs(context, infer)
@@ -53,7 +52,6 @@ def print_context(ctx, ind=""):
             print_context(child, "\t" + ind)
     if not ind and children:
         print("---------------------------")
-
 
 start_time = time.time()
 check = solver.optimize.check()

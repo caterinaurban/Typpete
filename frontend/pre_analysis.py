@@ -28,16 +28,19 @@ class PreAnalyzer:
             'pin',
             'chip',
             'util',
-            # 'counters',
+            'counters',
             'decoders',
             'gates',
             # 'seg7',
-            'shiftregisters'
+            'shiftregisters',
+            # 'test',
+            # 'test2',
+            # 'test3'
         ]
         self.all_nodes = []
         if modules:
             for m in modules:
-                self.all_nodes += self.walk(ImportHandler.get_module_ast(m, self.base_folder))
+                self.all_nodes += list(ast.walk(ImportHandler.get_module_ast(m, self.base_folder)))
         else:
             self.all_nodes = self.walk(prog_ast)
 
@@ -346,8 +349,12 @@ def propagate_attributes_to_subclasses(class_defs):
     for class_def in class_defs:
         class_linearization = get_linearization(class_def.name, class_to_bases)
         class_to_inherited_funcs[class_def.name] = []
+        class_assignments = [node.targets[0].id for node in class_def.body
+                             if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)]
         # Traverse the parents in the order given by MRO
         for parent in class_linearization:
+            if parent == class_def.name:
+                continue
             # Keep track of all added method names, so as not to add a duplicate method.
             class_funcs = {func.name for func in
                            (class_def.body + class_to_inherited_funcs[class_def.name])
@@ -357,8 +364,17 @@ def propagate_attributes_to_subclasses(class_defs):
             # Select only functions that are not overridden in the subclasses.
             inherited_funcs = [func for func in parent_node.body
                                if isinstance(func, ast.FunctionDef) and func.name not in class_funcs]
+            inherited_attrs = [assign for assign in parent_node.body
+                               if isinstance(assign, ast.Assign)
+                               and isinstance(assign.targets[0], ast.Name) and assign.targets[0].id not in class_assignments]
+
+            for attr in inherited_attrs:
+                class_def.body.append(attr)
+                class_assignments.append(attr.targets[0].id)
 
             # Store a mapping from the inherited function names to the super class from which they are inherited
+            for func in inherited_funcs:
+                func.super = parent
             class_inherited_funcs_to_super[class_def.name].update(
                 {func.name: parent for func in inherited_funcs}
             )
