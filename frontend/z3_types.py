@@ -131,7 +131,10 @@ class Z3Types:
             self.classes[cls] = getattr(type_sort, "class_{}".format(cls))
         create_classes_attributes(type_sort, classes_to_instance_attrs, self.instance_attributes)
         create_classes_attributes(type_sort, classes_to_class_attrs, self.class_attributes)
-
+        # union
+        self.union = type_sort.union_2
+        self.union_arg_1 = type_sort.union_2_arg_1
+        self.union_arg_2 = type_sort.union_2_arg_2
         # function representing subtyping between types: subtype(x, y) if and only if x is a subtype of y
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
         self.subtyping = self.create_subtype_axioms(config.all_classes, type_sort)
@@ -202,13 +205,21 @@ class Z3Types:
                     options = [
                         And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub)
                     ]
+                elif isinstance(c.name, tuple) and c.name[0].startswith("union_2"):
+                    options = [
+                        And([self.subtype(con, x) for con in c.quantified()])
+                    ]
                 else:
                     options = []
                 for base in c.all_parents():
                     options.append(x == base.get_literal())
+                options.append(And(x == self.union(self.union_arg_1(x), self.union_arg_2(x)),
+                                   Or(self.subtype(c_literal, self.union_arg_1(x)),
+                                      self.subtype(c_literal, self.union_arg_2(x)))))
                 subtype_expr = self.subtype(c_literal, x)
                 axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                                patterns=[subtype_expr])
+
                 axioms.append(axiom)
 
             # And one which is triggered by subtype(X, C)
@@ -231,7 +242,12 @@ class Z3Types:
                     args_sub.append(self.subtype(accessors[-1], consts[-1]))
 
                 options.append(And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub))
+            if isinstance(c.name, tuple) and c.name[0].startswith("union_2"):
+                options.append(Or([self.subtype(x, con) for con in c.quantified()]))
 
+            options.append(And(x == self.union(self.union_arg_1(x), self.union_arg_2(x)),
+                               self.subtype(self.union_arg_1(x), c_literal),
+                               self.subtype(self.union_arg_2(x), c_literal)))
             for sub in c.all_children():
                 if sub is c:
                     options.append(x == c_literal)
@@ -240,6 +256,7 @@ class Z3Types:
             subtype_expr = self.subtype(x, c_literal)
             axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                            patterns=[subtype_expr])
+
             axioms.append(axiom)
         return axioms
 
@@ -290,6 +307,9 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
     # classes
     for cls in classes_to_instance_attrs:
         type_sort.declare("class_{}".format(cls))
+
+    # union
+    type_sort.declare("union_2", ("union_2_arg_1", type_sort), ("union_2_arg_2", type_sort))
 
     return type_sort.create()
 

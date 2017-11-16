@@ -12,4 +12,5 @@ BUILTINS = {
     ('set', 'set_type'): ['object'],
     ('dict', 'dict_key_type', 'dict_value_type'): ['object'],
     ('type', 'instance'): ['object'],
+    ('union_2', 'union_2_arg_1', 'union_2_arg_2'): ['object'],
 }

@@ -170,11 +170,12 @@ class AnnotationResolver:
                 # f(1)
                 # f("str")
                 # TODO add support for above example using union
-                result_type = solver.new_z3_const("union")
-                solver.add(Or([result_type == arg for arg in union_args_types]),
-                           fail_message="Union in type annotation in line {}".format(annotation.lineno))
+                return self.z3_types.union(*union_args_types)
+                # result_type = solver.new_z3_const("union")
+                # solver.add(Or([result_type == arg for arg in union_args_types]),
+                #            fail_message="Union in type annotation in line {}".format(annotation.lineno))
 
-                return result_type
+                # return result_type
 
         raise ValueError("Invalid type annotation in line {}".format(annotation.lineno))
 
