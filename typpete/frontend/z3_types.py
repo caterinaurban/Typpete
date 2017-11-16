@@ -5,11 +5,11 @@ Limitations:
     - Functions with generic type variables are not supported.
 """
 from collections import OrderedDict
-from frontend.annotation_resolver import AnnotationResolver
-from frontend.class_node import ClassNode
-from frontend.config import config
-from frontend.pre_analysis import PreAnalyzer
-from frontend.stubs.stubs_handler import StubsHandler
+from typpete.frontend.annotation_resolver import AnnotationResolver
+from typpete.frontend.class_node import ClassNode
+from typpete.frontend.config import config
+from typpete.frontend.pre_analysis import PreAnalyzer
+from typpete.frontend.stubs.stubs_handler import StubsHandler
 from z3 import *
 
 
@@ -35,14 +35,14 @@ set_param("smt.bv.reflect", True)
 class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""
 
-    def __init__(self, tree, solver=None, ctx=None):
+    def __init__(self, tree, root_folder, solver=None, ctx=None):
         super().__init__(solver, ctx)
         self.set(auto_config=False, mbqi=False, unsat_core=True)
         self.element_id = 0     # unique id given to newly created Z3 consts
         self.assertions_vars = []
         self.assertions_errors = {}
         self.stubs_handler = StubsHandler()
-        analyzer = PreAnalyzer(tree, "tests/imp", self.stubs_handler)     # TODO: avoid hard-coding
+        analyzer = PreAnalyzer(tree, root_folder, self.stubs_handler)     # TODO: avoid hard-coding
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config)
         self.annotation_resolver = AnnotationResolver(self.z3_types)

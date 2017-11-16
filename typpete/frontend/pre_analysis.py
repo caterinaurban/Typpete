@@ -1,9 +1,9 @@
 from collections import OrderedDict
 
 from copy import copy
-from frontend.config import config
-from frontend.constants import BUILTINS
-from frontend.import_handler import ImportHandler
+from typpete.frontend.config import config
+from typpete.frontend.constants import BUILTINS
+from typpete.frontend.import_handler import ImportHandler
 import ast
 
 

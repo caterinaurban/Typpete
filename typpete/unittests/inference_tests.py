@@ -4,7 +4,7 @@ import os
 import unittest
 
 import time
-from frontend.stmt_inferrer import *
+from typpete.frontend.stmt_inferrer import *
 
 
 class TestInference(unittest.TestCase):
@@ -52,7 +52,7 @@ class TestInference(unittest.TestCase):
         t = ast.parse(r.read())
         r.close()
 
-        solver = z3_types.TypesSolver(t)
+        solver = z3_types.TypesSolver(t, "")
 
         context = Context(t.body, solver)
 
@@ -113,7 +113,7 @@ class TestInference(unittest.TestCase):
 
 def suite():
     s = unittest.TestSuite()
-    g = os.getcwd() + '/unittests/inference/**.py'
+    g = os.getcwd() + '/typpete/unittests/inference/**.py'
     for path in glob.iglob(g):
         if os.path.basename(path) != "__init__.py":
             name = path.split("/")[-1]

@@ -1,6 +1,7 @@
 import ast
-from frontend.context import Context
-from frontend.stubs.stubs_paths import libraries
+import os
+from typpete.frontend.context import Context
+from typpete.frontend.stubs.stubs_paths import libraries
 
 
 class ImportHandler:
@@ -34,12 +35,15 @@ class ImportHandler:
         :param module_name: the name of the python module
         :param base_folder: the base folder containing the python module
         """
+        if not base_folder:
+            return ImportHandler.get_ast(module_name + ".py", module_name)
         return ImportHandler.get_ast("{}/{}.py".format(base_folder, module_name), module_name)
 
     @staticmethod
     def get_builtin_ast(module_name):
         """Return the AST of a built-in module"""
-        return ImportHandler.get_ast(libraries[module_name], module_name)
+        directory = os.path.dirname(__file__) + '/stubs/'
+        return ImportHandler.get_ast(directory + libraries[module_name], module_name)
 
     @staticmethod
     def infer_import(module_name, base_folder, infer_func, solver):

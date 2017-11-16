@@ -32,12 +32,12 @@ TODO:
 """
 
 import ast
-import frontend.z3_axioms as axioms
+import typpete.frontend.z3_axioms as axioms
 import sys
 import z3
 
 from z3 import Or, And
-from frontend.context import Context, AnnotatedFunction
+from typpete.frontend.context import Context, AnnotatedFunction
 
 
 def infer_numeric(node, solver):

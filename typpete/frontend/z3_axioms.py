@@ -1,4 +1,4 @@
-from frontend.z3_types import And, Or, Implies, Not
+from typpete.frontend.z3_types import And, Or, Implies, Not
 
 
 def overloading_axioms(left, right, result, method_name, types):

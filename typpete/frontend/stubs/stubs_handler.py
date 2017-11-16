@@ -1,6 +1,7 @@
 import ast
-import frontend.stubs.stubs_paths as paths
-from frontend.context import Context
+import os
+import typpete.frontend.stubs.stubs_paths as paths
+from typpete.frontend.context import Context
 
 
 class StubsHandler:
@@ -8,23 +9,23 @@ class StubsHandler:
         self.asts = []
         self.methods_asts = []
         self.lib_asts = {}
-
+        cur_directory = os.path.dirname(__file__)
         classes_and_functions_files = paths.classes_and_functions
         for file in classes_and_functions_files:
-            r = open(file)
+            r = open(cur_directory + '/' + file)
             tree = ast.parse(r.read())
             r.close()
             self.asts.append(tree)
 
         for method in paths.methods:
-            r = open(method["path"])
+            r = open(cur_directory + '/' + method["path"])
             tree = ast.parse(r.read())
             r.close()
             tree.method_type = method["type"]
             self.methods_asts.append(tree)
 
         for lib in paths.libraries:
-            r = open(paths.libraries[lib])
+            r = open(cur_directory + '/' + paths.libraries[lib])
             tree = ast.parse(r.read())
             r.close()
             self.lib_asts[lib] = tree
