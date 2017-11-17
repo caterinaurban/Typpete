@@ -1,9 +1,23 @@
 from typpete.frontend.stmt_inferrer import *
+import typpete.frontend.config as config
 import ast
 import time
 import astunparse
 import sys
 
+
+def configure_inference(flags):
+    for flag in flags:
+        flag_assignment = flag[2:]
+        try:
+            flag_name, flag_value = flag_assignment.split('=')
+        except ValueError:
+            print("Invalid flag assignment {}".format(flag_assignment))
+            continue
+        if flag_name in config.config:
+            config.config[flag_name] = flag_value == 'True'
+        else:
+            print("Invalid flag {}. Ignoring.".format(flag_name))
 
 def run_inference(file_path=None):
     if not file_path:
@@ -12,6 +26,8 @@ def run_inference(file_path=None):
         except:
             print("Please specify the python file")
             return
+
+    configure_inference([flag for flag in sys.argv[2:] if flag.startswith("--")])
 
     root_folder = '/'.join(file_path.split('/')[:-1])
 
