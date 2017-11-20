@@ -50,6 +50,7 @@ def add(left, right, result, types):
                And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
                And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
                And(types.subtype(left, types.seq), left == right, left == result),
+               And(Or(left == types.any, right == types.any), types.any == result),
 
                # result from list addition is a list with a supertype of operands' types
                And(left == types.list(types.list_type(left)),
@@ -91,7 +92,8 @@ def mult(left, right, result, types):
                     And(types.subtype(left, types.complex), types.subtype(right, left), result == left),
                     And(types.subtype(right, types.complex), types.subtype(left, right), result == right),
                     )
-                )
+                ),
+            And(Or(left == types.any, right == types.any), result == types.any)
             ]
            + overloading_axioms(left, right, result, "__mul__", types)
         )
@@ -112,7 +114,8 @@ def div(left, right, result, types):
         And(left != types.none, right != types.none),
         And(types.subtype(left, types.complex), types.subtype(right, types.complex)),
         Implies(Or(left == types.complex, right == types.complex), result == types.complex),
-        Implies(Not(Or(left == types.complex, right == types.complex)), result == types.float)
+        Implies(Not(Or(left == types.complex, right == types.complex, left == types.any, right == types.any)), result == types.float),
+        Implies(Or(left == types.any, right == types.any), result == types.any)
     ]
 
 
@@ -154,7 +157,9 @@ def bitwise(left, right, result, magic_method, types):
     """
     return arithmetic(left, right, result, magic_method, False, types) + [
             Implies(And(types.subtype(left, types.complex), types.subtype(right, types.complex)),
-                    types.subtype(left, types.int), types.subtype(right, types.int))]
+                    types.subtype(left, types.int), types.subtype(right, types.int)),
+            Implies(Or(left == types.any, right == types.any), result == types.any)
+    ]
 
 
 def bool_op(values, result, types):
@@ -166,7 +171,7 @@ def bool_op(values, result, types):
         - 2 and str --> object
         - False or 1 --> int
     """
-    return [types.subtype(x, result) for x in values]
+    return [types.can_flow_to(x, result) for x in values]
 
 
 def unary_invert(unary, types):
@@ -178,7 +183,7 @@ def unary_invert(unary, types):
     - ~231
     """
     return [
-        types.subtype(unary, types.int),
+        types.can_flow_to(unary, types.int),
         unary != types.none
     ]
 
@@ -195,9 +200,10 @@ def unary_other(unary, result, types):
     """
     return [
         unary != types.none,
-        types.subtype(unary, types.complex),
+        types.can_flow_to(unary, types.complex),
         Implies(unary == types.bool, result == types.int),
-        Implies(unary != types.bool, result == unary)
+        Implies(unary != types.bool, result == unary),
+        Implies(unary == types.any, result == types.any)
     ]
 
 
@@ -208,8 +214,8 @@ def if_expr(a, b, result, types):
         - (a) if (TEST) else (b) --> Super(a, b)
     """
     return [
-        types.subtype(a, result),
-        types.subtype(b, result)
+        types.can_flow_to(a, result),
+        types.can_flow_to(b, result)
     ]
 
 
@@ -232,7 +238,7 @@ def index(indexed, ind, result, types):
                       for i in range(cur_len)]
         t.append(And(
             indexed == types.tuples[cur_len](*tuple_args),
-            *[types.subtype(x, result) for x in tuple_args]
+            *[types.can_flow_to(x, result) for x in tuple_args]
         ))
 
     return [
@@ -241,6 +247,7 @@ def index(indexed, ind, result, types):
              And(types.subtype(ind, types.int), indexed == types.list(result)),
              And(types.subtype(ind, types.int), indexed == types.string, result == types.string),
              And(types.subtype(ind, types.int), indexed == types.bytes, result == types.bytes),
+             And(Or(ind == types.any, indexed == types.any), result == types.any)
              ]
             + t
         )
@@ -254,11 +261,11 @@ def slicing(lower, upper, step, sliced, result, types):
         - Sequence --> Sequence
     """
     return [
-        And(types.subtype(lower, types.int), types.subtype(upper, types.int), types.subtype(step, types.int),
+        And(types.can_flow_to(lower, types.int), types.can_flow_to(upper, types.int), types.can_flow_to(step, types.int),
             Or(
                 sliced == types.string,
                 sliced == types.bytes,
-                types.subtype(sliced, types.tuple),
+                types.can_flow_to(sliced, types.tuple),
                 sliced == types.list(types.list_type(sliced))
             ), result == sliced)
     ]
@@ -291,7 +298,7 @@ def assignment(target, value, types):
     The left hand side is either a super type or a numerically stronger type of the right hand side.
     """
     return [
-        types.subtype(value, target)
+        types.can_flow_to(value, target)
     ]
 
 
@@ -307,7 +314,7 @@ def subscript_assignment(target, types):
     return [
         target != types.string,
         target != types.bytes,
-        Not(types.subtype(target, types.tuple))
+        Not(types.can_flow_to(target, types.tuple))
     ]
 
 
@@ -320,7 +327,7 @@ def delete_subscript(indexed, types):
         Not(Or(
             indexed == types.string,
             indexed == types.bytes,
-            types.subtype(indexed, types.tuple)
+            types.can_flow_to(indexed, types.tuple)
         ))
     ]
 
@@ -341,8 +348,8 @@ def control_flow(then, orelse, result, types):
     return [
         Implies(orelse == types.none, result == then),
         Implies(orelse != types.none, And(
-            types.subtype(then, result),
-            types.subtype(orelse, result)
+            types.can_flow_to(then, result),
+            types.can_flow_to(orelse, result)
         ))
     ]
 
@@ -363,9 +370,9 @@ def for_loop(iterable, target, types):
 def try_except(then, orelse, final, result, types):
     """Constraints for try/except block"""
     return [
-        types.subtype(then, result),
-        types.subtype(orelse, result),
-        types.subtype(final, result)
+        types.can_flow_to(then, result),
+        types.can_flow_to(orelse, result),
+        types.can_flow_to(final, result)
     ]
 
 

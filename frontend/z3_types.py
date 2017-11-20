@@ -59,6 +59,7 @@ class TypesSolver(Solver):
 
     def init_axioms(self):
         self.add(self.z3_types.subtyping, fail_message="Subtyping error")
+        self.add(self.z3_types.compatibility, fail_message="Compatibility error")
 
     def infer_stubs(self, context, infer_func):
         self.stubs_handler.infer_all_files(context, self, self.config.used_names, infer_func)
@@ -95,7 +96,10 @@ class Z3Types:
 
         self.type_sort = type_sort
 
+        self.use_gradual = True
+
         # type constructors and accessors
+        self.any = type_sort.any
         self.object = type_sort.object
         self.type = type_sort.type
         self.none = type_sort.none
@@ -123,7 +127,10 @@ class Z3Types:
         self.dict_value_type = type_sort.dict_value_type
         # functions
         self.funcs = list()
+        print("getting funcs " + str(max_function_args + 1))
         for cur_len in range(max_function_args + 1):
+            if not hasattr(type_sort, "func_{}".format(cur_len)):
+                print("wtf, missing " + "func_{}".format(cur_len) + "even though max is " + str(max_function_args))
             self.funcs.append(getattr(type_sort, "func_{}".format(cur_len)))
         # classes
         self.classes = OrderedDict()
@@ -135,6 +142,14 @@ class Z3Types:
         # function representing subtyping between types: subtype(x, y) if and only if x is a subtype of y
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
         self.subtyping = self.create_subtype_axioms(config.all_classes, type_sort)
+        self.compatible = Function("iscompatible", type_sort, type_sort, BoolSort())
+        self.compatibility = self.create_compatibility_axioms(type_sort)
+
+    def can_flow_to(self, first, second):
+        if not self.use_gradual:
+            return self.subtype(first, second)
+        else:
+            return self.compatible(first, second)
 
     @staticmethod
     def create_class_tree(all_classes, type_sort):
@@ -166,6 +181,14 @@ class Z3Types:
                 base_node.children.append(current_node)
             covered.add(current)
         return graph
+
+    def create_compatibility_axioms(self, type_sort):
+        axioms = []
+        x = Const("x", self.type_sort)
+        y = Const("y", self.type_sort)
+        axioms.append(ForAll([x, y], self.compatible(x, y) == Or(self.subtype(x, y), x == type_sort.any, y == type_sort.any),
+                             patterns=[self.compatible(x, y)]))
+        return axioms
 
     def create_subtype_axioms(self, all_classes, type_sort):
         """
@@ -241,6 +264,11 @@ class Z3Types:
             axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                            patterns=[subtype_expr])
             axioms.append(axiom)
+        x = Const("x", self.type_sort)
+        axioms.append(ForAll(x, self.subtype(x, type_sort.any) == (x == type_sort.any),
+                             patterns=[self.subtype(x, type_sort.any)]))
+        axioms.append(ForAll(x, self.subtype(type_sort.any, x) == (x == type_sort.any),
+                             patterns=[self.subtype(type_sort.any, x)]))
         return axioms
 
 
@@ -249,6 +277,7 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
     type_sort = Datatype("Type")
 
     # type constructors and accessors
+    type_sort.declare("any")
     type_sort.declare("object")
     type_sort.declare("type", ("instance", type_sort))
     type_sort.declare("none")
@@ -276,6 +305,7 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
     # dictionaries
     type_sort.declare("dict", ("dict_key_type", type_sort), ("dict_value_type", type_sort))
     # functions
+    print("setting funcs " + str(max_function_args + 1))
     for cur_len in range(max_function_args + 1):    # declare type constructors for functions
         # the first accessor of the function is the number of default arguments that the function has
         accessors = [("func_{}_defaults_args".format(cur_len), IntSort())]
@@ -286,6 +316,7 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
         # create accessor for the return type of the functio
         accessors.append(("func_{}_return".format(cur_len), type_sort))
         # declare type constructor for the function
+        print("setting func " + str(cur_len))
         type_sort.declare("func_{}".format(cur_len), *accessors)
     # classes
     for cls in classes_to_instance_attrs:

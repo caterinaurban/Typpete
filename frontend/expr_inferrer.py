@@ -61,7 +61,7 @@ def _get_elements_type(elts, context, lineno, solver):
         cur_type = infer(elts[i], context, solver)
         all_types.append(cur_type)
 
-        solver.add(solver.z3_types.subtype(cur_type, elts_type),
+        solver.add(solver.z3_types.can_flow_to(cur_type, elts_type),
                    fail_message="List literal in line {}".format(lineno))
 
     solver.optimize.add_soft(z3.Or([elts_type == elt for elt in all_types]))
@@ -398,7 +398,7 @@ def _get_args_types(args, context, instance, solver):
     if instance is not None:
         # The instance represents the method receiver. It is a subtype of the first argument in the method.
         arg_type = solver.new_z3_const("call_arg")
-        solver.add(solver.z3_types.subtype(instance, arg_type),
+        solver.add(solver.z3_types.can_flow_to(instance, arg_type),
                    fail_message="Method receiver subtyping in line {}")
         solver.optimize.add_soft(instance == arg_type)
         args_types = (arg_type,)
@@ -409,7 +409,7 @@ def _get_args_types(args, context, instance, solver):
         call_type = infer(arg, context, solver)
 
         # The call arguments should be subtype of the corresponding function arguments
-        solver.add(solver.z3_types.subtype(call_type, arg_type),
+        solver.add(solver.z3_types.can_flow_to(call_type, arg_type),
                    fail_message="Call argument subtyping in line {}".format(arg.lineno))
         solver.optimize.add_soft(call_type == arg_type)
         args_types += (arg_type,)

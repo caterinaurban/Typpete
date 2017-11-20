@@ -16,7 +16,8 @@ class AnnotationResolver:
             "str": z3_types.string,
             "bytes": z3_types.bytes,
             "sequence": z3_types.seq,
-            "Tuple": z3_types.tuple
+            "Tuple": z3_types.tuple,
+            "Any": z3_types.any
         }
 
         self.z3_type_to_PEP = {
@@ -30,7 +31,8 @@ class AnnotationResolver:
             "bytes": "bytes",
             "number": "number",
             "sequence": "sequence",
-            "tuple": "Tuple"
+            "tuple": "Tuple",
+            "any": "Any"
         }
 
         self.type_var_poss = {}

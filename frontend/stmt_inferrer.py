@@ -88,6 +88,7 @@ def _infer_assignment_target(target, context, value_type, solver):
 
     # Adding weight of 2 to give the assignment soft constraint a higher priority over others.
     solver.optimize.add_soft(target_type == value_type, weight=2)
+    solver.optimize.add_soft(target_type != solver.z3_types.any, weight=100)
 
 
 def _is_type_var_declaration(node):
@@ -244,7 +245,7 @@ def _infer_control_flow(node, context, solver):
             if inference_config["enforce_same_type_in_branches"]:
                 branch_axioms = [t1 == var_type, t2 == var_type]
             else:
-                branch_axioms = [solver.z3_types.subtype(t1, var_type), solver.z3_types.subtype(t2, var_type)]
+                branch_axioms = [solver.z3_types.can_flow_to(t1, var_type), solver.z3_types.can_flow_to(t2, var_type)]
 
             solver.add(branch_axioms,
                        fail_message="subtyping in flow branching in line {}".format(node.lineno))
@@ -319,7 +320,7 @@ def _infer_try(node, context, solver):
             handler_context.set_type(handler.name,
                                      solver.annotation_resolver.resolve(handler.type, solver))
         handler_body_type = _infer_body(handler.body, handler_context, handler.lineno, solver)
-        solver.add(solver.z3_types.subtype(handler_body_type, result_type),
+        solver.add(solver.z3_types.can_flow_to(handler_body_type, result_type),
                    fail_message="Exception handler in line {}".format(handler.lineno))
 
     return result_type
@@ -339,6 +340,7 @@ def _init_func_context(node, args, context, solver):
             arg_type = solver.new_z3_const("func_arg")
         local_context.set_type(arg.arg, arg_type)
         args_types = args_types + (arg_type,)
+        solver.optimize.add_soft(arg_type != solver.z3_types.any, weight=100)
 
     return local_context, args_types
 
@@ -357,7 +359,7 @@ def _infer_args_defaults(args_types, defaults, context, solver):
     for i, default in enumerate(defaults):
         arg_idx = i + len(args_types) - len(defaults)  # The defaults array correspond to the last arguments
         default_type = expr.infer(default, context, solver)
-        solver.add(solver.z3_types.subtype(default_type, args_types[arg_idx]),
+        solver.add(solver.z3_types.can_flow_to(default_type, args_types[arg_idx]),
                    fail_message="Function default argument in line {}".format(defaults[i].lineno))
         solver.optimize.add_soft(default_type == args_types[arg_idx])
 
@@ -464,12 +466,13 @@ def _infer_func_def(node, context, solver):
             body_type = return_type
         else:
             body_type = _infer_body(node.body, func_context, node.lineno, solver)
-        solver.add(body_type == return_type,
+        solver.add(solver.z3_types.can_flow_to(body_type, return_type),
                    fail_message="Return type annotation in line {}".format(node.lineno))
+        solver.optimize.add_soft(return_type != solver.z3_types.any, weight = 100)
     else:
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
         return_type = solver.new_z3_const("return")
-        solver.add(solver.z3_types.subtype(body_type, return_type),
+        solver.add(solver.z3_types.can_flow_to(body_type, return_type),
                    fail_message="Return type in line {}".format(node.lineno))
         # Putting higher weight for this soft constraint to give it higher priority over soft-constraint
         # added by inheritance covariance/contravariance return type
@@ -566,7 +569,7 @@ def _infer_class_def(node, context, solver):
                                                    .format(sub_args_len, i + 1))
                         if attr not in inherited_funcs_to_super or inherited_funcs_to_super[attr] != base:
                             # Only add contravariant axioms if this method is not inherited from the current base class.
-                            solver.add(solver.z3_types.subtype(base_arg_accessor(bases_attrs[base][attr]),
+                            solver.add(solver.z3_types.can_flow_to(base_arg_accessor(bases_attrs[base][attr]),
                                                                sub_arg_accessor(class_attrs[attr])),
                                        fail_message="Arguments contravariance in line {}".format(node.lineno))
                     base_return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(base_args_len))
@@ -579,7 +582,7 @@ def _infer_class_def(node, context, solver):
                                                 "has same type as that in class {}".format(attr, node.name, base))
                     else:
                         # Add covariant axiom otherwise
-                        solver.add(solver.z3_types.subtype(sub_return_accessor(class_attrs[attr]),
+                        solver.add(solver.z3_types.can_flow_to(sub_return_accessor(class_attrs[attr]),
                                                            base_return_accessor(bases_attrs[base][attr])),
                                    fail_message="Return covariance in line {}".format(node.lineno))
                     solver.optimize.add_soft(sub_return_accessor(class_attrs[attr])
