@@ -425,6 +425,9 @@ def has_type_var(node, solver):
 
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
+    if context.type_params.get(node.name):
+        old_method = solver.z3_types.current_method
+        solver.z3_types.current_method = solver.z3_types.method_ids[node.name]
     if is_stub(node) or has_type_var(node, solver):
         return_annotation = node.returns
         args_annotations = []
@@ -475,8 +478,18 @@ def _infer_func_def(node, context, solver):
         # added by inheritance covariance/contravariance return type
         solver.optimize.add_soft(body_type == return_type, weight=2)
     func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
-    solver.add(result_type == func_type,
-               fail_message="Function definition in line {}".format(node.lineno))
+    if context.type_params.get(node.name):
+        args = context.type_params.get(node.name)
+        func = solver.z3_types.generics[len(args) - 1]
+        args = [getattr(solver.z3_types, 'tv' + str(a)) for a in args]
+        solver.add(result_type == func(*args, func_type),
+                   fail_message = "Generic function definition in line {}".format(node.lineno))
+    else:
+        solver.add(result_type == func_type,
+                   fail_message = "Function definition in line {}".format(node.lineno))
+
+    if context.type_params.get(node.name):
+        solver.z3_types.current_method = old_method
     return solver.z3_types.none
 
 
@@ -485,7 +498,7 @@ def _infer_class_def(node, context, solver):
     result_type = context.get_type(node.name)
 
     for stmt in node.body:
-        infer(stmt, class_context, solver)
+        infer(stmt, class_context, solver, node)
 
     class_attrs = solver.z3_types.instance_attributes[node.name]
     inherited_funcs_to_super = solver.config.inherited_funcs_to_super[node.name]
@@ -658,7 +671,9 @@ def _infer_import_from(node, context, solver):
     return solver.z3_types.none
 
 
-def infer(node, context, solver):
+def infer(node, context, solver, parent=None):
+    if parent:
+        node._parent = parent
     if isinstance(node, ast.Assign):
         return _infer_assign(node, context, solver)
     elif isinstance(node, ast.AugAssign):

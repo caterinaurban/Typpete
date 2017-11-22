@@ -213,6 +213,7 @@ class Configuration:
         self.used_names = []
         self.max_default_args = 0
         self.all_classes = {}
+        self.type_params = {'generic_tolist': [1]}
 
     def complete_class_to_base(self):
         """

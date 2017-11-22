@@ -306,4 +306,8 @@ class AnnotationResolver:
 
             return "Callable[[{}], {}]".format(", ".join(args), return_annotation)
 
+        match = re.match("tv(\d+)", type_str)
+        if match:
+            tv_index = int(match.group(1))
+            return "T{}".format(tv_index)
         raise TypeError("Couldn't unparse type {}".format(type_str))

@@ -40,11 +40,23 @@ class Context:
         self.builtin_methods = {}
         self.parent_context = parent_context
         self.children_contexts = []
+        self._type_params = {}
         self.func_to_ast = {}
         self.assignments = []
 
         if parent_context:
             parent_context.children_contexts.append(self)
+
+    @property
+    def type_params(self):
+        if self.parent_context:
+            return self.parent_context.type_params
+        else:
+            return self._type_params
+
+    @type_params.setter
+    def type_params(self, tp):
+        self._type_params = tp
 
     def get_type(self, var_name):
         """Get the type of `var_name` from this context (or a parent context)"""
@@ -104,12 +116,36 @@ class Context:
         """Map a function with name `func_name` fo its corresponding AST node"""
         self.func_to_ast[func_name] = ast_node
 
+    def _create_type_var_assign(self, name, upper):
+        target = ast.Name(id=name)
+        tv_func = ast.Name(id="TypeVar")
+        name_str = ast.Str(s=name)
+        bound_name = ast.Name(id=upper)
+        upper_kw = ast.keyword(arg="bound", value=bound_name)
+        value = ast.Call(func=tv_func,args=[name_str], keywords=[upper_kw])
+        res = ast.Assign(targets=[target], value=value)
+        return res
+
     def add_annotations_to_funcs(self, model, solver):
         """Add the function types given by the SMT model as annotations to the AST nodes"""
         type_sort = solver.z3_types.type_sort
         for func, node in self.func_to_ast.items():
             z3_t = self.types_map[func]
             inferred_type = model[z3_t]
+            inferred_type_name = str(inferred_type)
+            if inferred_type_name.startswith("generic"):
+                if hasattr(node, '_parent') and hasattr(node._parent, 'body'):
+                    nargs = int(inferred_type_name[7:8])
+                    for arg in range(1, nargs + 1):
+                        tvar = simplify(getattr(type_sort, inferred_type_name[:8] + '_tv' + str(arg))(inferred_type))
+                        upper = solver.z3_types.upper(tvar)
+                        upper = solver.annotation_resolver.unparse_annotation(model.evaluate(upper))
+                        assign = self._create_type_var_assign("T{}".format(str(tvar)[2:]), upper)
+                        index = node._parent.body.index(node)
+                        node._parent.body.insert(index, assign)
+                inferred_type = getattr(type_sort, inferred_type_name[:8] + "_func")(inferred_type)
+
+
             func_len = len(node.args.args)
 
             # Add the type annotations for the function arguments

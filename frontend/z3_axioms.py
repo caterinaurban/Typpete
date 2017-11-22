@@ -1,4 +1,4 @@
-from frontend.z3_types import And, Or, Implies, Not
+from frontend.z3_types import And, Or, Implies, Not, Exists, Const
 
 
 def overloading_axioms(left, right, result, method_name, types):
@@ -457,7 +457,54 @@ def function_call_axioms(called, args, result, types):
     return axioms
 
 
-def call(called, args, result, types):
+def generic_call_axioms(called, args, result, types, tvs):
+    axioms = []
+    for i in range(3):
+        generic_constr = types.generics[i]
+        cargs = []
+        for j in range(i + 1):
+            cargs.append(getattr(types, 'generic{}_tv{}'.format(i + 1, j + 1))(called))
+        is_generic = called == generic_constr(*cargs, getattr(types, 'generic{}_func'.format(i + 1))(called))
+
+        under_upper = []
+        for k, ta in enumerate(tvs):
+            if not k <= i:
+                break
+            current_tv = getattr(types, 'generic{}_tv{}'.format(i + 1, k + 1))(called)
+            def mysubst(a):
+                res = a
+                for l in range(k):
+                    res = types.subst(res, cargs[l], tvs[l])
+                return res
+            under_upper.append(types.subtype(ta, mysubst(types.upper(current_tv))))
+
+        def mysubst(a):
+            res = a
+            for arg, tv in zip(cargs, tvs):
+                res = types.subst(res, arg, tv)
+            return res
+
+        called_func = getattr(types, 'generic{}_func'.format(i + 1))(called)
+
+        if len(args) == 0:
+            axioms.append(mysubst(called_func) == types.funcs[0](0, result))
+        else:
+            subtype_axioms = []
+            z3_args = []
+            for i in range(len(args)):
+                z3_arg = mysubst(getattr(types.type_sort, "func_{}_arg_{}".format(len(args), i + 1))(called_func))
+                z3_args.append(z3_arg)
+                arg = args[i]
+                subtype_axioms.append(types.subtype(arg, z3_arg))
+
+            func_type = types.funcs[len(args)]
+            z3_args.append(result)
+            res = And(subtype_axioms + [mysubst(called_func) == func_type(0, *z3_args)])
+            axioms.append(And(is_generic, *under_upper, res))
+    return axioms
+
+
+def call(called, args, result, types, tvs):
     """Constraints for calls
     
     Cases:
@@ -469,7 +516,8 @@ def call(called, args, result, types):
         Or(
             (function_call_axioms(called, args, result, types)
              + instance_axioms(called, args, result, types)
-             + class_call_axioms(called, args, result, types))
+             + class_call_axioms(called, args, result, types)
+             + generic_call_axioms(called, args, result, types, tvs))
         )
     ]
 

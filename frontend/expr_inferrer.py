@@ -489,7 +489,10 @@ def infer_func_call(node, context, solver):
         if func_axioms is not None:
             call_axioms.append(func_axioms)
     else:
-        call_axioms += axioms.call(called, args_types, result_type, solver.z3_types)
+        tv0 = solver.new_z3_const("ta0")
+        tv1 = solver.new_z3_const("ta1")
+        tv2 = solver.new_z3_const("ta2")
+        call_axioms += axioms.call(called, args_types, result_type, solver.z3_types, [tv0, tv1, tv2])
 
     solver.add(Or(call_axioms),
                fail_message="Call in line {}".format(node.lineno))
