@@ -22,6 +22,7 @@ class PreAnalyzer:
         """
         # List all the nodes existing in the AST
         self.base_folder = base_folder
+        self.analyzed = set()
         self.all_nodes = self.walk(prog_ast)
 
         # Pre-analyze only used constructs from the stub files.
@@ -37,10 +38,13 @@ class PreAnalyzer:
         import_from_nodes = [node for node in result if isinstance(node, ast.ImportFrom)]
         for node in import_nodes:
             for name in node.names:
+                if name in self.analyzed:
+                    continue
                 if ImportHandler.is_builtin(name.name):
                     new_ast = ImportHandler.get_builtin_ast(name.name)
                 else:
                     new_ast = ImportHandler.get_module_ast(name.name, self.base_folder)
+                self.analyzed.add(name)
                 result += self.walk(new_ast)
         for node in import_from_nodes:
             if node.module == "typing":
