@@ -143,12 +143,21 @@ class Z3Types:
         self.tvs = []
         self.method_ids = {}
         self.tv_to_method = {}
+        self.tv_to_class = {}
         for m, vrs in config.type_params.items():
             method_sort.declare('m__' + m)
             for v in vrs:
                 tv = getattr(type_sort, 'tv' + str(v))
                 self.tvs.append(tv)
                 setattr(self, 'tv' + str(v), tv)
+
+        for c, vrs in config.class_type_params:
+            for v in vrs:
+                tv = getattr(type_sort, 'tv' + str(v))
+                self.tvs.append(tv)
+                setattr(self, 'tv' + str(v), tv)
+            for func in config.class_to_funcs[c]:
+                name = 'm__' +
 
         method_sort = method_sort.create()
         self.method_sort = method_sort
