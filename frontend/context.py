@@ -58,6 +58,17 @@ class Context:
     def type_params(self, tp):
         self._type_params = tp
 
+    @property
+    def class_type_params(self):
+        if self.parent_context:
+            return self.parent_context.class_type_params
+        else:
+            return self._class_type_params
+
+    @class_type_params.setter
+    def class_type_params(self, tp):
+        self._class_type_params = tp
+
     def get_type(self, var_name):
         """Get the type of `var_name` from this context (or a parent context)"""
         if var_name in self.types_map:

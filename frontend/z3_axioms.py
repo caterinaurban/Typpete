@@ -369,7 +369,7 @@ def try_except(then, orelse, final, result, types):
     ]
 
 
-def one_type_instantiation(class_name, args, result, types):
+def one_type_instantiation(class_name, args, result, types, tvs):
     """Constraints for class instantiation, if the class name is known
     
     :param class_name: The class to be instantiated
@@ -401,13 +401,22 @@ def one_type_instantiation(class_name, args, result, types):
 
     all_args = (instance,) + args + tuple(rem_args) + (types.none,)  # The return type of __init__ is None
     z3_func_args = (default_count,) + all_args
+
+    generic_receiver_type = False
+    generic_args = args
+    if class_name in types.config.class_type_params:
+        rec_type = types.classes[class_name](tvs[:len(types.config.class_type_params[class_name])])
+        generic_receiver_type = result == rec_type
+        generic_args = (rec_type,) + args
     # Assert that it's a call to this __init__ function
-    return And(
-        result == instance,
-        init_func == types.funcs[len(args) + len(rem_args) + 1](z3_func_args), default_count >= rem_args_count)
+    return Or(And(
+                  result == instance,
+                  init_func == types.funcs[len(args) + len(rem_args) + 1](z3_func_args), default_count >= rem_args_count),
+              And(generic_receiver_type, Or(*generic_call_axioms(init_func, generic_args, result, types, tvs)))
+              )
 
 
-def instance_axioms(called, args, result, types):
+def instance_axioms(called, args, result, types, tvs):
     """Constraints for class instantiation
     
     A class instantiation corresponds to a normal function call to the __init__ function, where
@@ -423,7 +432,7 @@ def instance_axioms(called, args, result, types):
     # Assert with __init__ function of all classes in the program
     axioms = []
     for t in types.all_types:
-        axioms.append(And(one_type_instantiation(t, args, result, types),
+        axioms.append(And(one_type_instantiation(t, args, result, types, tvs),
                           called == types.all_types[t]))
     return axioms
 
@@ -459,7 +468,8 @@ def function_call_axioms(called, args, result, types):
 
 def generic_call_axioms(called, args, result, types, tvs):
     axioms = []
-    for i in range(3):
+    to_iterate_over = range(min(3, len(tvs)))
+    for i in to_iterate_over:
         generic_constr = types.generics[i]
         cargs = []
         for j in range(i + 1):
@@ -556,7 +566,7 @@ def staticmethod_call(class_type, args, result, attr, types):
     return axioms
 
 
-def instancemethod_call(instance, args, result, attr, types):
+def instancemethod_call(instance, args, result, attr, types, tvs):
     """Constraints for calls on instances
 
     There are two cases:
@@ -578,8 +588,15 @@ def instancemethod_call(instance, args, result, attr, types):
             decorators = types.class_to_funcs[t][attr][1]
             if "staticmethod" not in decorators:
                 attr_type = types.instance_attributes[t][attr]
-                axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
-                                  Or(function_call_axioms(attr_type, args, result, types))))
+
+                receiver_subtype = False
+                if t in types.config.class_type_params:
+                    rec_type = types.classes[t](tvs[:len(types.config.class_type_params[t])])
+                    receiver_subtype = types.subtype(instance, rec_type)
+                axioms.append(Or(And(instance == types.type_sort.instance(types.all_types[t]),
+                                     Or(function_call_axioms(attr_type, args, result, types))),
+                                 And(receiver_subtype, Or(*generic_call_axioms(attr_type, list(args), result, types, tvs)))
+                                 ))
 
         # Otherwise, check if it is an instance attribute, if so add call axioms with no receiver
         elif attr in types.instance_attributes[t]:

@@ -445,11 +445,14 @@ def infer_func_call(node, context, solver):
         called = context.get_type(node.func.id)
         # check if the type has the manually added flag for class-types
         if hasattr(called, "is_class"):
+            tv0 = solver.new_z3_const("ta0")
+            tv1 = solver.new_z3_const("ta1")
+            tv2 = solver.new_z3_const("ta2")
             args_types = _get_args_types(node.args, context, None, solver)
             solver.add(axioms.one_type_instantiation(node.func.id,
                                                      args_types,
                                                      result_type,
-                                                     solver.z3_types),
+                                                     solver.z3_types, [tv0, tv1, tv2]),
                        fail_message="Class instantiation in line {}.".format(node.lineno))
             return result_type
 
@@ -476,9 +479,13 @@ def infer_func_call(node, context, solver):
             call_axioms += axioms.staticmethod_call(instance, args_types[1:], result_type,
                                                     node.func.attr, solver.z3_types)
 
+            tv0 = solver.new_z3_const("ta0")
+            tv1 = solver.new_z3_const("ta1")
+            tv2 = solver.new_z3_const("ta2")
             # Fixes #21: https://github.com/caterinaurban/Typpete/issues/21
             call_axioms += axioms.instancemethod_call(instance, args_types, result_type,
-                                                    node.func.attr, solver.z3_types)
+                                                      node.func.attr, solver.z3_types,
+                                                      [tv0, tv1, tv2])
 
             solver.add(Or(call_axioms),
                        fail_message="Call in line {}".format(node.lineno))

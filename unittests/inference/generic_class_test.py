@@ -16,7 +16,9 @@ class A:
 
 c1 = Cell(A())
 
-c1.get().foo()
+my_a = c1.get()
+
+my_a.foo()
 
 c2 = Cell(2)
 

@@ -3,7 +3,7 @@ import ast
 import time
 import astunparse
 
-file_path = "unittests/inference/generic_test.py"
+file_path = "unittests/inference/generic_class_test.py"
 file_name = file_path.split("/")[-1]
 
 r = open(file_path)
@@ -15,6 +15,7 @@ solver = z3_types.TypesSolver(t)
 
 context = Context(t.body, solver)
 context.type_params = solver.config.type_params
+context.class_type_params = solver.config.class_type_params
 solver.infer_stubs(context, infer)
 
 for stmt in t.body:
@@ -55,7 +56,7 @@ def print_context(ctx, ind=""):
     if not ind and children:
         print("---------------------------")
 
-print(solver)
+# print(solver)
 start_time = time.time()
 check = solver.optimize.check()
 end_time = time.time()

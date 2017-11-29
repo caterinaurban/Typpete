@@ -425,9 +425,12 @@ def has_type_var(node, solver):
 
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
-    if context.type_params.get(node.name):
+    method_key = node.name
+    if context.name:
+        method_key = context.name + '.' + method_key
+    if method_key in solver.z3_types.method_ids:
         old_method = solver.z3_types.current_method
-        solver.z3_types.current_method = solver.z3_types.method_ids[node.name]
+        solver.z3_types.current_method = solver.z3_types.method_ids[method_key]
     if is_stub(node) or has_type_var(node, solver):
         return_annotation = node.returns
         args_annotations = []
@@ -442,6 +445,8 @@ def _infer_func_def(node, context, solver):
                                                                                      defaults_count)
         else:
             context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count))
+        if method_key in solver.z3_types.method_ids:
+            solver.z3_types.current_method = old_method
         return solver.z3_types.none
 
     func_context, args_types = _init_func_context(node, node.args.args, context, solver)
@@ -478,17 +483,24 @@ def _infer_func_def(node, context, solver):
         # added by inheritance covariance/contravariance return type
         solver.optimize.add_soft(body_type == return_type, weight=2)
     func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
-    if context.type_params.get(node.name):
-        args = context.type_params.get(node.name)
+    if method_key in solver.z3_types.method_ids:
+        args = []
+
+        if context.name and context.name in context.class_type_params:
+            _args = context.class_type_params[context.name]
+            args += [getattr(solver.z3_types, 'tv' + str(a)) for a in _args]
+        if context.type_params.get(node.name):
+            _args = context.type_params.get(node.name)
+            args += [getattr(solver.z3_types, 'tv' + str(a)) for a in _args]
+
         func = solver.z3_types.generics[len(args) - 1]
-        args = [getattr(solver.z3_types, 'tv' + str(a)) for a in args]
         solver.add(result_type == func(*args, func_type),
                    fail_message = "Generic function definition in line {}".format(node.lineno))
     else:
         solver.add(result_type == func_type,
                    fail_message = "Function definition in line {}".format(node.lineno))
 
-    if context.type_params.get(node.name):
+    if method_key in solver.z3_types.method_ids:
         solver.z3_types.current_method = old_method
     return solver.z3_types.none
 
@@ -502,7 +514,7 @@ def _infer_class_def(node, context, solver):
 
     class_attrs = solver.z3_types.instance_attributes[node.name]
     inherited_funcs_to_super = solver.config.inherited_funcs_to_super[node.name]
-    instance_type = solver.z3_types.classes[node.name]
+
     class_to_funcs = solver.z3_types.class_to_funcs[node.name]
     base_classes_to_funcs = {}
     bases_attrs = {}
@@ -518,6 +530,8 @@ def _infer_class_def(node, context, solver):
            and "staticmethod" not in class_to_funcs[attr][1]):
             # First arg (the method receiver) is the same as instance only if it is not an inherited method
             # and not a static method
+            instance_type = solver.z3_types.classes[node.name]
+
 
             if not class_to_funcs[attr][0]:
                 raise TypeError("Instance method {} in class {} should have at least one argument (the receiver)."
@@ -526,7 +540,12 @@ def _infer_class_def(node, context, solver):
 
             args_len = class_to_funcs[attr][0]
             arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_len))
-            solver.add(arg_accessor(class_attrs[attr]) == instance_type,
+            first_arg = arg_accessor(class_attrs[attr])
+            if node.name in context.class_type_params:
+                args = [getattr(solver.z3_types.type_sort, "{}_arg_{}".format(node.name, i))(first_arg)
+                        for i, _ in enumerate(context.class_type_params[node.name])]
+                instance_type = instance_type(*args)
+            solver.add(first_arg == instance_type,
                        fail_message="First arg in instance method {} in class {} has class instance type"
                        .format(attr, node.name))
         for base in bases_attrs:

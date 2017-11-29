@@ -93,7 +93,7 @@ class PreAnalyzer:
         names += [node.name for node in self.all_nodes if isinstance(node, ast.alias)]
         return names
 
-    def analyze_classes(self):
+    def analyze_classes(self, conf):
         """Pre-analyze and configure classes before the type inference
         
         Do the following:
@@ -113,11 +113,14 @@ class PreAnalyzer:
         class_to_funcs = OrderedDict()
 
         for cls in class_defs:
+            key = cls.name
+            if cls.name in conf.class_type_params:
+                key = (key,) + tuple([key + '_arg_' + str(n) for n in conf.class_type_params[key]])
             if cls.bases:
-                class_to_base[cls.name] = [x.id for x in cls.bases]
+                class_to_base[key] = [x.id for x in cls.bases]
 
             else:
-                class_to_base[cls.name] = ["object"]
+                class_to_base[key] = ["object"]
 
             add_init_if_not_existing(cls)
 
@@ -186,7 +189,7 @@ class PreAnalyzer:
         config.max_function_args = self.maximum_function_args()
         config.base_folder = self.base_folder
 
-        class_analysis = self.analyze_classes()
+        class_analysis = self.analyze_classes(config)
         config.classes_to_instance_attrs = class_analysis[0]
         config.classes_to_class_attrs = class_analysis[1]
         config.class_to_base = class_analysis[2]
@@ -214,6 +217,7 @@ class Configuration:
         self.max_default_args = 0
         self.all_classes = {}
         self.type_params = {'generic_tolist': [1]}
+        self.class_type_params = {'Cell': [0]}
 
     def complete_class_to_base(self):
         """
@@ -248,7 +252,10 @@ class Configuration:
             builtins[tuple([name] + func_args)] = ['object']
         self.all_classes = builtins
         for key, val in self.class_to_base.items():
-            ukey = 'class_' + key
+            name = key if isinstance(key, str) else key[0]
+            ukey = 'class_' + name
+            if isinstance(key, tuple):
+                ukey = (ukey,) + key[1:]
             uval = [x if x == 'object' else 'class_' + x for x in val]
             self.all_classes[ukey] = uval
         return

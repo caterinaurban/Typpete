@@ -55,7 +55,9 @@ class TypesSolver(Solver):
         self.assertions_vars.append(assertion)
         self.assertions_errors[assertion] = fail_message
         self.optimize.add(*args)
-        super().add(Implies(assertion, And(*args)))
+        to_add = Implies(assertion, And(*args))
+        print("{}: {}".format(fail_message, to_add))
+        super().add(to_add)
 
     def init_axioms(self):
         for st in self.z3_types.subtyping:
@@ -96,7 +98,8 @@ class Z3Types:
         class_to_base = config.class_to_base
 
         type_sort = declare_type_sort(max_tuple_length, max_function_args,
-                                      classes_to_instance_attrs, config.type_params)
+                                      class_to_base, config.type_params,
+                                      config.class_type_params)
 
         self.type_sort = type_sort
 
@@ -140,24 +143,25 @@ class Z3Types:
         method_sort = Datatype("Method")
         method_sort.declare('m__none')
 
-        self.tvs = []
+        self.tvs = set()
         self.method_ids = {}
         self.tv_to_method = {}
-        self.tv_to_class = {}
         for m, vrs in config.type_params.items():
             method_sort.declare('m__' + m)
             for v in vrs:
                 tv = getattr(type_sort, 'tv' + str(v))
-                self.tvs.append(tv)
+                self.tvs.add(tv)
                 setattr(self, 'tv' + str(v), tv)
 
-        for c, vrs in config.class_type_params:
+        for c, vrs in config.class_type_params.items():
             for v in vrs:
                 tv = getattr(type_sort, 'tv' + str(v))
-                self.tvs.append(tv)
+                self.tvs.add(tv)
                 setattr(self, 'tv' + str(v), tv)
             for func in config.class_to_funcs[c]:
-                name = 'm__' +
+                name = 'm__' + func
+                method_sort.declare(name)
+
 
         method_sort = method_sort.create()
         self.method_sort = method_sort
@@ -166,7 +170,18 @@ class Z3Types:
             self.method_ids[m] = method_id
             for v in vrs:
                 tv = getattr(type_sort, 'tv' + str(v))
-                self.tv_to_method[tv] = method_id
+                self.tv_to_method[tv] = [method_id]
+
+        for c, vrs in config.class_type_params.items():
+            for m in config.class_to_funcs[c]:
+                method_id = getattr(method_sort, 'm__' + m)
+                self.method_ids[c + '.' + m] = method_id
+                for v in vrs:
+                    tv = getattr(type_sort, 'tv' + str(v))
+                    if tv in self.tv_to_method:
+                        self.tv_to_method[tv].append(method_id)
+                    else:
+                        self.tv_to_method[tv] = [method_id]
 
 
         self.generics = [type_sort.generic1, type_sort.generic2, type_sort.generic3]
@@ -354,7 +369,7 @@ class Z3Types:
                 else:
                     options.append(x == sub.get_literal_with_args(x))
             for tv in self.tvs:
-                option = And(m == self.tv_to_method[tv], x == tv, self._subtype(m, self.upper(tv), c_literal))
+                option = And(Or(*[m == m_tv for m_tv in self.tv_to_method[tv]]), x == tv, self._subtype(m, self.upper(tv), c_literal))
                 options.append(option)
             subtype_expr = self._subtype(m, x, c_literal)
             axiom = ForAll([x, m] + c.quantified(), subtype_expr == Or(*options),
@@ -366,14 +381,14 @@ class Z3Types:
             for tvp in self.tvs:
                 if tvp is tv:
                     continue
-                if self.tv_to_method[tv] is not self.tv_to_method[tvp]:
+                if self.tv_to_method[tv] != self.tv_to_method[tvp]:
                     continue
                 options.append(And(m == self.tv_to_method[tv], x == tvp, self.upper(tvp) == tv))
             axiom = ForAll([x, m], self._subtype(m, x, tv) == Or(*options),
                            patterns = [self._subtype(m, x, tv)])
             axioms.append(axiom)
             axiom = ForAll([x, m], self._subtype(m, tv, x) == Or(x == tv,
-                                                                 And(m == self.tv_to_method[tv],
+                                                                 And(Or(*[m == m_tv for m_tv in self.tv_to_method[tv]]),
                                                                      self._subtype(m, self.upper(tv), x))),
                            patterns = [self._subtype(m, tv, x)])
             axioms.append(axiom)
@@ -394,7 +409,7 @@ class Z3Types:
         return axioms
 
 
-def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_attrs, type_params):
+def declare_type_sort(max_tuple_length, max_function_args, classes_to_base, type_params, class_type_params):
     """Declare the type data type and all its constructors and accessors."""
     type_sort = Datatype("Type")
 
@@ -409,6 +424,9 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
     type_sort.declare("bool")
 
     for cls, vrs in type_params.items():
+        for v in vrs:
+            type_sort.declare('tv' + str(v))
+    for cls, vrs in class_type_params.items():
         for v in vrs:
             type_sort.declare('tv' + str(v))
     type_sort.declare('generic1', ('generic1_tv1', type_sort), ('generic1_func', type_sort))
@@ -446,8 +464,11 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
         # declare type constructor for the function
         type_sort.declare("func_{}".format(cur_len), *accessors)
     # classes
-    for cls in classes_to_instance_attrs:
-        type_sort.declare("class_{}".format(cls))
+    for cls in classes_to_base:
+        if isinstance(cls, str):
+            type_sort.declare("class_{}".format(cls))
+        else:
+            type_sort.declare("class_{}".format(cls[0]), *[(a, type_sort) for a in cls[1:]])
 
     return type_sort.create()
 
