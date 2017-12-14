@@ -428,7 +428,7 @@ def instance_axioms(called, args, result, types):
     return axioms
 
 
-def function_call_axioms(called, args, result, types):
+def function_call_axioms(called, args, result, types, is_union=False):
     """Constraints for function calls
     
     To support default arguments values, an axiom for every possible arguments length is added, provided that the
@@ -449,11 +449,19 @@ def function_call_axioms(called, args, result, types):
         defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(i))
         defaults_count = defaults_accessor(called)
         # Add the axioms for function call, default args count, and arguments subtyping.
-        axioms.append(
-            And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
+        if is_union:
+            first_arg = getattr(types.type_sort, "func_{}_arg_1".format(i))(called)
+            axioms.append(
+                And(called == types.funcs[i]((defaults_accessor(called), first_arg) + args[1:] + rem_args_types + (result,)),
+                    types.subtype(first_arg, args[0]),
+                    defaults_count >= rem_args,
+                    defaults_count <= types.config.max_default_args))
+        else:
+            axioms.append(
+                And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
 
-                defaults_count >= rem_args,
-                defaults_count <= types.config.max_default_args))
+                    defaults_count >= rem_args,
+                    defaults_count <= types.config.max_default_args))
     return axioms
 
 
@@ -508,6 +516,12 @@ def staticmethod_call(class_type, args, result, attr, types):
     return axioms
 
 
+def form_union(types, possible_types, i=0):
+    if i == len(possible_types) - 1:
+        return possible_types[i]
+    return types.union(possible_types[i], form_union(types, possible_types, i + 1))
+
+
 def instancemethod_call(instance, args, result, attr, types):
     """Constraints for calls on instances
 
@@ -523,6 +537,8 @@ def instancemethod_call(instance, args, result, attr, types):
     `
     """
     axioms = []
+    union_types = []
+    union_constraints = []
     for t in types.all_types:
         # Check that attr is an instance method and "staticmethod" is not of its decorators,
         # if so, add call axioms with a receiver
@@ -532,12 +548,16 @@ def instancemethod_call(instance, args, result, attr, types):
                 attr_type = types.instance_attributes[t][attr]
                 axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
                                   Or(function_call_axioms(attr_type, args, result, types))))
+                union_types.append(types.type_sort.instance(types.all_types[t]))
+                union_constraints.append(Or(function_call_axioms(attr_type, args, result, types, True)))
 
         # Otherwise, check if it is an instance attribute, if so add call axioms with no receiver
         elif attr in types.instance_attributes[t]:
             attr_type = types.instance_attributes[t][attr]
             axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
                               Or(function_call_axioms(attr_type, args[1:], result, types) + class_call_axioms(attr_type, args[1:], result, types))))
+
+    axioms.append(And(instance == form_union(types, union_types), *union_constraints))
     return axioms
 
 

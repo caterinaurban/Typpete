@@ -292,6 +292,17 @@ class AnnotationResolver:
             return "Dict[{}, {}]".format(self.unparse_annotation(key_type),
                                          self.unparse_annotation(val_type))
 
+        match = re.match("union", type_str)
+        # unparse dict type. dict(int, str) -> Dict[int, str]
+        if match:
+            arg_1_accessor = self.z3_types.union_arg_1
+            arg_2_accessor = self.z3_types.union_arg_2
+            arg_1_type = simplify(arg_1_accessor(z3_type))
+            arg_2_type = simplify(arg_2_accessor(z3_type))
+
+            return "Union[{}, {}]".format(self.unparse_annotation(arg_1_type),
+                                          self.unparse_annotation(arg_2_type))
+
         match = re.match("func_(\d+)", type_str)
         # unparse func type. func_0(0, int, none) -> Callable[[int], None]
         if match:
