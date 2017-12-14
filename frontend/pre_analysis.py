@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 from copy import copy
 from frontend.config import config
-from frontend.constants import BUILTINS
+from frontend.constants import ALIASES, BUILTINS
 from frontend.import_handler import ImportHandler
 import ast
 
@@ -117,10 +117,23 @@ class PreAnalyzer:
             if cls.name in conf.class_type_params:
                 key = (key,) + tuple([key + '_arg_' + str(n) for n in conf.class_type_params[key]])
             if cls.bases:
+                real_bases = [b for b in cls.bases
+                              if not (isinstance(b, ast.Subscript) and b.value.id == 'Generic')]
+                class_type_params = [b for b in cls.bases if b not in real_bases]
+            else:
+                real_bases = []
+                class_type_params = []
+            if real_bases:
                 class_to_base[key] = [x.id for x in cls.bases]
-
             else:
                 class_to_base[key] = ["object"]
+
+            if class_type_params:
+                if isinstance(class_type_params[0].slice.value, ast.Tuple):
+                    nargs = len(class_type_params[0].slice.value.elts)
+                else:
+                    nargs = 1
+                conf.add_class_type_params(cls.name, nargs)
 
             add_init_if_not_existing(cls)
 
@@ -216,8 +229,12 @@ class Configuration:
         self.used_names = []
         self.max_default_args = 0
         self.all_classes = {}
-        self.type_params = {'generic_tolist': [1]}
-        self.class_type_params = {'Cell': [0]}
+        self.type_params = {} # {'generic_tolist': [1]}
+        self.class_type_params = {} # {'Cell': [0]}
+
+    def add_class_type_params(self, name, nargs):
+        lst = [name + str(n) for n in range(nargs)]
+        self.class_type_params[name] = lst
 
     def complete_class_to_base(self):
         """
@@ -253,6 +270,8 @@ class Configuration:
         self.all_classes = builtins
         for key, val in self.class_to_base.items():
             name = key if isinstance(key, str) else key[0]
+            if name in ALIASES:
+                continue
             ukey = 'class_' + name
             if isinstance(key, tuple):
                 ukey = (ukey,) + key[1:]
@@ -326,7 +345,7 @@ def propagate_attributes_to_subclasses(class_defs):
     class_inherited_funcs_to_super = {}
     for class_def in class_defs:
         class_to_bases[class_def.name] = [x.id for x in class_def.bases
-                                          if x.id != 'object']
+                                          if isinstance(x, ast.Name) and x.id != 'object']
         class_to_node[class_def.name] = class_def
         class_inherited_funcs_to_super[class_def.name] = {}
 

@@ -8,6 +8,7 @@ from collections import OrderedDict
 from frontend.annotation_resolver import AnnotationResolver
 from frontend.class_node import ClassNode
 from frontend.config import config
+from frontend.constants import ALIASES
 from frontend.pre_analysis import PreAnalyzer
 from frontend.stubs.stubs_handler import StubsHandler
 from z3 import *
@@ -78,7 +79,7 @@ class TypesSolver(Solver):
         return Const("{}_{}".format(name, self.new_element_id()), sort)
 
     def resolve_annotation(self, annotation):
-        return self.annotation_resolver.resolve(annotation, self)
+        return self.annotation_resolver.resolve(annotation, self, {})
 
 
 class Z3Types:
@@ -121,14 +122,14 @@ class Z3Types:
         for cur_len in range(max_tuple_length + 1):
             self.tuples.append(getattr(type_sort, "tuple_{}".format(cur_len)))
         self.list = type_sort.list
-        self.list_type = type_sort.list_type
+        self.list_type = type_sort.list_arg_0
         # sets
         self.set = type_sort.set
-        self.set_type = type_sort.set_type
+        self.set_type = type_sort.set_arg_0
         # dictionaries
         self.dict = type_sort.dict
-        self.dict_key_type = type_sort.dict_key_type
-        self.dict_value_type = type_sort.dict_value_type
+        self.dict_key_type = type_sort.dict_arg_0
+        self.dict_value_type = type_sort.dict_arg_1
         # functions
         self.funcs = list()
         for cur_len in range(max_function_args + 1):
@@ -136,7 +137,8 @@ class Z3Types:
         # classes
         self.classes = OrderedDict()
         for cls in classes_to_instance_attrs:
-            self.classes[cls] = getattr(type_sort, "class_{}".format(cls))
+            key = "class_{}".format(cls) if cls not in ALIASES else ALIASES[cls]
+            self.classes[cls] = getattr(type_sort, key)
         create_classes_attributes(type_sort, classes_to_instance_attrs, self.instance_attributes)
         create_classes_attributes(type_sort, classes_to_class_attrs, self.class_attributes)
 
@@ -381,9 +383,10 @@ class Z3Types:
             for tvp in self.tvs:
                 if tvp is tv:
                     continue
-                if self.tv_to_method[tv] != self.tv_to_method[tvp]:
+                intersect = set(self.tv_to_method[tv]).intersection(set(self.tv_to_method[tvp]))
+                if not intersect:
                     continue
-                options.append(And(m == self.tv_to_method[tv], x == tvp, self.upper(tvp) == tv))
+                options.append(And(Or(*[m == tvm for tvm in intersect]), x == tvp, self.upper(tvp) == tv))
             axiom = ForAll([x, m], self._subtype(m, x, tv) == Or(*options),
                            patterns = [self._subtype(m, x, tv)])
             axioms.append(axiom)
@@ -415,7 +418,7 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_base, type
 
     # type constructors and accessors
     type_sort.declare("object")
-    type_sort.declare("type", ("instance", type_sort))
+    type_sort.declare("type", ("type_arg_0", type_sort))
     type_sort.declare("none")
     # number
     type_sort.declare("complex")
@@ -446,11 +449,11 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_base, type
             accessors.append(accessor)
         # declare type constructor for the tuple
         type_sort.declare("tuple_{}".format(cur_len), *accessors)
-    type_sort.declare("list", ("list_type", type_sort))
+    type_sort.declare("list", ("list_arg_0", type_sort))
     # sets
-    type_sort.declare("set", ("set_type", type_sort))
+    type_sort.declare("set", ("set_arg_0", type_sort))
     # dictionaries
-    type_sort.declare("dict", ("dict_key_type", type_sort), ("dict_value_type", type_sort))
+    type_sort.declare("dict", ("dict_arg_0", type_sort), ("dict_arg_1", type_sort))
     # functions
     for cur_len in range(max_function_args + 1):    # declare type constructors for functions
         # the first accessor of the function is the number of default arguments that the function has
@@ -466,8 +469,12 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_base, type
     # classes
     for cls in classes_to_base:
         if isinstance(cls, str):
+            if cls in ALIASES:
+                continue
             type_sort.declare("class_{}".format(cls))
         else:
+            if cls[0] in ALIASES:
+                continue
             type_sort.declare("class_{}".format(cls[0]), *[(a, type_sort) for a in cls[1:]])
 
     return type_sort.create()

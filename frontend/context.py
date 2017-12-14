@@ -23,29 +23,38 @@ class Context:
         self.name = name
         self.types_map = {}
 
-        # Store all the class types that appear in this context. This enables using
-        # classes in no specific order.
-        class_names = [node.name for node in context_nodes if isinstance(node, ast.ClassDef)]
-        for cls in class_names:
-            cls_type = solver.new_z3_const("class_type")
-            self.types_map[cls] = cls_type
-            solver.z3_types.all_types[cls] = cls_type
-
-        # Similarly, store function types that appear in this context
-        func_names = [node.name for node in context_nodes if isinstance(node, ast.FunctionDef)]
-        for func in func_names:
-            func_type = solver.new_z3_const("func")
-            self.types_map[func] = func_type
+        self.add_nodes(context_nodes, solver)
 
         self.builtin_methods = {}
         self.parent_context = parent_context
         self.children_contexts = []
         self._type_params = {}
+        self._class_type_params = {}
         self.func_to_ast = {}
         self.assignments = []
 
         if parent_context:
             parent_context.children_contexts.append(self)
+
+    def add_nodes(self, context_nodes, solver):
+        # Store all the class types that appear in this context. This enables using
+        # classes in no specific order.
+        class_names = [node.name for node in context_nodes if
+                       isinstance(node, ast.ClassDef)]
+        for cls in class_names:
+            if cls == 'str':
+                print(123)
+            cls_type = solver.new_z3_const("class_type")
+            self.types_map[cls] = cls_type
+            if cls in solver.config.class_to_funcs:
+                solver.z3_types.all_types[cls] = cls_type
+
+        # Similarly, store function types that appear in this context
+        func_names = [node.name for node in context_nodes if
+                      isinstance(node, ast.FunctionDef)]
+        for func in func_names:
+            func_type = solver.new_z3_const("func")
+            self.types_map[func] = func_type
 
     @property
     def type_params(self):

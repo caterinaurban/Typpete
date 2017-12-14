@@ -27,6 +27,7 @@ import frontend.z3_types as z3_types
 import sys
 
 from frontend.config import config as inference_config
+from frontend.constants import ALIASES
 from frontend.context import Context, AnnotatedFunction
 from frontend.import_handler import ImportHandler
 
@@ -387,12 +388,12 @@ def is_stub(node):
             or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass)))
 
 
-def has_type_var(node, solver):
+def get_type_vars(node, solver):
     """Check if the function definition has a generic type variable annotation
 
     Inspect all the nodes of the type annotations and look for relevant generic type vars
     """
-    found_type_var = False
+    type_vars = []
 
     # Get annotations of args and return in one list
     all_annotations = []
@@ -405,22 +406,20 @@ def has_type_var(node, solver):
 
     # check if any annotation has a type variable
     for annotation in all_annotations:
-        if found_type_var:
-            break
         # walk over all nodes because the type variable might be deep inside.
         # example: Tuple[List[str], Dict[T, str]]
         all_annotation_nodes = list(ast.walk(annotation))
         for n in all_annotation_nodes:
             # check all nodes which are instance of ast.Name; they are the only candidates for type vars
             if isinstance(n, ast.Name) and n.id in solver.annotation_resolver.type_var_poss:
-                found_type_var = True
-                break
-    if found_type_var:
-        if len(all_annotations) < len(node.args.args) + 1:
-            raise TypeError("Function {} in line {} containing type variables should be fully annotated."
-                            .format(node.name, node.lineno))
+                if n.id not in {tv.id for tv in type_vars}:
+                    type_vars.append(n)
+    # if type_vars:
+    #     if len(all_annotations) < len(node.args.args) + 1:
+    #         raise TypeError("Function {} in line {} containing type variables should be fully annotated."
+    #                         .format(node.name, node.lineno))
 
-    return found_type_var
+    return type_vars
 
 
 def _infer_func_def(node, context, solver):
@@ -431,24 +430,12 @@ def _infer_func_def(node, context, solver):
     if method_key in solver.z3_types.method_ids:
         old_method = solver.z3_types.current_method
         solver.z3_types.current_method = solver.z3_types.method_ids[method_key]
-    if is_stub(node) or has_type_var(node, solver):
-        return_annotation = node.returns
-        args_annotations = []
-        for arg in node.args.args:
-            args_annotations.append(arg.annotation)
-        defaults_count = len(node.args.defaults)
-        if hasattr(node, "method_type"):  # check if the node contains the manually added method flag
-            if node.method_type not in context.builtin_methods:
-                context.builtin_methods[node.method_type] = {}
-            context.builtin_methods[node.method_type][node.name] = AnnotatedFunction(args_annotations,
-                                                                                     return_annotation,
-                                                                                     defaults_count)
-        else:
-            context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count))
-        if method_key in solver.z3_types.method_ids:
-            solver.z3_types.current_method = old_method
-        return solver.z3_types.none
 
+    tvars = get_type_vars(node, solver)
+    if tvars:
+        return solver.z3_types.none
+    if method_key == 'isalnum':
+        print(123)
     func_context, args_types = _init_func_context(node, node.args.args, context, solver)
     result_type = context.get_type(node.name)
     result_type.args_count = len(node.args.args)
@@ -464,8 +451,8 @@ def _infer_func_def(node, context, solver):
 
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
-        if inference_config["ignore_fully_annotated_function"] and is_annotated(node)\
-                or isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Ellipsis):
+        if (inference_config["ignore_fully_annotated_function"] and is_annotated(node)
+                or is_stub(node)):
             # Ignore the body if it has return annotation and one of the following conditions:
             # The configuration flag for doing so is set
             # The body begins with ellipsis
@@ -486,8 +473,8 @@ def _infer_func_def(node, context, solver):
     if method_key in solver.z3_types.method_ids:
         args = []
 
-        if context.name and context.name in context.class_type_params:
-            _args = context.class_type_params[context.name]
+        if context.name and context.name in solver.config.class_type_params:
+            _args = solver.config.class_type_params[context.name]
             args += [getattr(solver.z3_types, 'tv' + str(a)) for a in _args]
         if context.type_params.get(node.name):
             _args = context.type_params.get(node.name)
@@ -520,6 +507,8 @@ def _infer_class_def(node, context, solver):
     bases_attrs = {}
 
     for base in node.bases:
+        if isinstance(base, ast.Subscript) and base.value.id == "Generic":
+            continue
         if base.id == 'object':
             continue
         base_classes_to_funcs[base.id] = solver.z3_types.class_to_funcs[base.id]
@@ -541,9 +530,10 @@ def _infer_class_def(node, context, solver):
             args_len = class_to_funcs[attr][0]
             arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_1".format(args_len))
             first_arg = arg_accessor(class_attrs[attr])
-            if node.name in context.class_type_params:
-                args = [getattr(solver.z3_types.type_sort, "{}_arg_{}".format(node.name, i))(first_arg)
-                        for i, _ in enumerate(context.class_type_params[node.name])]
+            my_name = node.name if node.name not in ALIASES else ALIASES[node.name]
+            if my_name in solver.config.class_type_params:
+                args = [getattr(solver.z3_types.type_sort, "{}_arg_{}".format(my_name, i))(first_arg)
+                        for i, _ in enumerate(solver.config.class_type_params[node.name])]
                 instance_type = instance_type(*args)
             solver.add(first_arg == instance_type,
                        fail_message="First arg in instance method {} in class {} has class instance type"

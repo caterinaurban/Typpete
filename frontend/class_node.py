@@ -8,6 +8,8 @@ class ClassNode:
     """
 
     def __init__(self, name, parents, type_sort):
+        if name == 'class_str':
+            print(12354)
         self.name = name
         self.parents = parents
         self.children = []

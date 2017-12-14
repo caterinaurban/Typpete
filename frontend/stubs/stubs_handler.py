@@ -6,7 +6,6 @@ from frontend.context import Context
 class StubsHandler:
     def __init__(self):
         self.asts = []
-        self.methods_asts = []
         self.lib_asts = {}
 
         classes_and_functions_files = paths.classes_and_functions
@@ -15,13 +14,6 @@ class StubsHandler:
             tree = ast.parse(r.read())
             r.close()
             self.asts.append(tree)
-
-        for method in paths.methods:
-            r = open(method["path"])
-            tree = ast.parse(r.read())
-            r.close()
-            tree.method_type = method["type"]
-            self.methods_asts.append(tree)
 
         for lib in paths.libraries:
             r = open(paths.libraries[lib])
@@ -37,7 +29,7 @@ class StubsHandler:
         relevant_nodes = StubsHandler.get_relevant_nodes(tree, used_names)
 
         # Only give class definitions to the context to prevent the creation of Z3 constants for stub functions
-        context = Context([stmt for stmt in tree.body if isinstance(stmt, ast.ClassDef)], solver)
+        context = Context(tree.body, solver)
         if method_type:
             # Add the flag in the statements to recognize the method statements during the inference
             for node in relevant_nodes:
@@ -51,15 +43,11 @@ class StubsHandler:
     @staticmethod
     def get_relevant_nodes(tree, used_names):
         """Get relevant nodes (which are used in the program) from the given AST `tree`"""
-        # Function definitions
-        relevant_nodes = [node for node in tree.body
-                          if (isinstance(node, ast.FunctionDef) and
-                              node.name in used_names)]
 
         # Class definitions
-        relevant_nodes += [node for node in tree.body
+        relevant_nodes = [node for node in tree.body
                            if (isinstance(node, ast.ClassDef) and
-                               node.name in used_names)]
+                               (node.name in used_names or StubsHandler.get_relevant_nodes(node, used_names)))]
 
         # TypeVar definitions
         relevant_nodes += [node for node in tree.body
@@ -67,6 +55,11 @@ class StubsHandler:
                                isinstance(node.value, ast.Call) and
                                isinstance(node.value.func, ast.Name) and
                                node.value.func.id == "TypeVar")]
+
+        # Function definitions
+        relevant_nodes += [node for node in tree.body
+                          if (isinstance(node, ast.FunctionDef) and
+                              node.name in used_names)]
 
         # Variable assignments
         # For example, math package has `pi` declaration as pi = 3.14...
@@ -88,9 +81,6 @@ class StubsHandler:
         for tree in self.asts:
             relevant_nodes += self.get_relevant_nodes(tree, used_names)
 
-        # Get nodes from builtin methods stubs.
-        for tree in self.methods_asts:
-            relevant_nodes += self.get_relevant_nodes(tree, used_names)
         return relevant_nodes
 
     def infer_all_files(self, context, solver, used_names, infer_func):
@@ -98,11 +88,6 @@ class StubsHandler:
             ctx = self.infer_file(tree, solver, used_names, infer_func)
             # Merge the stub types into the context
             context.types_map.update(ctx.types_map)
-        for tree in self.methods_asts:
-            ctx = self.infer_file(tree, solver, used_names, infer_func, tree.method_type)
-            # Merge the stub types into the context
-            context.types_map.update(ctx.types_map)
-            context.builtin_methods.update(ctx.builtin_methods)
 
     def infer_builtin_lib(self, module_name, solver, used_names, infer_func):
         """

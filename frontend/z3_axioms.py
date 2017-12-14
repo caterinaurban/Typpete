@@ -1,3 +1,4 @@
+from frontend.constants import ALIASES
 from frontend.z3_types import And, Or, Implies, Not, Exists, Const
 
 
@@ -19,7 +20,7 @@ def overloading_axioms(left, right, result, method_name, types):
             method_type = types.instance_attributes[t][method_name]
 
             # the left operand is the instance
-            instance = getattr(types.type_sort, "instance")(types.all_types[t])
+            instance = getattr(types.type_sort, "type_arg_0")(types.all_types[t])
 
             # the right operand is a subtype of the `other` arg in the magic method
             other_type = getattr(types.type_sort, "func_2_arg_2")(method_type)
@@ -377,10 +378,12 @@ def one_type_instantiation(class_name, args, result, types, tvs):
     :param result: The resulting instance from instantiation
     :param types: Z3Types object for this inference program
     """
+    if class_name == "str":
+        print("12")
     init_args_count = types.class_to_funcs[class_name]["__init__"][0]
 
     # Get the instance accessor from the type_sort data type.
-    instance = getattr(types.type_sort, "instance")(types.all_types[class_name])
+    instance = getattr(types.type_sort, "type_arg_0")(types.all_types[class_name])
 
     # Get the __init__ function of the this class
     init_func = types.instance_attributes[class_name]["__init__"]
@@ -525,7 +528,7 @@ def call(called, args, result, types, tvs):
     return [
         Or(
             (function_call_axioms(called, args, result, types)
-             + instance_axioms(called, args, result, types)
+             + instance_axioms(called, args, result, types, tvs)
              + class_call_axioms(called, args, result, types)
              + generic_call_axioms(called, args, result, types, tvs))
         )
@@ -542,7 +545,7 @@ def class_call_axioms(called, args, result, types):
         # Check that `__call__` is a method in the current class.
         if "__call__" in types.class_to_funcs[t]:
             call_type = types.instance_attributes[t]["__call__"]
-            instance = getattr(types.type_sort, "instance")(types.all_types[t])
+            instance = getattr(types.type_sort, "type_arg_0")(types.all_types[t])
             args_types = (instance,) + args
             axioms.append(And(called == instance,
                               Or(function_call_axioms(call_type, args_types, result, types))))
@@ -591,9 +594,10 @@ def instancemethod_call(instance, args, result, attr, types, tvs):
 
                 receiver_subtype = False
                 if t in types.config.class_type_params:
-                    rec_type = types.classes[t](tvs[:len(types.config.class_type_params[t])])
+                    type_func = types.classes[t] if t not in ALIASES else getattr(types.type_sort, ALIASES[t])
+                    rec_type = type_func(tvs[:len(types.config.class_type_params[t])])
                     receiver_subtype = types.subtype(instance, rec_type)
-                axioms.append(Or(And(instance == types.type_sort.instance(types.all_types[t]),
+                axioms.append(Or(And(instance == types.type_sort.type_arg_0(types.all_types[t]),
                                      Or(function_call_axioms(attr_type, args, result, types))),
                                  And(receiver_subtype, Or(*generic_call_axioms(attr_type, list(args), result, types, tvs)))
                                  ))
@@ -601,7 +605,7 @@ def instancemethod_call(instance, args, result, attr, types, tvs):
         # Otherwise, check if it is an instance attribute, if so add call axioms with no receiver
         elif attr in types.instance_attributes[t]:
             attr_type = types.instance_attributes[t][attr]
-            axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
+            axioms.append(And(instance == types.type_sort.type_arg_0(types.all_types[t]),
                               Or(function_call_axioms(attr_type, args[1:], result, types) + class_call_axioms(attr_type, args[1:], result, types))))
     return axioms
 
@@ -613,12 +617,28 @@ def attribute(instance, attr, result, types):
     """
     axioms = []
     for t in types.all_types:
-        if attr in types.instance_attributes[t]:
+        if t in types.instance_attributes and attr in types.instance_attributes[t]:
             # instance access. Ex: A().x
-            type_instance = getattr(types.type_sort, "instance")(types.all_types[t])
             attr_type = types.instance_attributes[t][attr]
+            if t in types.config.class_type_params:
+                tps = types.config.class_type_params[t]
+                accessors = [ctb[1:] for ctb in types.config.class_to_base
+                             if isinstance(ctb, tuple) and ctb[0] == t][0]
+                args = [getattr(types.type_sort, a)(instance) for a in accessors]
+                params = [getattr(types, "generic{}_tv{}".format(len(tps), i+1))(attr_type)
+                          for _, i in enumerate(tps)]
+                gen_func = getattr(types, "generic{}_func".format(len(tps)))(attr_type)
+
+                type_instance = types.classes[t](args)
+                substituted = gen_func
+                for arg, param in zip(args, params):
+                    substituted = types.subst(substituted, param, arg)
+                axioms.append(And(instance == type_instance, result == substituted))
+                continue
+            type_instance = getattr(types.type_sort, "type_arg_0")(types.all_types[t])
+
             axioms.append(And(instance == type_instance, result == attr_type))
-        if attr in types.class_attributes[t]:
+        if t in types.class_attributes and attr in types.class_attributes[t]:
             # class access. Ex: A.x
             class_type = types.all_types[t]
             attr_type = types.class_attributes[t][attr]

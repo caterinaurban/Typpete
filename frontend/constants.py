@@ -8,8 +8,15 @@ BUILTINS = {
     'str': ['sequence'],
     'bytes': ['sequence'],
     'tuple': ['sequence'],
-    ('list', 'list_type'): ['sequence'],
-    ('set', 'set_type'): ['object'],
-    ('dict', 'dict_key_type', 'dict_value_type'): ['object'],
-    ('type', 'instance'): ['object'],
+    ('list', 'list_arg_0'): ['sequence'],
+    ('set', 'set_arg_0'): ['object'],
+    ('dict', 'dict_arg_0', 'dict_arg_1'): ['object'],
+    ('type', 'type_arg_0'): ['object'],
+}
+
+ALIASES = {
+    'Dict': 'dict',
+    'Set': 'set',
+    'List': 'list',
+    'str': 'str'
 }
