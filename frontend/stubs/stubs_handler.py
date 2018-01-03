@@ -87,6 +87,9 @@ class StubsHandler:
 
     def infer_all_files(self, context, solver, used_names, infer_func):
         for tree in self.asts:
+            all_nodes = ast.walk(tree)
+            for n in all_nodes:
+                n._module = tree
             ctx = self.infer_file(tree, solver, used_names, infer_func)
             # Merge the stub types into the context
             context.types_map.update(ctx.types_map)
@@ -102,4 +105,8 @@ class StubsHandler:
         """
         if module_name not in self.lib_asts:
             raise ImportError("No module named {}".format(module_name))
-        return self.infer_file(self.lib_asts[module_name], solver, used_names, infer_func)
+        lib_ast = self.lib_asts[module_name]
+        all_nodes = ast.walk(lib_ast)
+        for n in all_nodes:
+            n._module = lib_ast
+        return self.infer_file(lib_ast, solver, used_names, infer_func)

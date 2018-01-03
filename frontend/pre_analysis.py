@@ -284,7 +284,7 @@ class Configuration:
         self.max_default_args = 0
         self.all_classes = {}
         self.type_params = {} # {'generic_tolist': [1], 'flatten_dict': [0, 2], 'flatten': [3]}
-        self.class_type_params =  {'Cell': [0]}
+        self.class_type_params =  {} # {'Cell': [0]}
         self.type_vars = OrderedDict()
         for vars in self.class_type_params.values():
             for var in vars:
