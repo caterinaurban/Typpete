@@ -7,7 +7,7 @@ Num = TypeVar("Num", bound=complex)
 Str = TypeVar("Str", str, bytes)
 Seq = TypeVar("Seq", Str, List[T])
 NumOrStr = TypeVar("NumOrStr", Num, Str)
-NumOrStrNoComplex = TypeVar("NumOrStr", bool, int, float, Str)
+NumOrStrNoComplex = TypeVar("NumOrStr", bool, int, float, str, bytes)
 
 
 def abs(x: Num) -> Num:

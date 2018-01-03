@@ -28,8 +28,6 @@ class Context:
         self.builtin_methods = {}
         self.parent_context = parent_context
         self.children_contexts = []
-        self._type_params = {}
-        self._class_type_params = {}
         self.func_to_ast = {}
         self.assignments = []
 
@@ -55,28 +53,6 @@ class Context:
         for func in func_names:
             func_type = solver.new_z3_const("func")
             self.types_map[func] = func_type
-
-    @property
-    def type_params(self):
-        if self.parent_context:
-            return self.parent_context.type_params
-        else:
-            return self._type_params
-
-    @type_params.setter
-    def type_params(self, tp):
-        self._type_params = tp
-
-    @property
-    def class_type_params(self):
-        if self.parent_context:
-            return self.parent_context.class_type_params
-        else:
-            return self._class_type_params
-
-    @class_type_params.setter
-    def class_type_params(self, tp):
-        self._class_type_params = tp
 
     def get_type(self, var_name):
         """Get the type of `var_name` from this context (or a parent context)"""

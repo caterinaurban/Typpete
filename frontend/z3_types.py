@@ -78,8 +78,25 @@ class TypesSolver(Solver):
             sort = self.z3_types.type_sort
         return Const("{}_{}".format(name, self.new_element_id()), sort)
 
-    def resolve_annotation(self, annotation):
-        return self.annotation_resolver.resolve(annotation, self, {})
+    def resolve_annotation(self, annotation, module):
+        return self.annotation_resolver.resolve(annotation, self, module)
+
+    # def create_type_var_axioms(self):
+    #     axioms = []
+    #     type_var_map = {}
+    #     for name, (id, options, bound) in self.config.type_vars.items():
+    #         type_var_type = getattr(self.z3_types.type_sort, 'tv' + id)
+    #         if options[1:]:
+    #             type_options = [self.resolve_annotation(o, type_var_map=type_var_map) for o in options[1:]]
+    #             axioms.append(Or(*[self.z3_types.upper(type_var_type) == o for o in type_options]))
+    #         else:
+    #             if bound:
+    #                 bound_type = self.resolve_annotation(bound[0].value, type_var_map=type_var_map)
+    #             else:
+    #                 bound_type = self.z3_types.object
+    #             axioms.append(self.z3_types.upper(type_var_type) == bound_type)
+    #         type_var_map[name] = type_var_type
+    #     self.add(axioms, fail_message="Type var upper bounds")
 
 
 class Z3Types:
@@ -99,8 +116,10 @@ class Z3Types:
         class_to_base = config.class_to_base
 
         type_sort = declare_type_sort(max_tuple_length, max_function_args,
-                                      class_to_base, config.type_params,
-                                      config.class_type_params)
+                                      class_to_base, config.type_vars)
+
+        for key, tv_name in config.type_vars.items():
+            config.type_vars[key] = getattr(type_sort, "tv" + tv_name)
 
         self.type_sort = type_sort
 
@@ -154,6 +173,23 @@ class Z3Types:
                 tv = getattr(type_sort, 'tv' + str(v))
                 self.tvs.add(tv)
                 setattr(self, 'tv' + str(v), tv)
+
+        # iterate once before to remove all unused classes/functions
+        classes_to_remove = set()
+        for c, vrs in config.class_type_params.items():
+            if not hasattr(type_sort, "tv" + str(vrs[0])):
+                classes_to_remove.add(c)
+
+        for c in classes_to_remove:
+            del config.class_type_params[c]
+
+        funcs_to_remove = set()
+        for f, vrs in config.type_params.items():
+            if not hasattr(type_sort, "tv" + str(vrs[0])):
+                funcs_to_remove.add(f)
+
+        for f in funcs_to_remove:
+            del config.type_params[f]
 
         for c, vrs in config.class_type_params.items():
             for v in vrs:
@@ -294,8 +330,12 @@ class Z3Types:
             axioms.append(axiom)
 
         for tv in self.tvs:
-            axiom = ForAll([what, by], self.subst(tv, what, by) == If(what == tv, by, tv),
-                           patterns=[self.subst(tv, what, by)])
+            axiom = ForAll([what, by, is_], self.issubst(tv, what, by, is_) == Or(And(tv == what, by == is_), And(tv != what, tv == is_)),
+                           patterns=[self.issubst(tv, what, by, is_)])
+            axioms.append(axiom)
+            axiom = ForAll([what, by, in_], self.issubst(in_, what, by, tv) == Or(
+                And(in_ == what, by == tv), And(in_ != what, tv == in_)),
+                           patterns=[self.issubst(in_, what, by, tv)])
             axioms.append(axiom)
 
         return axioms
@@ -379,7 +419,9 @@ class Z3Types:
             axioms.append(axiom)
 
         for tv in self.tvs:
-            options = [x == tv]
+            if str(tv) == "tvNumOrStr":
+                print("now")
+            options = [x == tv, x == self.none]
             for tvp in self.tvs:
                 if tvp is tv:
                     continue
@@ -412,7 +454,7 @@ class Z3Types:
         return axioms
 
 
-def declare_type_sort(max_tuple_length, max_function_args, classes_to_base, type_params, class_type_params):
+def declare_type_sort(max_tuple_length, max_function_args, classes_to_base, type_vars):
     """Declare the type data type and all its constructors and accessors."""
     type_sort = Datatype("Type")
 
@@ -426,12 +468,15 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_base, type
     type_sort.declare("int")
     type_sort.declare("bool")
 
-    for cls, vrs in type_params.items():
-        for v in vrs:
-            type_sort.declare('tv' + str(v))
-    for cls, vrs in class_type_params.items():
-        for v in vrs:
-            type_sort.declare('tv' + str(v))
+    for tp in type_vars.values():
+        type_sort.declare("tv" + tp)
+
+    # for cls, vrs in type_params.items():
+    #     for v in vrs:
+    #         type_sort.declare('tv' + str(v))
+    # for cls, vrs in class_type_params.items():
+    #     for v in vrs:
+    #         type_sort.declare('tv' + str(v))
     type_sort.declare('generic1', ('generic1_tv1', type_sort), ('generic1_func', type_sort))
     type_sort.declare('generic2', ('generic2_tv1', type_sort), ('generic2_tv2', type_sort), ('generic2_func', type_sort))
     type_sort.declare('generic3', ('generic3_tv1', type_sort), ('generic3_tv2', type_sort), ('generic3_tv3', type_sort), ('generic3_func', type_sort))

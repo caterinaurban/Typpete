@@ -81,7 +81,11 @@ class TestInference(unittest.TestCase):
             print(self.test_end_message(end_time - start_time))
             return
 
-        solver, context = self.infer_file(self.file_path)
+        try:
+            solver, context = self.infer_file(self.file_path)
+        except:
+            raise Exception(self.file_path)
+
 
         check = solver.optimize.check()
         if self.sat:
@@ -100,7 +104,7 @@ class TestInference(unittest.TestCase):
                             "Test file {}. Expected to have variable '{}' in the program".format(self.file_name, v))
 
             z3_type = context.get_var_from_children(v)
-            expected = solver.annotation_resolver.resolve(ast.parse(expected_result[v]).body[0].value, solver)
+            expected = solver.annotation_resolver.resolve(ast.parse(expected_result[v]).body[0].value, solver, None)
             self.assertEqual(model[z3_type], expected,
                              "Test file {}. Expected variable '{}' to have type '{}', but found '{}'"
                              .format(self.file_name, v, expected, model[z3_type]))

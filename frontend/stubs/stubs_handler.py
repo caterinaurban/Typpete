@@ -28,7 +28,6 @@ class StubsHandler:
         # Function definitions
         relevant_nodes = StubsHandler.get_relevant_nodes(tree, used_names)
 
-        # Only give class definitions to the context to prevent the creation of Z3 constants for stub functions
         context = Context(tree.body, solver)
         if method_type:
             # Add the flag in the statements to recognize the method statements during the inference
@@ -79,7 +78,10 @@ class StubsHandler:
 
         # Get nodes from normal classes and functions stubs.
         for tree in self.asts:
-            relevant_nodes += self.get_relevant_nodes(tree, used_names)
+            current = self.get_relevant_nodes(tree, used_names)
+            for node in current:
+                node._module = tree
+            relevant_nodes += current
 
         return relevant_nodes
 

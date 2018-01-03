@@ -35,14 +35,14 @@ def flatten_dict(dicts,
 
 a = flatten([[1,2], [1,2], [True, False]])
 # a2 = flatten([[1,2], [1,2], [True, False]])
-# a2 = flatten([["hi"], ['yo', 'sup']])
+a2 = flatten([["hi"], ['yo', 'sup']])
 a4 = a[a[0]]
 
 b = [{1:[2]}, {True: [True]}, {5: [1.2, 2]}]
 c = b[0][1]
 
 d = flatten_dict(b, [True, 1])
-# e = flatten_dict([{1.2: ['hi']}], [3, 5])
+e = flatten_dict([{1.2: ['hi']}], [3, 5])
 
 
 # a := List[int]
