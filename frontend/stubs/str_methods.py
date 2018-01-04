@@ -90,7 +90,7 @@ def rstrip(s: str) -> str:
     pass
 
 
-def split(s: str, delimiter: str) -> List[str]:
+def split(s: str, delimiter: str, max: int = 0) -> List[str]:
     """Splits string according to delimiter str and returns list of substrings"""
     pass
 

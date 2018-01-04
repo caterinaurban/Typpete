@@ -60,7 +60,7 @@ def bool(_: object = None) -> bool:
     pass
 
 
-def bytes(_: bytes = None) -> bytes:
+def bytes(_: object = None) -> bytes:
     """Return a new "bytes" object."""
     pass
 
@@ -102,7 +102,7 @@ def divmod(_: float, __: float) -> Tuple[int, int]:
     pass
 
 
-def float(_: NumOrStrNoComplex = None) -> float:
+def float(_: object = None) -> float:
     """Convert a string or a number to floating point."""
     pass
 
@@ -144,7 +144,7 @@ def input(_: object = None) -> str:
     pass
 
 
-def int(_: NumOrStrNoComplex = None, base: int = 10) -> int:
+def int(_: object = None, base: int = 10) -> int:
     """Convert a number or string to an integer."""
     pass
 

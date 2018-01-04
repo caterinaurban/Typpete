@@ -235,6 +235,8 @@ def _infer_control_flow(node, context, solver):
 
         # Get the type `t`
         t = expr.infer(node.test.args[1], context, solver)
+        if isinstance(t, AnnotatedFunction):
+            t = solver.annotation_resolver.resolve(node.test.args[1], solver)
 
         # Set `x` to be an instance of `t` in the then branch
         instance_accessor = solver.z3_types.type_sort.instance

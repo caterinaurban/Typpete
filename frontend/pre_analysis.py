@@ -151,7 +151,7 @@ class PreAnalyzer:
                     decorators = []
                     for d in cls_stmt.decorator_list:
                         if not isinstance(d, ast.Name) or d.id not in config["decorators"]:
-                            raise TypeError("Decorator {} is not supported".format(d))
+                            raise TypeError("Decorator {} is not supported".format(d.id))
                         decorators.append(d.id)
                     class_funcs[cls_stmt.name] = (len(cls_stmt.args.args), decorators,
                                                   len(cls_stmt.args.defaults))

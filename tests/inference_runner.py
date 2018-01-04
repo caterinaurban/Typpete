@@ -9,8 +9,8 @@ file_name = file_path.split("/")[-1]
 
 r = open(file_path)
 
-r = open("/home/marco/infer_scion_types/scion/infrastructure/router/main.py")
-#r = open("/home/marco/infer_scion_types/scion/lib/path_store.py")
+# r = open("/home/marco/infer_scion_types/scion/infrastructure/router/main.py")
+r = open("/home/marco/infer_scion_types/scion/lib/path_store.py")
 # r = open("/home/marco/git/Typpete/unittests/inference/error_rep.py")
 
 USE_WEIGHTS = True

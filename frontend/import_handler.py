@@ -49,6 +49,7 @@ class ImportHandler:
     @staticmethod
     def get_builtin_ast(module_name):
         """Return the AST of a built-in module"""
+        libraries = {}
         return ImportHandler.get_ast(libraries[module_name], module_name)
 
     @staticmethod
@@ -74,4 +75,5 @@ class ImportHandler:
     @staticmethod
     def is_builtin(module_name):
         """Check if the imported python module is builtin"""
+        libraries = {}
         return module_name in libraries
