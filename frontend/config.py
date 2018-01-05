@@ -19,5 +19,7 @@ config = {
     "allow_attributes_outside_init": True,
 
     # Whether to make None a subtype of all types
-    "none_subtype_of_all": True
+    "none_subtype_of_all": True,
+
+    "maximum_union_length": 2,
 }

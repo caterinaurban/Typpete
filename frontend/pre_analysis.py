@@ -227,6 +227,8 @@ class Configuration:
         """
         builtins = dict(BUILTINS)
 
+        max_union_length = config["maximum_union_length"]
+
         for cur_len in range(self.max_tuple_length + 1):
             name = 'tuple_' + str(cur_len)
             tuple_args = []
@@ -245,6 +247,14 @@ class Configuration:
                 func_args.append(arg_name)
             func_args.append(name + '_return')
             builtins[tuple([name] + func_args)] = ['object']
+
+        for cur_len in range(2, max_union_length + 1):
+            name = 'union_' + str(cur_len)
+            union_args = []
+            for cur_arg in range(cur_len):
+                arg_name = name + '_arg_' + str(cur_arg + 1)
+                union_args .append(arg_name)
+            builtins[tuple([name] + union_args)] = ['object']
         self.all_classes = builtins
         for key, val in self.class_to_base.items():
             ukey = 'class_' + key
@@ -342,7 +352,7 @@ def propagate_attributes_to_subclasses(class_defs):
 
             # Store a mapping from the inherited function names to the super class from which they are inherited
             class_inherited_funcs_to_super[class_def.name].update(
-                {func.name: parent for func in inherited_funcs}
+                {func.name: parent for func in inherited_funcs if func.name != '__init__'}
             )
 
             class_to_inherited_funcs[class_def.name] += inherited_funcs

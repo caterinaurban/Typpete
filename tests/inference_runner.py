@@ -57,7 +57,7 @@ def print_context(ctx, ind=""):
 start_time = time.time()
 check = solver.optimize.check()
 end_time = time.time()
-print_solver(solver)
+# print_solver(solver)
 if check == z3_types.unsat:
     print("Check: unsat")
     solver.check(solver.assertions_vars)
@@ -65,15 +65,15 @@ if check == z3_types.unsat:
     print([solver.assertions_errors[x] for x in solver.unsat_core()])
 else:
     model = solver.optimize.model()
-    context.generate_typed_ast(model, solver)
-    # print_context(context)
+    # context.generate_typed_ast(model, solver)
+    print_context(context)
 
     # uncomment this to write typed source into a file
     # write_path = "inference_output/" + file_name
     # file = open(write_path, 'w')
     # file.write(astunparse.unparse(t))
     # file.close()
-    print(astunparse.unparse(t))
+    # print(astunparse.unparse(t))
 
 
 print("Ran in {} seconds".format(end_time - start_time))

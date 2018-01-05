@@ -24,8 +24,8 @@ set_param("smt.case_split", 3)
 set_param("smt.delay_units", True)
 set_param("smt.delay_units_threshold", 16)
 set_param("nnf.sk_hack", True)
-set_param("smt.qi.eager_threshold", 130)
-set_param("smt.qi.lazy_threshold", 160)
+set_param("smt.qi.eager_threshold", 20)
+set_param("smt.qi.lazy_threshold", 20)
 set_param("smt.qi.cost",  "(+ weight generation)")
 set_param("type_check", True)
 set_param("smt.bv.reflect", True)
@@ -79,18 +79,18 @@ class TypesSolver(Solver):
 
 
 class Z3Types:
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, inference_config):
+        self.config = inference_config
         self.all_types = OrderedDict()
         self.instance_attributes = OrderedDict()
         self.class_attributes = OrderedDict()
-        self.class_to_funcs = config.class_to_funcs
+        self.class_to_funcs = self.config.class_to_funcs
 
-        max_tuple_length = config.max_tuple_length
-        max_function_args = config.max_function_args
-        classes_to_instance_attrs = config.classes_to_instance_attrs
-        classes_to_class_attrs = config.classes_to_class_attrs
-        class_to_base = config.class_to_base
+        max_tuple_length = self.config.max_tuple_length
+        max_function_args = self.config.max_function_args
+        classes_to_instance_attrs = self.config.classes_to_instance_attrs
+        classes_to_class_attrs = self.config.classes_to_class_attrs
+        class_to_base = self.config.class_to_base
 
         type_sort = declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_attrs)
 
@@ -133,12 +133,14 @@ class Z3Types:
         create_classes_attributes(type_sort, classes_to_instance_attrs, self.instance_attributes)
         create_classes_attributes(type_sort, classes_to_class_attrs, self.class_attributes)
         # union
-        self.union = type_sort.union_2
-        self.union_arg_1 = type_sort.union_2_arg_1
-        self.union_arg_2 = type_sort.union_2_arg_2
+        max_union_length = config["maximum_union_length"]
+        self.unions = [None] * (max_union_length + 1)
+        for cur_len in range(2, max_union_length + 1):
+            self.unions[cur_len] = getattr(type_sort, "union_{}".format(cur_len))
+
         # function representing subtyping between types: subtype(x, y) if and only if x is a subtype of y
         self.subtype = Function("subtype", type_sort, type_sort, BoolSort())
-        self.subtyping = self.create_subtype_axioms(config.all_classes, type_sort)
+        self.subtyping = self.create_subtype_axioms(self.config.all_classes, type_sort)
 
     @staticmethod
     def create_class_tree(all_classes, type_sort):
@@ -206,7 +208,7 @@ class Z3Types:
                     options = [
                         And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub)
                     ]
-                elif isinstance(c.name, tuple) and c.name[0].startswith("union_2"):
+                elif isinstance(c.name, tuple) and c.name[0].startswith("union"):
                     options = [
                         And([self.subtype(con, x) for con in c.quantified()])
                     ]
@@ -214,9 +216,8 @@ class Z3Types:
                     options = []
                 for base in c.all_parents():
                     options.append(x == base.get_literal())
-                options.append(And(x == self.union(self.union_arg_1(x), self.union_arg_2(x)),
-                                   Or(self.subtype(c_literal, self.union_arg_1(x)),
-                                      self.subtype(c_literal, self.union_arg_2(x)))))
+
+                options += self.get_union_as_supertype_axioms(c_literal, x)
                 subtype_expr = self.subtype(c_literal, x)
                 axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                                patterns=[subtype_expr])
@@ -243,12 +244,11 @@ class Z3Types:
                     args_sub.append(self.subtype(accessors[-1], consts[-1]))
 
                 options.append(And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub))
-            if isinstance(c.name, tuple) and c.name[0].startswith("union_2"):
+            if isinstance(c.name, tuple) and c.name[0].startswith("union"):
                 options.append(Or([self.subtype(x, con) for con in c.quantified()]))
 
-            options.append(And(x == self.union(self.union_arg_1(x), self.union_arg_2(x)),
-                               self.subtype(self.union_arg_1(x), c_literal),
-                               self.subtype(self.union_arg_2(x), c_literal)))
+            options += self.get_union_as_subtype_axioms(c_literal, x)
+
             for sub in c.all_children():
                 if sub is c:
                     options.append(x == c_literal)
@@ -261,6 +261,38 @@ class Z3Types:
             axioms.append(axiom)
         return axioms
 
+    def get_union_as_supertype_axioms(self, c_literal, x):
+        axioms = []
+        max_union_length = config["maximum_union_length"]
+        for cur_len in range(2, max_union_length + 1):
+            union_args = []
+            subtype_axioms = []
+            not_union_axioms = []
+            for arg_i in range(cur_len):
+                arg = getattr(self.type_sort, "union_{}_arg_{}".format(cur_len, arg_i + 1))(x)
+                union_args.append(arg)
+                subtype_axioms.append(self.subtype(c_literal, arg))
+                for cur_len2 in range(2, max_union_length + 1):
+                    not_union_axioms.append(Not(getattr(self.type_sort, "is_union_{}".format(cur_len2))(arg)))
+            axioms.append(And(x == self.unions[cur_len](*union_args),
+                              Or(*subtype_axioms),
+                              *not_union_axioms))
+
+        return axioms
+
+    def get_union_as_subtype_axioms(self, c_literal, x):
+        axioms = []
+        max_union_length = config["maximum_union_length"]
+        for cur_len in range(2, max_union_length + 1):
+            union_args = []
+            subtype_axioms = []
+            for arg_i in range(cur_len):
+                arg = getattr(self.type_sort, "union_{}_arg_{}".format(cur_len, arg_i + 1))(x)
+                union_args.append(arg)
+                subtype_axioms.append(self.subtype(arg, c_literal))
+            axioms.append(And(x == self.unions[cur_len](*union_args),
+                              *subtype_axioms))
+        return axioms
 
 def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_attrs):
     """Declare the type data type and all its constructors and accessors."""
@@ -310,7 +342,13 @@ def declare_type_sort(max_tuple_length, max_function_args, classes_to_instance_a
         type_sort.declare("class_{}".format(cls))
 
     # union
-    type_sort.declare("union_2", ("union_2_arg_1", type_sort), ("union_2_arg_2", type_sort))
+    max_union_length = config["maximum_union_length"]
+    for cur_len in range(2, max_union_length + 1):
+        accessors = []
+        for arg in range(cur_len):
+            accessor = ("union_{}_arg_{}".format(cur_len, arg + 1), type_sort)
+            accessors.append(accessor)
+        type_sort.declare("union_{}".format(cur_len), *accessors)
 
     return type_sort.create()
 

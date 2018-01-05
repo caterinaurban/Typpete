@@ -516,10 +516,10 @@ def staticmethod_call(class_type, args, result, attr, types):
     return axioms
 
 
-def form_union(types, possible_types, i=0):
-    if i == len(possible_types) - 1:
-        return possible_types[i]
-    return types.union(possible_types[i], form_union(types, possible_types, i + 1))
+def form_union(types, possible_types):
+    max_union_length = len(types.unions) - 1
+    possible_types = possible_types[:max_union_length]
+    return types.unions[len(possible_types)](*possible_types)
 
 
 def instancemethod_call(instance, args, result, attr, types):
@@ -556,8 +556,8 @@ def instancemethod_call(instance, args, result, attr, types):
             attr_type = types.instance_attributes[t][attr]
             axioms.append(And(instance == types.type_sort.instance(types.all_types[t]),
                               Or(function_call_axioms(attr_type, args[1:], result, types) + class_call_axioms(attr_type, args[1:], result, types))))
-
-    axioms.append(And(instance == form_union(types, union_types), *union_constraints))
+    if len(union_types) >= 2 and len(types.unions) > 2:
+        axioms.append(And(instance == form_union(types, union_types), *union_constraints))
     return axioms
 
 
