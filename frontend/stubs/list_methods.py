@@ -1,11 +1,11 @@
 """Stub file for methods invoked on lists"""
 from typing import TypeVar, List, Generic
 
-T = TypeVar("T")
+TT = TypeVar("TT")
 
-class List(Generic[T]):
+class List(Generic[TT]):
 
-    def append(self, e: T) -> None:
+    def append(self, e: TT) -> None:
         """Append a new element `e` to the list `l`
         
         Invoked on any list
@@ -13,32 +13,32 @@ class List(Generic[T]):
         pass
     
     
-    def count(self, e: T) -> int:
+    def count(self, e: TT) -> int:
         """Return how many times element `e` appears in list `l`"""
         pass
     
     
-    def extend(self, l2: List[T]) -> None:
+    def extend(self, l2: List[TT]) -> None:
         """Append the contents of list `l2` to list `l`"""
         pass
     
     
-    def index(self, e: T) -> int:
+    def index(self, e: TT) -> int:
         """Return the index of the first appearance of element `e` in list `l`"""
         pass
     
     
-    def insert(self, i: int, e: T) -> None:
+    def insert(self, i: int, e: TT) -> None:
         """Insert element `e` to the list `l` at index `i`"""
         pass
     
     
-    def pop(self) -> T:
+    def pop(self) -> TT:
         """Delete an item from the list `l` at the index i"""
         pass
     
     
-    def remove(self, e: T) -> None:
+    def remove(self, e: TT) -> None:
         """Remove element `e` from the list `l`"""
         pass
     

@@ -464,8 +464,7 @@ def function_call_axioms(called, args, result, types):
         axioms.append(
             And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
 
-                defaults_count >= rem_args,
-                defaults_count <= types.config.max_default_args))
+                defaults_count >= rem_args))
     return axioms
 
 
@@ -500,7 +499,8 @@ def generic_call_axioms(called, args, result, types, tvs):
         called_func = getattr(types, 'generic{}_func'.format(i + 1))(called)
 
         if len(args) == 0:
-            axioms.append(mysubst(called_func) == types.funcs[0](0, result))
+            axiom = mysubst(called_func) == types.funcs[0](0, result)
+            axioms.append(And(is_generic, axiom))
         else:
             subtype_axioms = []
             z3_args = []
@@ -513,7 +513,8 @@ def generic_call_axioms(called, args, result, types, tvs):
             func_type = types.funcs[len(args)]
             z3_args.append(result)
             res = And(subtype_axioms + [mysubst(called_func) == func_type(0, *z3_args)])
-            axioms.append(And(is_generic, *under_upper, res))
+            axiom = And(is_generic, *under_upper, res)
+            axioms.append(axiom)
     return axioms
 
 
@@ -525,12 +526,18 @@ def call(called, args, result, types, tvs):
         - Class instantiation
         - Callable classes
     """
+    r1 = function_call_axioms(called, args, result, types)
+    r2 = instance_axioms(called, args, result, types, tvs)
+    r3 = class_call_axioms(called, args, result, types)
+    r4 = generic_call_axioms(called, args, result, types, tvs)
+    # if str(called) == "func_arg_1610":
+    #     return r1
     return [
         Or(
-            (function_call_axioms(called, args, result, types)
-             + instance_axioms(called, args, result, types, tvs)
-             + class_call_axioms(called, args, result, types)
-             + generic_call_axioms(called, args, result, types, tvs))
+            (r1
+             + r2
+             + r3
+             + r4)
         )
     ]
 
@@ -637,7 +644,7 @@ def attribute(instance, attr, result, types):
                 continue
             type_instance = getattr(types.type_sort, "type_arg_0")(types.all_types[t])
 
-            axioms.append(And(instance == type_instance, result == attr_type))
+            axioms.append(And(types.subtype(instance, type_instance), result == attr_type))
         if t in types.class_attributes and attr in types.class_attributes[t]:
             # class access. Ex: A.x
             class_type = types.all_types[t]

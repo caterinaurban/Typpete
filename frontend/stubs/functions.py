@@ -1,13 +1,11 @@
 """Stub file for built in functions"""
-from typing import TypeVar, List, Tuple, Dict
+from typing import TypeVar, List, Tuple, Dict, Set
 
-T = TypeVar("T")
-U = TypeVar("U")
+
+TV = TypeVar("TV")
+UV = TypeVar("UV")
 Num = TypeVar("Num", bound=complex)
-Str = TypeVar("Str", str, bytes)
-Seq = TypeVar("Seq", Str, List[T])
-NumOrStr = TypeVar("NumOrStr", Num, Str)
-NumOrStrNoComplex = TypeVar("NumOrStr", bool, int, float, str, bytes)
+
 
 
 def abs(x: Num) -> Num:
@@ -15,7 +13,7 @@ def abs(x: Num) -> Num:
     pass
 
 
-def all(_: Seq) -> bool:
+def all(_: object) -> bool:
     """
     Return True if bool(x) is True for all values x in the iterable.
 
@@ -24,7 +22,7 @@ def all(_: Seq) -> bool:
     pass
 
 
-def any(_: Seq) -> bool:
+def any(_: object) -> bool:
     """
     Return True if bool(x) is True for any x in the iterable.
 
@@ -80,12 +78,12 @@ def chr(_: int) -> str:
     pass
 
 
-def complex(_: NumOrStr = None) -> complex:
+def complex(_: object = None) -> complex:
     """Create a complex number"""
     pass
 
 
-def dict(_: Dict[T, U] = None) -> Dict[T, U]:
+def dict(_: Dict[TV, UV] = None) -> Dict[TV, UV]:
     """Create a new dictionary.
     Make argument of type Mappable after implementing interfaces
     """
@@ -102,7 +100,12 @@ def divmod(_: float, __: float) -> Tuple[int, int]:
     pass
 
 
-def float(_: NumOrStrNoComplex = None) -> float:
+def enumerate(l: List[TV]) -> List[Tuple[int, TV]]:
+    """"""
+    pass
+
+
+def float(_: object = None) -> float:
     """Convert a string or a number to floating point."""
     pass
 
@@ -112,12 +115,32 @@ def format(_: object) -> str:
     pass
 
 
+def getattr(o: object, name: str) -> object:
+    """
+    Return the value of the named attribute of object.
+    Name must be a string. If the string is the name of one of the object’s attributes,
+    the result is the value of that attribute.
+    For example, getattr(x, 'foobar') is equivalent to x.foobar.
+    """
+    pass
+
+
 def hash(_: object) -> int:
     """
     Return the hash value for the given object.
-    
+
     Two objects that compare equal must also have the same hash value, but the
     reverse is not necessarily true."""
+    pass
+
+
+def hex(_: int) -> str:
+    """
+    Return the hexadecimal representation of an integer.
+
+       >>> hex(12648430)
+       '0xc0ffee'
+    """
     pass
 
 
@@ -143,8 +166,14 @@ def input(_: object = None) -> str:
     """
     pass
 
+def iter(l: List[TV]) -> List[TV]:
+    pass
 
-def int(_: NumOrStrNoComplex = None, base: int = 10) -> int:
+def next(l: List[TV]) -> TV:
+    pass
+
+
+def int(_: object = None, base: int = 10) -> int:
     """Convert a number or string to an integer."""
     pass
 
@@ -154,14 +183,14 @@ def isinstance(x: object, y: object) -> bool:
     pass
 
 
-def len(_: Seq) -> int:
+def len(_: object) -> int:
     """ Return the number of items in a container. """
     pass
 
 
-def max(_: List[T]) -> T:
+def max(_: List[TV]) -> TV:
     """Return the maximum object from the list any
-    
+
     TODO:
         - Verify that the argument is comparable
         - Add support for different iterable objects
@@ -194,9 +223,9 @@ def print(_: object) -> None:
     pass
 
 
-def range(x: int) -> List[int]:
+def range(x: int, y:int=None, z:int=None) -> List[int]:
     """Return a list of int from 0 (inclusive) to `x` (exclusive)
-    
+
     TODO: make it RangeObject after implementing interfaces
     """
     pass
@@ -211,9 +240,9 @@ def repr(_: object) -> str:
     pass
 
 
-def reversed(_: List[T]) -> List[T]:
+def reversed(_: List[TV]) -> List[TV]:
     """Return a reversed version of the input list
-    
+
     TODO: make it return reversed object after implementing interfaces
     """
     pass
@@ -230,7 +259,23 @@ def round(_: float) -> int:
     pass
 
 
-def sorted(_: List[T]) -> List[T]:
+def set(l: List[TV] = None) -> Set[TV]:
+    """Create a set of unique elements
+
+    If the parameter is provided, use the elements in the list to create the set,
+    otherwise, create an empty set.
+    """
+    pass
+
+
+def setattr(o: object, name: str, val: object) -> None:
+    """Assign `val` to the attribute, provided the object allows it.
+    For example, setattr(x, 'foobar', 123) is equivalent to x.foobar = 123.
+    """
+    pass
+
+
+def sorted(_: List[TV]) -> List[TV]:
     """Return the input list in a sorted order
 
     TODO: Add support for different iterable objects
@@ -245,7 +290,13 @@ def str(_: object = None) -> str:
 
 def sum(_: List[Num]) -> Num:
     """Return the sum of numbers in a list
-    
+
     TODO: Add support for different iterable objects
     """
+    pass
+
+
+def zip(x: List[TV], y: List[UV]) -> List[Tuple[TV, UV]]:
+    """This function returns a list of tuples,
+    where the i-th tuple contains the i-th element from each of the argument lists"""
     pass

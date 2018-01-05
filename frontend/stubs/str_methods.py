@@ -22,6 +22,13 @@ class str:
         """Counts how many times str occurs in string"""
         pass
 
+    def format(self, arg1: object = '', arg2: object = '', arg3: object = '') -> str:
+        """
+        Return a formatted version of S, using substitutions from args and kwargs.
+            The substitutions are identified by braces ('{' and '}').
+        """
+        pass
+
 
     def isalnum(s: str) -> bool:
         """Returns true if string has at least 1 character and all characters are alphanumeric and false otherwise."""
@@ -95,6 +102,10 @@ class str:
 
     def split(s: str, delimiter: str) -> List[str]:
         """Splits string according to delimiter str and returns list of substrings"""
+        pass
+
+    def startswith(self, c: str) -> bool:
+        """"""
         pass
 
 

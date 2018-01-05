@@ -131,6 +131,7 @@ class PreAnalyzer:
         for func in functions:
             local_type_vars = [name for (module, name) in conf.type_vars.keys()
                                if module is get_module(func)]
+            all_tv_refs = set()
             for annotation in [ann.annotation for ann in func.args.args if ann.annotation is not None] + ([func.returns] if func.returns else []):
                 tv_refs = [node.id for node in ast.walk(annotation)
                            if isinstance(node, ast.Name) and node.id in local_type_vars]
@@ -139,9 +140,10 @@ class PreAnalyzer:
                     class_tvs = {node.id for base in func._containing_class.bases for node in ast.walk(base)
                                  if isinstance(node, ast.Name) and node.id in local_type_vars}
                     tv_refs = [tvr for tvr in tv_refs if tvr not in class_tvs]
-                if tv_refs:
-                    tv_refs = [conf.type_vars[(func._module, tv)] for tv in tv_refs]
-                    conf.type_params[func.name] = tv_refs
+                all_tv_refs |= set(tv_refs)
+            if all_tv_refs:
+                all_tv_refs = [conf.type_vars[(func._module, tv)] for tv in all_tv_refs]
+                conf.type_params[func.name] = all_tv_refs
 
 
     def analyze_classes(self, conf):
@@ -153,6 +155,7 @@ class PreAnalyzer:
             - Return a mapping from class names to their attributes and methods.
             - Return a mapping from class names to their base classes if they have any.
             
+
         """
         # TODO propagate attributes to subclasses.
         class_defs = [node for node in self.all_nodes + self.stub_nodes if isinstance(node, ast.ClassDef)]
@@ -283,8 +286,8 @@ class Configuration:
         self.used_names = []
         self.max_default_args = 0
         self.all_classes = {}
-        self.type_params = {} # {'generic_tolist': [1], 'flatten_dict': [0, 2], 'flatten': [3]}
-        self.class_type_params =  {} # {'Cell': [0]}
+        self.type_params = {'concatenate': [1, 2]} #   {'make_object': ["VALS"]} # {} # {'generic_tolist': [1], 'flatten_dict': [0, 2], 'flatten': [3]}
+        self.class_type_params =  {'Concatenator': [0]} # {'Cell': [0]}
         self.type_vars = OrderedDict()
         for vars in self.class_type_params.values():
             for var in vars:

@@ -43,12 +43,14 @@ class TypesSolver(Solver):
         self.assertions_vars = []
         self.assertions_errors = {}
         self.stubs_handler = StubsHandler()
-        analyzer = PreAnalyzer(tree, "tests/imp", self.stubs_handler)     # TODO: avoid hard-coding
+        analyzer = PreAnalyzer(tree, "/home/marco/infer_scion_types/Typpete/tests/adventure/", self.stubs_handler)     # TODO: avoid hard-coding
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config, self)
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         self.optimize = Optimize(ctx)
         # self.optimize.set("timeout", 30000)
+        self.all_assertions = []
+        self.forced = set()
         self.init_axioms()
 
     def add(self, *args, fail_message):
@@ -57,8 +59,19 @@ class TypesSolver(Solver):
         self.assertions_errors[assertion] = fail_message
         self.optimize.add(*args)
         to_add = Implies(assertion, And(*args))
-        print("{}: {}".format(fail_message, to_add))
+        if fail_message in ('Generic function definition in line 18',
+                            'First arg in instance method get in class Dict has class instance type',
+                            'Generic function definition in line 42',
+                            'Class definition in line 8',
+                            'Indexing in line 47',
+                            'Assignment in line 47'):
+            self.forced.add(assertion)
+            print("{}: {}".format(fail_message, to_add))
+        if "in line 46" in fail_message:
+            print("{}: {}".format(fail_message, to_add))
+        # print("{}: {}".format(fail_message, to_add))
         super().add(to_add)
+        self.all_assertions.append(to_add)
 
     def init_axioms(self):
         for st in self.z3_types.subtyping:
@@ -451,6 +464,7 @@ class Z3Types:
             axiom = ForAll([x, m] + args + [normal_func], self._subtype(m, x, literal) == (x == literal),
                            patterns = [self._subtype(m, x, literal)])
             axioms.append(axiom)
+        print(axioms)
         return axioms
 
 

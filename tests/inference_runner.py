@@ -1,9 +1,11 @@
 from frontend.stmt_inferrer import *
+from z3 import Optimize, Const
 import ast
 import time
 import astunparse
 
-file_path = "unittests/inference/generic_class_test.py"
+# file_path = "/home/marco/infer_scion_types/Typpete/tests/adventure/data.py"
+file_path = "unittests/inference/coop_concatenate.py"
 file_name = file_path.split("/")[-1]
 
 r = open(file_path)
@@ -32,6 +34,15 @@ def print_solver(z3solver):
     printer.set_pp_option('max_depth', 1000000)
     printer.set_pp_option('max_args', 512)
     printer.pp(z3solver)
+
+def print_model():
+    printer = z3_types.z3printer
+    printer.set_pp_option('max_lines', 4000)
+    printer.set_pp_option('max_width', 120)
+    printer.set_pp_option('max_visited', 10000000)
+    printer.set_pp_option('max_depth', 1000000)
+    printer.set_pp_option('max_args', 512)
+    printer.pp(model)
 
 
 def print_context(ctx, ind=""):
@@ -63,12 +74,28 @@ end_time = time.time()
 
 if check == z3_types.unsat:
     print("Check: unsat")
-    solver.check(solver.assertions_vars)
-    print(solver.unsat_core())
-    print([solver.assertions_errors[x] for x in solver.unsat_core()])
+    opt = Optimize(solver.ctx)
+    for av in solver.assertions_vars:
+        opt.add_soft(av)
+    for a in solver.all_assertions:
+        opt.add(a)
+    for a in solver.z3_types.subtyping:
+        opt.add(a)
+    for a in solver.z3_types.subst_axioms:
+        opt.add(a)
+    for a in solver.forced:
+        opt.add(a)
+    checkres = opt.check()
+    model = opt.model()
+    print_context(context)
+    for av in solver.assertions_vars:
+        if not model[av]:
+            print("Unsat:")
+            print(solver.assertions_errors[av])
 else:
     model = solver.optimize.model()
     context.generate_typed_ast(model, solver)
+    print_model()
 
     # uncomment this to write typed source into a file
     # write_path = "inference_output/" + file_name

@@ -40,6 +40,15 @@ from z3 import Or, And
 from frontend.context import Context, AnnotatedFunction
 
 
+def get_module(node):
+    if isinstance(node, ast.Module):
+        return node
+    if hasattr(node, "_module"):
+        return node._module
+    if hasattr(node, "_parent"):
+        return get_module(node._parent)
+    assert False
+
 def infer_numeric(node, solver):
     """Infer the type of a numeric node"""
     if type(node.n) == int:
@@ -435,13 +444,16 @@ def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
     result_type = solver.new_z3_const("call")
 
+    if isinstance(node.func, ast.Name) and node.func.id == 'klass':
+        print("klass")
+
     # Check if it's direct class instantiation
     if isinstance(node.func, ast.Name):
         if node.func.id == 'cast':
             if len(node.args) != 2:
                 raise TypeError("Casts need two arguments (target type and expression).")
             infer(node.args[1], context, solver)
-            return solver.annotation_resolver.resolve(node.args[0], solver)
+            return solver.annotation_resolver.resolve(node.args[0], solver, get_module(node))
         called = context.get_type(node.func.id)
         # check if the type has the manually added flag for class-types
         if hasattr(called, "is_class"):

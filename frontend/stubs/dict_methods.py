@@ -18,6 +18,12 @@ class Dict(Generic[T, U]):
     def get(self, key: T) -> U:
         """For key key, returns value"""
         pass
+
+    def __getitem__(self, item: T) -> U:
+        pass
+
+    def __setitem__(self, key: T, value: U) -> None:
+        pass
     
     
     def pop(self, key: T) -> U:

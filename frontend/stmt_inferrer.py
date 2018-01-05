@@ -441,8 +441,9 @@ def _infer_func_def(node, context, solver):
         old_method = solver.z3_types.current_method
         solver.z3_types.current_method = solver.z3_types.method_ids[method_key]
 
-    if node.name == 'copy':
+    if node.name == 'format':
         print(123)
+        print(method_key)
 
     args = []
     if method_key in solver.z3_types.method_ids:
@@ -521,6 +522,8 @@ def _infer_class_def(node, context, solver):
             continue
         base_classes_to_funcs[base.id] = solver.z3_types.class_to_funcs[base.id]
         bases_attrs[base.id] = solver.z3_types.instance_attributes[base.id]
+
+    instance_type = solver.z3_types.classes[node.name]
 
     for attr in class_attrs:
         if (attr in class_to_funcs and attr not in inherited_funcs_to_super

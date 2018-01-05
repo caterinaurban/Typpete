@@ -315,4 +315,5 @@ class AnnotationResolver:
         if match:
             tv_index = int(match.group(1))
             return "T{}".format(tv_index)
-        raise TypeError("Couldn't unparse type {}".format(type_str))
+        return type_str
+        #raise TypeError("Couldn't unparse type {}".format(type_str))

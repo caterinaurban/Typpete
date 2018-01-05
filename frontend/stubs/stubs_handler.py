@@ -2,6 +2,7 @@ import ast
 import frontend.stubs.stubs_paths as paths
 from frontend.context import Context
 
+INFERRED = {}
 
 class StubsHandler:
     def __init__(self):
@@ -23,12 +24,15 @@ class StubsHandler:
 
     @staticmethod
     def infer_file(tree, solver, used_names, infer_func, method_type=None):
+        if tree in INFERRED:
+            return INFERRED[tree]
         # Infer only structs that are used in the program to be inferred
 
         # Function definitions
         relevant_nodes = StubsHandler.get_relevant_nodes(tree, used_names)
 
         context = Context(tree.body, solver)
+        INFERRED[tree] = context
         if method_type:
             # Add the flag in the statements to recognize the method statements during the inference
             for node in relevant_nodes:
