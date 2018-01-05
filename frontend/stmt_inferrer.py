@@ -484,15 +484,19 @@ def _infer_class_def(node, context, solver):
     class_context = Context(node.body, solver, name=node.name, parent_context=context)
     result_type = context.get_type(node.name)
 
-    for stmt in node.body:
-        infer(stmt, class_context, solver)
-
     class_attrs = solver.z3_types.instance_attributes[node.name]
     inherited_funcs_to_super = solver.config.inherited_funcs_to_super[node.name]
     instance_type = solver.z3_types.classes[node.name]
     class_to_funcs = solver.z3_types.class_to_funcs[node.name]
     base_classes_to_funcs = {}
     bases_attrs = {}
+
+    for stmt in node.body:
+        if isinstance(stmt, ast.FunctionDef):
+            func_name = stmt.name
+            if func_name in inherited_funcs_to_super:
+                continue
+        infer(stmt, class_context, solver)
 
     for base in node.bases:
         if base.id == 'object':
@@ -516,6 +520,12 @@ def _infer_class_def(node, context, solver):
             solver.add(arg_accessor(class_attrs[attr]) == instance_type,
                        fail_message="First arg in instance method {} in class {} has class instance type"
                        .format(attr, node.name))
+        elif attr in class_to_funcs and attr in inherited_funcs_to_super:
+            base = inherited_funcs_to_super[attr]
+            solver.add(class_attrs[attr] == solver.z3_types.instance_attributes[base][attr],
+                       fail_message="Inherited method {} in subclass {} has same type as"
+                                    "that in superclass {}".format(attr, node.name, base))
+
         for base in bases_attrs:
             if attr not in class_to_funcs and attr in bases_attrs[base]:
                 # Not a method and exists in superclass
