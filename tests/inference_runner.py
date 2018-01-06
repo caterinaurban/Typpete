@@ -3,7 +3,7 @@ import ast
 import time
 import astunparse
 
-file_path = "tests/test.py"
+file_path = "/home/marco/git/Typpete/unittests/inference/imp.py"
 file_name = file_path.split("/")[-1]
 
 r = open(file_path)
@@ -20,6 +20,10 @@ for stmt in t.body:
     infer(stmt, context, solver)
 
 solver.push()
+
+# print(solver.to_smt2())
+
+# print("(assert (and  " + " ".join([str(av) for av in solver.assertions_vars]) + "))")
 
 
 def print_solver(z3solver):
@@ -55,7 +59,8 @@ def print_context(ctx, ind=""):
         print("---------------------------")
 
 start_time = time.time()
-check = solver.optimize.check()
+# check = solver.optimize.check()
+check = solver.check(solver.assertions_vars)
 end_time = time.time()
 # print_solver(solver)
 if check == z3_types.unsat:
@@ -64,7 +69,8 @@ if check == z3_types.unsat:
     print(solver.unsat_core())
     print([solver.assertions_errors[x] for x in solver.unsat_core()])
 else:
-    model = solver.optimize.model()
+    # model = solver.optimize.model()
+    model = solver.model()
     # context.generate_typed_ast(model, solver)
     print_context(context)
 

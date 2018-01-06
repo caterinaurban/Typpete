@@ -33,6 +33,11 @@ set_param("smt.bv.reflect", True)
 # set_param(verbose=10)
 
 
+class DummyOptimize():
+    def add_soft(self, *args, **kwargs):
+        pass
+
+
 class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""
 
@@ -47,15 +52,17 @@ class TypesSolver(Solver):
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config)
         self.annotation_resolver = AnnotationResolver(self.z3_types)
-        self.optimize = Optimize(ctx)
+        # self.optimize = Optimize(ctx)
+        self.optimize = DummyOptimize()
         # self.optimize.set("timeout", 30000)
         self.init_axioms()
+        self.tree = self.z3_types.create_class_tree(self.config.all_classes, self.z3_types.type_sort)
 
     def add(self, *args, fail_message):
         assertion = self.new_z3_const("assertion_bool", BoolSort())
         self.assertions_vars.append(assertion)
         self.assertions_errors[assertion] = fail_message
-        self.optimize.add(*args)
+        # self.optimize.add(*args)
         super().add(Implies(assertion, And(*args)))
 
     def init_axioms(self):
@@ -72,7 +79,12 @@ class TypesSolver(Solver):
         """Create a new Z3 constant with a unique name."""
         if sort is None:
             sort = self.z3_types.type_sort
-        return Const("{}_{}".format(name, self.new_element_id()), sort)
+        b = False and sort == self.z3_types.type_sort
+        res = Const("{}_{}".format(name, self.new_element_id()), sort)
+        if b:
+            pass
+            # self.optimize.add_soft(not self.z3_types.type_sort.is_union2(res))
+        return res
 
     def resolve_annotation(self, annotation):
         return self.annotation_resolver.resolve(annotation, self)
@@ -210,18 +222,28 @@ class Z3Types:
                     ]
                 elif isinstance(c.name, tuple) and c.name[0].startswith("union"):
                     options = [
-                        And([self.subtype(con, x) for con in c.quantified()])
+                        And(self._not_union(x), *[self.subtype(con, x) for con in c.quantified()])
                     ]
                 else:
                     options = []
                 for base in c.all_parents():
+                    if isinstance(c.name, tuple) and c.name[0].startswith("union"):
+                        break
                     options.append(x == base.get_literal())
 
-                options += self.get_union_as_supertype_axioms(c_literal, x)
-                subtype_expr = self.subtype(c_literal, x)
-                axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
-                               patterns=[subtype_expr])
 
+                subtype_expr = self.subtype(c_literal, x)
+                if isinstance(c.name, tuple) and c.name[0].startswith("union"):
+                    options += self.get_union_as_union_supertype_axioms(c.quantified(), x)
+                    axiom = ForAll([x] + c.quantified(), subtype_expr == And(*[self._not_union(con) for con in c.quantified()],
+                                                                             Or(*options)),
+                                   patterns=[subtype_expr])
+                else:
+                    options += self.get_union_as_supertype_axioms(c_literal, x)
+                    axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
+                                   patterns=[subtype_expr])
+                if "subtype(union_2(y0, y1), x)" in str(axiom):
+                    print(axiom)
                 axioms.append(axiom)
 
             # And one which is triggered by subtype(X, C)
@@ -245,21 +267,55 @@ class Z3Types:
 
                 options.append(And(x == getattr(type_sort, c.name[0])(*accessors), *args_sub))
             if isinstance(c.name, tuple) and c.name[0].startswith("union"):
-                options.append(Or([self.subtype(x, con) for con in c.quantified()]))
+                options.append(And(self._not_union(x), Or([self.subtype(x, con) for con in c.quantified()])))
 
-            options += self.get_union_as_subtype_axioms(c_literal, x)
 
             for sub in c.all_children():
+                if isinstance(c.name, tuple) and c.name[0].startswith("union"):
+                    break
                 if sub is c:
                     options.append(x == c_literal)
                 else:
                     options.append(x == sub.get_literal_with_args(x))
-            subtype_expr = self.subtype(x, c_literal)
-            axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
-                           patterns=[subtype_expr])
 
+            if isinstance(c.name, tuple) and c.name[0].startswith("union"):
+                options += self.get_union_as_union_subtype_axioms(c.quantified(), x)
+            else:
+                options += self.get_union_as_subtype_axioms(c_literal, x)
+
+
+            subtype_expr = self.subtype(x, c_literal)
+            if isinstance(c.name, tuple) and c.name[0].startswith("union"):
+                axiom = ForAll([x] + c.quantified(), subtype_expr == And(*[self._not_union(con) for con in c.quantified()], Or(*options)),
+                               patterns=[subtype_expr])
+            else:
+                axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
+                               patterns=[subtype_expr])
+            if "subtype(x, union_2(y0, y1))" in str(axiom):
+                print(axiom)
             axioms.append(axiom)
+
         return axioms
+
+    def get_union_as_union_supertype_axioms(self, options, x):
+        res = []
+        max_union_length = config["maximum_union_length"]
+        for cur_len in range(2, max_union_length + 1):
+            union_args = []
+            not_union_axioms = []
+            subtype_axioms = []
+            for arg_i in range(cur_len):
+                arg = getattr(self.type_sort,
+                              "union_{}_arg_{}".format(cur_len, arg_i + 1))(x)
+                union_args.append(arg)
+                not_union_axioms.append(self._not_union(arg))
+            for o in options:
+                subtype_axioms.append(Or([self.subtype(o, arg) for arg in union_args]))
+            res.append(And(x == self.unions[cur_len](*union_args),
+                               *not_union_axioms,
+                                And(*subtype_axioms)))
+        return res
+
 
     def get_union_as_supertype_axioms(self, c_literal, x):
         axioms = []
@@ -273,12 +329,38 @@ class Z3Types:
                 union_args.append(arg)
                 subtype_axioms.append(self.subtype(c_literal, arg))
                 for cur_len2 in range(2, max_union_length + 1):
-                    not_union_axioms.append(Not(getattr(self.type_sort, "is_union_{}".format(cur_len2))(arg)))
+                    not_union_axioms.append(arg != self.type_sort.union_2(self.type_sort.union_2_arg_1(arg), self.type_sort.union_2_arg_2(arg)))
             axioms.append(And(x == self.unions[cur_len](*union_args),
                               Or(*subtype_axioms),
                               *not_union_axioms))
 
         return axioms
+
+    def _not_union(self, expr):
+        max_union_length = config["maximum_union_length"]
+        conjuncts = []
+        for cur_len in range(2, max_union_length + 1):
+            conjuncts.append(Not(getattr(self.type_sort, "is_union_{}".format(cur_len))(expr)))
+        return And(*conjuncts)
+
+    def get_union_as_union_subtype_axioms(self, options, x):
+        res = []
+        max_union_length = config["maximum_union_length"]
+        for cur_len in range(2, max_union_length + 1):
+            union_args = []
+            not_union_axioms = []
+            subtype_axioms = []
+            for arg_i in range(cur_len):
+                arg = getattr(self.type_sort,
+                              "union_{}_arg_{}".format(cur_len, arg_i + 1))(x)
+                union_args.append(arg)
+                not_union_axioms.append(self._not_union(arg))
+            for o in options:
+                subtype_axioms.append(Or([self.subtype(arg, o) for arg in union_args]))
+            res.append(And(x == self.unions[cur_len](*union_args),
+                           *not_union_axioms,
+                           And(*subtype_axioms)))
+        return res
 
     def get_union_as_subtype_axioms(self, c_literal, x):
         axioms = []
