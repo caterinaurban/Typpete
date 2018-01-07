@@ -12,6 +12,8 @@ from frontend.pre_analysis import PreAnalyzer
 from frontend.stubs.stubs_handler import StubsHandler
 from z3 import *
 
+UNION_QUANTIFIER_WEIGHT = 20
+
 
 set_param("auto-config", False)
 set_param("smt.mbqi", False)
@@ -52,8 +54,8 @@ class TypesSolver(Solver):
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config)
         self.annotation_resolver = AnnotationResolver(self.z3_types)
-        # self.optimize = Optimize(ctx)
-        self.optimize = DummyOptimize()
+        self.optimize = Optimize(ctx)
+        # self.optimize = DummyOptimize()
         # self.optimize.set("timeout", 30000)
         self.init_axioms()
         self.tree = self.z3_types.create_class_tree(self.config.all_classes, self.z3_types.type_sort)
@@ -62,7 +64,7 @@ class TypesSolver(Solver):
         assertion = self.new_z3_const("assertion_bool", BoolSort())
         self.assertions_vars.append(assertion)
         self.assertions_errors[assertion] = fail_message
-        # self.optimize.add(*args)
+        self.optimize.add(*args)
         super().add(Implies(assertion, And(*args)))
 
     def init_axioms(self):
@@ -237,7 +239,7 @@ class Z3Types:
                     options += self.get_union_as_union_supertype_axioms(c.quantified(), x)
                     axiom = ForAll([x] + c.quantified(), subtype_expr == And(*[self._not_union(con) for con in c.quantified()],
                                                                              Or(*options)),
-                                   patterns=[subtype_expr])
+                                   patterns=[subtype_expr], weight=UNION_QUANTIFIER_WEIGHT)
                 else:
                     options += self.get_union_as_supertype_axioms(c_literal, x)
                     axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
@@ -287,7 +289,7 @@ class Z3Types:
             subtype_expr = self.subtype(x, c_literal)
             if isinstance(c.name, tuple) and c.name[0].startswith("union"):
                 axiom = ForAll([x] + c.quantified(), subtype_expr == And(*[self._not_union(con) for con in c.quantified()], Or(*options)),
-                               patterns=[subtype_expr])
+                               patterns=[subtype_expr], weight=UNION_QUANTIFIER_WEIGHT)
             else:
                 axiom = ForAll([x] + c.quantified(), subtype_expr == Or(*options),
                                patterns=[subtype_expr])

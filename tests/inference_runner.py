@@ -59,8 +59,8 @@ def print_context(ctx, ind=""):
         print("---------------------------")
 
 start_time = time.time()
-# check = solver.optimize.check()
-check = solver.check(solver.assertions_vars)
+check = solver.optimize.check()
+# check = solver.check(solver.assertions_vars)
 end_time = time.time()
 # print_solver(solver)
 if check == z3_types.unsat:
@@ -69,8 +69,8 @@ if check == z3_types.unsat:
     print(solver.unsat_core())
     print([solver.assertions_errors[x] for x in solver.unsat_core()])
 else:
-    # model = solver.optimize.model()
-    model = solver.model()
+    model = solver.optimize.model()
+    # model = solver.model()
     # context.generate_typed_ast(model, solver)
     print_context(context)
 
