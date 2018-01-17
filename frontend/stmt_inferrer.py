@@ -109,7 +109,8 @@ def _infer_assign(node, context, solver):
     """Infer the types of target variables in an assignment node."""
 
     if _is_type_var_declaration(node.value):
-        solver.annotation_resolver.add_type_var(node.targets[0], node.value, solver, node._module)
+        module = node._module if hasattr(node, '_module') else None
+        solver.annotation_resolver.add_type_var(node.targets[0], node.value, solver, module)
     else:
         value_type = expr.infer(node.value, context, solver)
         context.add_assignment(value_type, node)
@@ -434,6 +435,22 @@ def get_type_vars(node, solver):
 
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
+
+    if is_stub(node):
+        return_annotation = node.returns
+        args_annotations = []
+        for arg in node.args.args:
+            args_annotations.append(arg.annotation)
+        defaults_count = len(node.args.defaults)
+        if hasattr(node, "method_type"):  # check if the node contains the manually added method flag
+            if node.method_type not in context.builtin_methods:
+                context.builtin_methods[node.method_type] = {}
+            context.builtin_methods[node.method_type][node.name] = AnnotatedFunction(args_annotations,
+                                                                                     return_annotation,
+                                                                                     defaults_count)
+        else:
+            context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count))
+        return solver.z3_types.none
     method_key = node.name
     if context.name:
         method_key = context.name + '.' + method_key

@@ -14,7 +14,7 @@ def get_module(node):
         return get_module(node._containing_class)
     if hasattr(node, '_parent'):
         return get_module(node._parent)
-    assert False
+    return None
 
 class PreAnalyzer:
     """Analyzer for the AST, It provides the following configurations before the type inference:
@@ -117,6 +117,8 @@ class PreAnalyzer:
         existing_type_vars = {str(item) for entry in dict(conf.type_params, **conf.class_type_params) for item in entry}
 
         for tv in type_vars:
+            if not hasattr(tv, '_module'):
+                continue
             tv_name = tv.targets[0].id
             tv_id = tv_name
             if tv_id in existing_type_vars:

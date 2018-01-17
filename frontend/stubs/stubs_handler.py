@@ -8,6 +8,7 @@ class StubsHandler:
     def __init__(self):
         self.asts = []
         self.lib_asts = {}
+        self.methods_asts = []
 
         classes_and_functions_files = paths.classes_and_functions
         for file in classes_and_functions_files:
@@ -15,6 +16,13 @@ class StubsHandler:
             tree = ast.parse(r.read())
             r.close()
             self.asts.append(tree)
+
+        for method in paths.methods:
+            r = open(method["path"])
+            tree = ast.parse(r.read())
+            r.close()
+            tree.method_type = method["type"]
+            self.methods_asts.append(tree)
 
         for lib in paths.libraries:
             r = open(paths.libraries[lib])
@@ -87,6 +95,10 @@ class StubsHandler:
                 node._module = tree
             relevant_nodes += current
 
+        # Get nodes from builtin methods stubs.
+        for tree in self.methods_asts:
+            relevant_nodes += self.get_relevant_nodes(tree, used_names)
+
         return relevant_nodes
 
     def infer_all_files(self, context, solver, used_names, infer_func):
@@ -97,6 +109,13 @@ class StubsHandler:
             ctx = self.infer_file(tree, solver, used_names, infer_func)
             # Merge the stub types into the context
             context.types_map.update(ctx.types_map)
+
+        for tree in self.methods_asts:
+            ctx = self.infer_file(tree, solver, used_names, infer_func,
+                                  tree.method_type)
+            # Merge the stub types into the context
+            context.types_map.update(ctx.types_map)
+            context.builtin_methods.update(ctx.builtin_methods)
 
     def infer_builtin_lib(self, module_name, solver, used_names, infer_func):
         """
