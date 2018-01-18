@@ -40,8 +40,6 @@ class Context:
         class_names = [node.name for node in context_nodes if
                        isinstance(node, ast.ClassDef)]
         for cls in class_names:
-            if cls == 'str':
-                print(123)
             cls_type = solver.new_z3_const("class_type")
             self.types_map[cls] = cls_type
             if cls in solver.config.class_to_funcs:

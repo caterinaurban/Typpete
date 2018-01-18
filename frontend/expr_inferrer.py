@@ -444,9 +444,6 @@ def infer_func_call(node, context, solver):
     """Infer the type of a function call, and unify the call types with the function parameters"""
     result_type = solver.new_z3_const("call")
 
-    if isinstance(node.func, ast.Name) and node.func.id == 'klass':
-        print("klass")
-
     # Check if it's direct class instantiation
     if isinstance(node.func, ast.Name):
         if node.func.id == 'cast':
@@ -482,8 +479,6 @@ def infer_func_call(node, context, solver):
     args_types = _get_args_types(node.args, context, instance, solver)
 
     if isinstance(node.func, ast.Attribute):
-        if node.func.attr == 'copy':
-            print("12")
         # Add axioms for built-in methods
         call_axioms += _get_builtin_method_call_axioms(args_types, solver, context, result_type, node.func.attr)
 

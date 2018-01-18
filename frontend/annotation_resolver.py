@@ -214,7 +214,7 @@ class AnnotationResolver:
         for i, annotation in enumerate(args_annotations[:len(args_types)]):
             arg_type = self.resolve(annotation, solver, None, generics_map=generics_map)
             axioms.append(args_types[i] == arg_type)
-        axioms.append(result_type == self.resolve(result_annotation, solver, generics_map))
+        axioms.append(result_type == self.resolve(result_annotation, solver, None, generics_map))
         return And(axioms)
 
     def add_type_var(self, target, type_var_node, solver, module):

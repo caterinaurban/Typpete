@@ -39,7 +39,7 @@ def get_module(node):
         return node._module
     if hasattr(node, "_parent"):
         return get_module(node._parent)
-    assert False
+    return None
 
 
 def _infer_one_target(target, context, solver):
@@ -457,10 +457,6 @@ def _infer_func_def(node, context, solver):
     if method_key in solver.z3_types.method_ids:
         old_method = solver.z3_types.current_method
         solver.z3_types.current_method = solver.z3_types.method_ids[method_key]
-
-    if node.name == 'format':
-        print(123)
-        print(method_key)
 
     args = []
     if method_key in solver.z3_types.method_ids:

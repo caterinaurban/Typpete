@@ -19,7 +19,7 @@ def count(s: str, str: str) -> int:
     """Counts how many times str occurs in string"""
     pass
 
-def format(self, arg1: object = '', arg2: object = '', arg3: object = '') -> str:
+def format(self: str, arg1: object = '', arg2: object = '', arg3: object = '') -> str:
     """
     Return a formatted version of S, using substitutions from args and kwargs.
         The substitutions are identified by braces ('{' and '}').
@@ -97,11 +97,11 @@ def rstrip(s: str) -> str:
     pass
 
 
-def split(s: str, delimiter: str) -> List[str]:
+def split(s: str, delimiter: str = '') -> List[str]:
     """Splits string according to delimiter str and returns list of substrings"""
     pass
 
-def startswith(self, c: str) -> bool:
+def startswith(self: str, c: str) -> bool:
     """"""
     pass
 

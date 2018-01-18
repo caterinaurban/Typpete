@@ -59,17 +59,6 @@ class TypesSolver(Solver):
         self.assertions_errors[assertion] = fail_message
         self.optimize.add(*args)
         to_add = Implies(assertion, And(*args))
-        if fail_message in ('Generic function definition in line 18',
-                            'First arg in instance method get in class Dict has class instance type',
-                            'Generic function definition in line 42',
-                            'Class definition in line 8',
-                            'Indexing in line 47',
-                            'Assignment in line 47'):
-            self.forced.add(assertion)
-            print("{}: {}".format(fail_message, to_add))
-        if "in line 46" in fail_message:
-            print("{}: {}".format(fail_message, to_add))
-        # print("{}: {}".format(fail_message, to_add))
         super().add(to_add)
         self.all_assertions.append(to_add)
 
@@ -432,8 +421,6 @@ class Z3Types:
             axioms.append(axiom)
 
         for tv in self.tvs:
-            if str(tv) == "tvNumOrStr":
-                print("now")
             options = [x == tv, x == self.none]
             for tvp in self.tvs:
                 if tvp is tv:
@@ -464,7 +451,6 @@ class Z3Types:
             axiom = ForAll([x, m] + args + [normal_func], self._subtype(m, x, literal) == (x == literal),
                            patterns = [self._subtype(m, x, literal)])
             axioms.append(axiom)
-        print(axioms)
         return axioms
 
 

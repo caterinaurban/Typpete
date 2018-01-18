@@ -91,8 +91,8 @@ class StubsHandler:
         # Get nodes from normal classes and functions stubs.
         for tree in self.asts:
             current = self.get_relevant_nodes(tree, used_names)
-            for node in current:
-                node._module = tree
+            # for node in current:
+            #     node._module = tree
             relevant_nodes += current
 
         # Get nodes from builtin methods stubs.
@@ -104,8 +104,8 @@ class StubsHandler:
     def infer_all_files(self, context, solver, used_names, infer_func):
         for tree in self.asts:
             all_nodes = ast.walk(tree)
-            for n in all_nodes:
-                n._module = tree
+            # for n in all_nodes:
+            #     n._module = tree
             ctx = self.infer_file(tree, solver, used_names, infer_func)
             # Merge the stub types into the context
             context.types_map.update(ctx.types_map)
