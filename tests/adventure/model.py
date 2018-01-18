@@ -9,8 +9,6 @@ class HasN:
     def __init__(self):
         self.n = 0
 
-has = HasN()
-has.n = 23
 
 class Move(HasN):
     """An entry in the travel table."""
@@ -43,13 +41,11 @@ class Move(HasN):
             act = 'prints %r' % cast(Message, self.action).text
         else:
             act = 'special %d' % self.action
-        joined = '|'.join(verblist)
 
-        return '<{}{} {}>'.format(joined, cond, act)
+        return '<{}{} {}>'.format('|'.join(verblist), cond, act)
 
 class Room(HasN):
     """A location in the game."""
-    # n = 0
     long_description = ''
     short_description = ''
     times_described = 0
@@ -70,7 +66,7 @@ class Room(HasN):
         self.n = 0
 
     def __repr__(self):
-        return '<room {} at {}>'.format(self.n, hex(id(self)), "")
+        return '<room {} at {}>'.format(self.n, hex(id(self)))
 
     def is_forced(self):
         pass
@@ -89,7 +85,6 @@ class Room(HasN):
 
 class Word(HasN):
     """A word that can be used as part of a command."""
-    # n = 0
     text = None
     kind = None
     default_message = None
@@ -99,7 +94,7 @@ class Word(HasN):
         self.n = 0
 
     def __repr__(self):
-        return '<Word {}>'.format(self.text, "", "")
+        return '<Word {}>'.format(self.text)
 
     def __eq__(self, text):
         return any( [word.text == text for word in self.synonyms] )

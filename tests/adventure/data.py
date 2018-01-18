@@ -17,7 +17,7 @@ trident shards pottery emerald platinum pyramid pearl persian spices capture
 release discard mumble unlock nothing extinguish placate travel proceed
 continue explore follow attack strike devour inventory detonate ignite
 blowup peruse shatter disturb suspend sesame opensesame abracadabra
-shazam excavate information""".split(" ") }
+shazam excavate information""".split() }
 
 class Data(object):
     def __init__(self):
@@ -37,17 +37,10 @@ class Data(object):
             return self.objects[word.n % 1000]
 
 
-# KEYS = TypeVar("KEYS", bound=int)
-# VALS = TypeVar("VALS", bound='HasN')
-# def make_object(dictionary: Dict[int, VALS], klass: Callable[[], VALS], n: int) -> VALS:
 def make_object(dictionary, klass, n):
-    obj = None
     if n not in dictionary:
-        obj = klass()
-        dictionary[n] = obj
+        dictionary[n] = obj = klass()
         obj.n = n
-    if (1 == 2):
-        return obj
     return dictionary[n]
 
 def expand_tabs(segments):
@@ -115,7 +108,7 @@ def section3(data, x, y, verbs):
 
 def section4(data, n, text, etc):
     text = text.lower()
-    text = long_words.get(text)
+    text = long_words.get(text, text)
     word = make_object(data.vocabulary, lambda :Word(), n)
     if word.text is None:  # this is the first word with index "n"
         word.text = text
@@ -146,7 +139,7 @@ def section5(data, n, etc):
             more = ''
         else:
             more = expand_tabs(etc) + '\n'
-        messages[n] = messages.get(n) + more
+        messages[n] = messages.get(n, '') + more
 
 def section6(data, n, etc):
     message = make_object(data.messages, lambda :Message(), n)
