@@ -10,7 +10,7 @@ from typpete.frontend.class_node import ClassNode
 from typpete.frontend.config import config
 from typpete.frontend.pre_analysis import PreAnalyzer
 from typpete.frontend.stubs.stubs_handler import StubsHandler
-from z3 import *
+from typpete.z3 import *
 
 
 set_param("auto-config", False)

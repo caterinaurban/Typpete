@@ -36,7 +36,7 @@ import typpete.frontend.z3_axioms as axioms
 import sys
 import z3
 
-from z3 import Or, And
+from typpete.z3 import Or, And
 from typpete.frontend.context import Context, AnnotatedFunction
 
 

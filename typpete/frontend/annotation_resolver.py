@@ -1,4 +1,4 @@
-from z3 import Or, And, simplify
+from typpete.z3 import Or, And, simplify
 import ast
 import re
 
