@@ -1,10 +1,12 @@
 from frontend.stmt_inferrer import *
+from frontend.import_handler import ImportHandler
 import ast
+import os
 import time
 import astunparse
-
-file_path = "tests/imp/imp.py"
+file_path = "tests/test.py"
 file_name = file_path.split("/")[-1]
+root_folder = '/'.join(file_path.split('/')[:-1]) + '/'
 
 r = open(file_path)
 
@@ -69,11 +71,16 @@ else:
     context.generate_typed_ast(model, solver)
 
     # uncomment this to write typed source into a file
-    # write_path = "inference_output/" + file_name
-    # file = open(write_path, 'w')
-    # file.write(astunparse.unparse(t))
-    # file.close()
-    print(astunparse.unparse(t))
+    write_path = "inference_output/" + root_folder
+    if not os.path.exists(write_path):
+        os.makedirs(write_path)
+    write_path += '/' + file_name
+    file = open(write_path, 'w')
+    file.write(astunparse.unparse(t))
+    file.close()
+
+    ImportHandler.write_to_files(model, solver)
+    # print(astunparse.unparse(t))
 
 
 print("Ran in {} seconds".format(end_time - start_time))

@@ -1,4 +1,6 @@
 import ast
+import astunparse
+
 from frontend.context import Context
 from frontend.stubs.stubs_paths import libraries
 
@@ -7,6 +9,7 @@ class ImportHandler:
     """Handler for importing other modules during the type inference"""
     cached_asts = {}
     cached_modules = {}
+    module_to_path = {}
 
     @staticmethod
     def get_ast(path, module_name):
@@ -21,7 +24,7 @@ class ImportHandler:
             r = open(path)
         except FileNotFoundError:
             raise ImportError("No module named {}.".format(module_name))
-
+        ImportHandler.module_to_path[module_name] = path
         tree = ast.parse(r.read())
         r.close()
         ImportHandler.cached_asts[module_name] = tree
@@ -65,3 +68,17 @@ class ImportHandler:
     def is_builtin(module_name):
         """Check if the imported python module is builtin"""
         return module_name in libraries
+
+    @staticmethod
+    def write_to_files(model, solver):
+        for module in ImportHandler.module_to_path:
+            module_path = ImportHandler.module_to_path[module]
+            module_ast = ImportHandler.cached_asts[module]
+            module_context = ImportHandler.cached_modules[module]
+            module_context.generate_typed_ast(model, solver)
+
+            write_path = "inference_output/" + module_path
+            file = open(write_path, 'w')
+            file.write(astunparse.unparse(module_ast))
+            file.close()
+
