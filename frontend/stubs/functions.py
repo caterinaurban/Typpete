@@ -1,5 +1,5 @@
 """Stub file for built in functions"""
-from typing import TypeVar, List, Tuple, Dict
+from typing import TypeVar, List, Tuple, Dict, Set
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -102,6 +102,11 @@ def divmod(_: float, __: float) -> Tuple[int, int]:
     pass
 
 
+def enumerate(_: List[T]) -> Tuple[int, T]:
+    """Iterate over a list with key and value"""
+    pass
+
+
 def float(_: NumOrStrNoComplex = None) -> float:
     """Convert a string or a number to floating point."""
     pass
@@ -109,6 +114,16 @@ def float(_: NumOrStrNoComplex = None) -> float:
 
 def format(_: object) -> str:
     """Convert a value to a "formatted" representation."""
+    pass
+
+
+def getattr(o: object, attr: str) -> object:
+    """Get attribute from an object"""
+    pass
+
+
+def hasattr(o: object, attr: str) -> bool:
+    """Check if an object has an attribute"""
     pass
 
 
@@ -156,6 +171,16 @@ def isinstance(x: object, y: object) -> bool:
 
 def len(_: Seq) -> int:
     """ Return the number of items in a container. """
+    pass
+
+
+def min(_: List[T]) -> T:
+    """Return the minimum object from the list
+
+    TODO:
+        - Verify that the argument is comparable
+        - Add support for different iterable objects
+    """
     pass
 
 
@@ -227,6 +252,17 @@ def round(_: float) -> int:
     This returns an int when called with one argument, otherwise the
     same type as the number. ndigits may be negative.
     """
+    pass
+
+
+def set() -> Set[T]:
+    """Create a new set
+    """
+    pass
+
+
+def setattr(o: object, attr: str, val: object) -> bool:
+    """Set an object's attribute to a certain value"""
     pass
 
 

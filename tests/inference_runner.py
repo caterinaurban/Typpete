@@ -3,7 +3,7 @@ import ast
 import time
 import astunparse
 
-file_path = "tests/imp/imp.py"
+file_path = "tests/test.py"
 file_name = file_path.split("/")[-1]
 
 r = open(file_path)
