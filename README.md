@@ -23,10 +23,12 @@ The currently supported flags are the following:
 
 | Flag   |      Description      |  Possible values |
 |:----------:|:-------------:|:------:|
-| ignore_fully_annotated_function |  Whether to ignore the body of fully annotated functions and just take the provided types for args/return | True, False |
-| enforce_same_type_in_branches |    Whether to allow different branches to use different types of same variable.   |  True, False |
-| allow_attributes_outside_init | Whether to allow to define instance attribute outside `__init__` |    True, False |
-| none_subtype_of_all | Whether to make None a subtype of all types. |    True, False |
+| ignore_fully_annotated_function |  Whether to ignore the body of fully annotated functions and just take the provided types for args/return | True, False* |
+| enforce_same_type_in_branches |    Whether to allow different branches to use different types of same variable.   |  True, False* |
+| allow_attributes_outside_init | Whether to allow to define instance attribute outside `__init__` |    True*, False |
+| none_subtype_of_all | Whether to make None a subtype of all types. |    True*, False |
+
+\* Default flag value
 
 Example:
 ```
