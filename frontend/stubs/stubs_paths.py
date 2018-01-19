@@ -6,7 +6,8 @@ libraries = {
     "math": "frontend/stubs/libraries/math.py",
     "sys": "frontend/stubs/libraries/sys.py",
     "re": "frontend/stubs/libraries/re.py",
-    "csv": "frontend/stubs/libraries/csv.py"
+    "csv": "frontend/stubs/libraries/csv.py",
+    "time": "frontend/stubs/libraries/time.py"
 }
 
 methods = [
