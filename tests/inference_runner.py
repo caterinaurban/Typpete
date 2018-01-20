@@ -1,19 +1,17 @@
 from frontend.stmt_inferrer import *
 from frontend.import_handler import ImportHandler
+
 import ast
 import os
 import time
 import astunparse
-file_path = "tests/test.py"
-file_name = file_path.split("/")[-1]
-root_folder = '/'.join(file_path.split('/')[:-1]) + '/'
 
-r = open(file_path)
+base_folder = 'tests'
+file_name = 'test'
 
-t = ast.parse(r.read())
-r.close()
+t = ImportHandler.get_module_ast(file_name, base_folder)
 
-solver = z3_types.TypesSolver(t)
+solver = z3_types.TypesSolver(t, base_folder=base_folder)
 
 context = Context(t.body, solver)
 solver.infer_stubs(context, infer)
@@ -56,7 +54,6 @@ def print_context(ctx, ind=""):
     if not ind and children:
         print("---------------------------")
 
-
 start_time = time.time()
 check = solver.optimize.check()
 end_time = time.time()
@@ -71,10 +68,10 @@ else:
     context.generate_typed_ast(model, solver)
 
     # uncomment this to write typed source into a file
-    write_path = "inference_output/" + root_folder
+    write_path = "inference_output/" + base_folder
     if not os.path.exists(write_path):
         os.makedirs(write_path)
-    write_path += '/' + file_name
+    write_path += '/' + file_name + '.py'
     file = open(write_path, 'w')
     file.write(astunparse.unparse(t))
     file.close()

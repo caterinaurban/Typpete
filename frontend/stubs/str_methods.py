@@ -20,6 +20,14 @@ def count(s: str, str: str) -> int:
     pass
 
 
+def format(s: str, arg1: object = '', arg2: object = '', arg3: object = '', arg4: object = '') -> str:
+    """
+    Return a formatted version of S, using substitutions from args and kwargs.
+        The substitutions are identified by braces ('{' and '}').
+    """
+    pass
+
+
 def isalnum(s: str) -> bool:
     """Returns true if string has at least 1 character and all characters are alphanumeric and false otherwise."""
     pass
@@ -75,6 +83,12 @@ def lower(s: str) -> str:
     pass
 
 
+def ljust(s: str, w: int, fill: str = ' ') -> str:
+    """Return the string `s` left justified in a string of length `w`.
+    Padding is done using the specified fillchar `fill` (default is a space)."""
+    pass
+
+
 def lstrip(s: str) -> str:
     """Removes all leading whitespace in string."""
     pass
@@ -85,17 +99,27 @@ def replace(s: str, old: str, new: str) -> str:
     pass
 
 
+def rjust(s: str, w: int, fill: str = ' ') -> str:
+    """Return the string `s` right justified in a string of length `w`.
+    Padding is done using the specified fillchar `fill` (default is a space)."""
+    pass
+
+
 def rstrip(s: str) -> str:
     """Removes all trailing whitespace of string."""
     pass
 
 
-def split(s: str, delimiter: str) -> List[str]:
+def split(s: str, delimiter: str = '') -> List[str]:
     """Splits string according to delimiter str and returns list of substrings"""
     pass
 
+def startswith(s: str, c: str) -> bool:
+    """"""
+    pass
 
-def strip(s: str) -> str:
+
+def strip(s: str, dl: str = None) -> str:
     """Performs both lstrip() and rstrip() on string"""
     pass
 

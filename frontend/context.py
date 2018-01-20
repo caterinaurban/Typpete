@@ -12,24 +12,27 @@ class Context:
         types_map ({str, Type}): a dict mapping variable names to their inferred types.
     """
 
-    def __init__(self, context_nodes, solver, name="", parent_context=None):
+    def __init__(self, context_nodes, solver, name="", parent_context=None, is_class=False, is_func=False):
         """
         
         :param context_nodes: The AST nodes that belong to this scope. Used to pre-store all class types in the scope. 
         :param solver: The SMT solver for the inference. Used to create new Z3 constants for the class types.
         :param name: The context name
         :param parent_context: Reference to the parent scope (context)
+        :param is_class: True if the context is a class local context
         """
         self.name = name
+        self.is_class = is_class
+        self.is_func = is_func
         self.types_map = {}
+        self.isinstance_nodes = {}
 
         # Store all the class types that appear in this context. This enables using
         # classes in no specific order.
         class_names = [node.name for node in context_nodes if isinstance(node, ast.ClassDef)]
         for cls in class_names:
-            cls_type = solver.new_z3_const("class_type")
+            cls_type = solver.z3_types.all_types[cls]
             self.types_map[cls] = cls_type
-            solver.z3_types.all_types[cls] = cls_type
 
         # Similarly, store function types that appear in this context
         func_names = [node.name for node in context_nodes if isinstance(node, ast.FunctionDef)]
@@ -46,13 +49,24 @@ class Context:
         if parent_context:
             parent_context.children_contexts.append(self)
 
-    def get_type(self, var_name):
+    def get_type(self, var_name, passed_func=False):
         """Get the type of `var_name` from this context (or a parent context)"""
-        if var_name in self.types_map:
+        if not passed_func:
+            passed_func = self.is_func
+        if var_name in self.types_map and not (self.is_class and passed_func):
             return self.types_map[var_name]
         if self.parent_context is None:
             raise NameError("Name {} is not defined.".format(var_name))
-        return self.parent_context.get_type(var_name)
+        return self.parent_context.get_type(var_name, passed_func)
+
+
+    def get_isinstance_type(self, dump):
+        if dump in self.isinstance_nodes:
+            return self.isinstance_nodes[dump]
+        if self.parent_context is None:
+            raise NameError("Cannot find isinstance node")
+        return self.parent_context.get_isinstance_type(dump)
+
 
     def set_type(self, var_name, var_type):
         """Sets the type of a variable in this context."""

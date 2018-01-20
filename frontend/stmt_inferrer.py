@@ -201,8 +201,7 @@ def _infer_control_flow(node, context, solver):
     if hasattr(node, "test"):
         expr.infer(node.test, context, solver)
         if (isinstance(node.test, ast.Call) and isinstance(node.test.func, ast.Name)
-           and node.test.func.id == "isinstance" and len(node.test.args) == 2
-           and isinstance(node.test.args[0], ast.Name)):
+           and node.test.func.id == "isinstance" and len(node.test.args) == 2):
             # isinstance(x, t) test: Make `x` to be of type `t` in the then branch
             # The only allowed case is when `x` is variable and `t` is a single type (not a tuple).
 
@@ -210,10 +209,11 @@ def _infer_control_flow(node, context, solver):
             t = solver.resolve_annotation(node.test.args[1])
 
             # Set `x` to be an instance of `t` in the then branch
-            body_context.set_type(node.test.args[0].id, t)
+            body_context.isinstance_nodes[ast.dump(node.test.args[0], annotate_fields=False)] = t
 
             # Keep track of the name of the variable `x`
-            var_is_instance = node.test.args[0].id
+            if isinstance(node.test.args[0], ast.Name):
+                var_is_instance = node.test.args[0].id
 
     body_type = _infer_body(node.body, body_context, node.lineno, solver)
     else_type = _infer_body(node.orelse, else_context, node.lineno, solver)
@@ -327,7 +327,7 @@ def _infer_try(node, context, solver):
 
 def _init_func_context(node, args, context, solver):
     """Initialize the local function scope, and the arguments types"""
-    local_context = Context(node.body, solver, name=node.name, parent_context=context)
+    local_context = Context(node.body, solver, name=node.name, parent_context=context, is_func=True)
 
     # TODO starred args
 
@@ -445,6 +445,8 @@ def _infer_func_def(node, context, solver):
     result_type = context.get_type(node.name)
     result_type.args_count = len(node.args.args)
     context.set_type(node.name, result_type)
+    if hasattr(node, 'super') and node.super != context.name:
+        return
     context.add_func_ast(node.name, node)
 
     if hasattr(node.args, "defaults"):
@@ -456,7 +458,7 @@ def _infer_func_def(node, context, solver):
 
     if node.returns:
         return_type = solver.resolve_annotation(node.returns)
-        if inference_config["ignore_fully_annotated_function"] and is_annotated(node)\
+        if inference_config["ignore_fully_annotated_function"]\
                 or isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Ellipsis):
             # Ignore the body if it has return annotation and one of the following conditions:
             # The configuration flag for doing so is set
@@ -481,11 +483,8 @@ def _infer_func_def(node, context, solver):
 
 
 def _infer_class_def(node, context, solver):
-    class_context = Context(node.body, solver, name=node.name, parent_context=context)
+    class_context = Context(node.body, solver, name=node.name, parent_context=context, is_class=True)
     result_type = context.get_type(node.name)
-
-    for stmt in node.body:
-        infer(stmt, class_context, solver)
 
     class_attrs = solver.z3_types.instance_attributes[node.name]
     inherited_funcs_to_super = solver.config.inherited_funcs_to_super[node.name]
@@ -493,6 +492,13 @@ def _infer_class_def(node, context, solver):
     class_to_funcs = solver.z3_types.class_to_funcs[node.name]
     base_classes_to_funcs = {}
     bases_attrs = {}
+
+    for stmt in node.body:
+        if isinstance(stmt, ast.FunctionDef):
+            func_name = stmt.name
+            if func_name in inherited_funcs_to_super:
+                continue
+        infer(stmt, class_context, solver)
 
     for base in node.bases:
         if base.id == 'object':
@@ -516,6 +522,11 @@ def _infer_class_def(node, context, solver):
             solver.add(arg_accessor(class_attrs[attr]) == instance_type,
                        fail_message="First arg in instance method {} in class {} has class instance type"
                        .format(attr, node.name))
+        elif attr in class_to_funcs and attr in inherited_funcs_to_super:
+            base = inherited_funcs_to_super[attr]
+            solver.add(class_attrs[attr] == solver.z3_types.instance_attributes[base][attr],
+                       fail_message="Inherited method {} in subclass {} has same type as "
+                                    "that in superclass {}".format(attr, node.name, base))
         for base in bases_attrs:
             if attr not in class_to_funcs and attr in bases_attrs[base]:
                 # Not a method and exists in superclass
@@ -528,6 +539,9 @@ def _infer_class_def(node, context, solver):
             continue
         solver.add(class_attrs[attr] == class_context.types_map[attr],
                    fail_message="Class attribute in {}".format(node.lineno))
+
+        if attr in inherited_funcs_to_super:
+            continue
 
         # Handle covariance/contravariance of overridden methods in all base classes
         for base in base_classes_to_funcs:
@@ -572,16 +586,11 @@ def _infer_class_def(node, context, solver):
                     base_return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(base_args_len))
                     sub_return_accessor = getattr(solver.z3_types.type_sort, "func_{}_return".format(sub_args_len))
 
-                    if attr in inherited_funcs_to_super and inherited_funcs_to_super[attr] == base:
-                        # Add equality axioms if this method is inherited from the current base class.
-                        solver.add(class_attrs[attr] == bases_attrs[base][attr],
-                                   fail_message="Inherited function {} in class {} "
-                                                "has same type as that in class {}".format(attr, node.name, base))
-                    else:
-                        # Add covariant axiom otherwise
-                        solver.add(solver.z3_types.subtype(sub_return_accessor(class_attrs[attr]),
-                                                           base_return_accessor(bases_attrs[base][attr])),
-                                   fail_message="Return covariance in line {}".format(node.lineno))
+
+                    # Add covariant axiom otherwise
+                    solver.add(solver.z3_types.subtype(sub_return_accessor(class_attrs[attr]),
+                                                       base_return_accessor(bases_attrs[base][attr])),
+                               fail_message="Return covariance in line {}".format(node.lineno))
                     solver.optimize.add_soft(sub_return_accessor(class_attrs[attr])
                                              == base_return_accessor(bases_attrs[base][attr]))
 

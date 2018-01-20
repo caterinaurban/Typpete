@@ -72,7 +72,7 @@ class ImportHandler:
     @staticmethod
     def write_to_files(model, solver):
         for module in ImportHandler.module_to_path:
-            if ImportHandler.is_builtin(module):
+            if ImportHandler.is_builtin(module) or module not in ImportHandler.cached_modules:
                 continue
             module_path = ImportHandler.module_to_path[module]
             module_ast = ImportHandler.cached_asts[module]

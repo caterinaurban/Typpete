@@ -1,5 +1,6 @@
 """Stub file for built in functions"""
-from typing import TypeVar, List, Tuple, Dict
+from typing import TypeVar, List, Tuple, Dict, Set
+
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -102,6 +103,11 @@ def divmod(_: float, __: float) -> Tuple[int, int]:
     pass
 
 
+def enumerate(l: List[T]) -> List[Tuple[int, T]]:
+    """"""
+    pass
+
+
 def float(_: NumOrStrNoComplex = None) -> float:
     """Convert a string or a number to floating point."""
     pass
@@ -112,12 +118,32 @@ def format(_: object) -> str:
     pass
 
 
+def getattr(o: object, name: str) -> object:
+    """
+    Return the value of the named attribute of object.
+    Name must be a string. If the string is the name of one of the object’s attributes,
+    the result is the value of that attribute.
+    For example, getattr(x, 'foobar') is equivalent to x.foobar.
+    """
+    pass
+
+
 def hash(_: object) -> int:
     """
     Return the hash value for the given object.
     
     Two objects that compare equal must also have the same hash value, but the
     reverse is not necessarily true."""
+    pass
+
+
+def hex(_: int) -> str:
+    """
+    Return the hexadecimal representation of an integer.
+
+       >>> hex(12648430)
+       '0xc0ffee'
+    """
     pass
 
 
@@ -194,7 +220,7 @@ def print(_: object) -> None:
     pass
 
 
-def range(x: int) -> List[int]:
+def range(x: int, y:int=None, z:int=None) -> List[int]:
     """Return a list of int from 0 (inclusive) to `x` (exclusive)
     
     TODO: make it RangeObject after implementing interfaces
@@ -230,6 +256,22 @@ def round(_: float) -> int:
     pass
 
 
+def set(l: List[T] = None) -> Set[T]:
+    """Create a set of unique elements
+
+    If the parameter is provided, use the elements in the list to create the set,
+    otherwise, create an empty set.
+    """
+    pass
+
+
+def setattr(o: object, name: str, val: object) -> None:
+    """Assign `val` to the attribute, provided the object allows it.
+    For example, setattr(x, 'foobar', 123) is equivalent to x.foobar = 123.
+    """
+    pass
+
+
 def sorted(_: List[T]) -> List[T]:
     """Return the input list in a sorted order
 
@@ -248,4 +290,10 @@ def sum(_: List[Num]) -> Num:
     
     TODO: Add support for different iterable objects
     """
+    pass
+
+
+def zip(x: List[T], y: List[U]) -> List[Tuple[T, U]]:
+    """This function returns a list of tuples,
+    where the i-th tuple contains the i-th element from each of the argument lists"""
     pass

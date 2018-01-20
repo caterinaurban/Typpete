@@ -1,6 +1,6 @@
 config = {
     # Whether to ignore the body of fully annotated functions and just take the provided types for args/return
-    "ignore_fully_annotated_function": False,
+    "ignore_fully_annotated_function": True,
 
     # Whether to allow different branches to use different types of same variable.
     # Example:
@@ -13,7 +13,7 @@ config = {
     "enforce_same_type_in_branches": False,
 
     # List of the supported decorators for function definitions.
-    "decorators": ["staticmethod"],
+    "decorators": ["staticmethod", "property"],
 
     # Whether to allow to define instance attribute outside __init__
     "allow_attributes_outside_init": True,

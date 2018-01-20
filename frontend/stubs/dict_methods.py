@@ -15,7 +15,7 @@ def copy(dict: Dict[T, U]) -> Dict[T, U]:
     pass
 
 
-def get(dict: Dict[T, U], key: T) -> U:
+def get(dict: Dict[T, U], key: T, default: U = None) -> U:
     """For key key, returns value"""
     pass
 
@@ -35,4 +35,12 @@ def update(dict: Dict[T, U], dict2: Dict[T, U]) -> None:
     pass
 
 def items(dict: Dict[T, U]) -> List[Tuple[T, U]]:
+    pass
+
+
+def keys(dict: Dict[T, U]) -> List[T]:
+    pass
+
+
+def values(dict: Dict[T, U]) -> List[U]:
     pass

@@ -290,8 +290,10 @@ def infer_subscript(node, context, solver):
     if isinstance(node.slice, ast.Index):
         index_type = infer(node.slice.value, context, solver)
         result_type = solver.new_z3_const("index")
-        solver.add(axioms.index(indexed_type, index_type, result_type, solver.z3_types),
+        hard, soft = axioms.index(indexed_type, index_type, result_type, solver.z3_types)
+        solver.add(hard,
                    fail_message="Indexing in line {}".format(node.lineno))
+        solver.optimize.add_soft(soft)
         return result_type
     else:  # Slicing
         # Some slicing may contain 'None' bounds, ex: a[1:], a[::]. Make Int the default type.
@@ -408,10 +410,11 @@ def _get_args_types(args, context, instance, solver):
         arg_type = solver.new_z3_const("call_arg")
         call_type = infer(arg, context, solver)
 
-        # The call arguments should be subtype of the corresponding function arguments
-        solver.add(solver.z3_types.subtype(call_type, arg_type),
-                   fail_message="Call argument subtyping in line {}".format(arg.lineno))
-        solver.optimize.add_soft(call_type == arg_type)
+        if not isinstance(call_type, AnnotatedFunction):
+            # The call arguments should be subtype of the corresponding function arguments
+            solver.add(solver.z3_types.subtype(call_type, arg_type),
+                       fail_message="Call argument subtyping in line {}".format(arg.lineno))
+            solver.optimize.add_soft(call_type == arg_type)
         args_types += (arg_type,)
     return args_types
 
@@ -594,6 +597,11 @@ def _infer_lambda(node, context, solver):
 
 def infer(node, context, solver, from_call=False):
     """Infer the type of a given AST node"""
+    try:
+        return context.get_isinstance_type(ast.dump(node, annotate_fields=False))
+    except NameError:
+        pass
+
     if isinstance(node, ast.Num):
         return infer_numeric(node, solver)
     elif isinstance(node, ast.Str):
