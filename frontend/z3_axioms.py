@@ -245,7 +245,13 @@ def index(indexed, ind, result, types):
              ]
             + t
         )
-    ]
+    ], Or(
+            [indexed == types.dict(ind, result),
+             And(ind == types.int, indexed == types.list(result)),
+             And(ind == types.int, indexed == types.string, result == types.string),
+             And(ind == types.int, indexed == types.bytes, result == types.bytes),
+             ]
+        )
 
 
 def slicing(lower, upper, step, sliced, result, types):

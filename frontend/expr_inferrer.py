@@ -290,8 +290,10 @@ def infer_subscript(node, context, solver):
     if isinstance(node.slice, ast.Index):
         index_type = infer(node.slice.value, context, solver)
         result_type = solver.new_z3_const("index")
-        solver.add(axioms.index(indexed_type, index_type, result_type, solver.z3_types),
+        hard, soft = axioms.index(indexed_type, index_type, result_type, solver.z3_types)
+        solver.add(hard,
                    fail_message="Indexing in line {}".format(node.lineno))
+        solver.optimize.add_soft(soft)
         return result_type
     else:  # Slicing
         # Some slicing may contain 'None' bounds, ex: a[1:], a[::]. Make Int the default type.
