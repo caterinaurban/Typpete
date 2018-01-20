@@ -2,7 +2,7 @@ import ast
 
 import sys
 
-from typpete.z3 import simplify
+from z3 import simplify
 
 
 class Context:

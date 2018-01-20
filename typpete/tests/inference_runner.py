@@ -103,5 +103,5 @@ if __name__ == '__main__':
     try:
         file_path = sys.argv[1]
         run_inference(file_path)
-    except:
+    except IndexError:
         print("Please specify the python file")

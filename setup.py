@@ -11,8 +11,7 @@ config = {
     'author_email': 'caterina.urban@gmail.com',
     'version': '0.1',
     'install_requires': [
-        'astunparse',
-        'z3'
+        'astunparse'
     ],
     'packages': find_packages(),
     'scripts': [],
@@ -23,3 +22,5 @@ config = {
 }
 
 setup(**config)
+
+

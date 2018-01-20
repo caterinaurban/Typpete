@@ -1,4 +1,4 @@
-from typpete.z3 import Const, IntSort
+from z3 import Const, IntSort
 
 
 class ClassNode:
