@@ -29,7 +29,6 @@ def combine_repr(segs):
     line3 = ' '.join([s[8:] for s in outputs])
     return '\n'.join([line1, line2, line3])
 
-
 class Segment7(Chip):
     INPUT_PINS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'DP']
 
@@ -49,12 +48,11 @@ class Segment7(Chip):
             'F', 'G', 'B', '',
             'E', 'D', 'C'
         ]
-
         s = []
         for c, seg in zip(SEGMENTS, SEGPOS):
             s.append(c if seg and self.leds[seg].ishigh() else ' ')
-
         return ''.join(s)
 
-
-
+    def tick(self, us):
+        for led in self.leds.values():
+            led.tick(us)

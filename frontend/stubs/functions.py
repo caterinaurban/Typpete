@@ -1,5 +1,5 @@
 """Stub file for built in functions"""
-from typing import TypeVar, List, Tuple, Dict, Set
+from typing import TypeVar, List, Tuple, Dict, Set, Union
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -305,7 +305,7 @@ def sum(_: List[Num]) -> Num:
     pass
 
 
-def zip(x: List[T], y: List[U]) -> List[Tuple[T, U]]:
+def zip(x: Union[List[T], str], y: List[U]) -> List[Tuple[T, U]]:
     """This function returns a list of tuples,
     where the i-th tuple contains the i-th element from each of the argument lists"""
     pass

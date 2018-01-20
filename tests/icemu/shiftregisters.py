@@ -54,18 +54,20 @@ class ShiftRegister(ActivableChip):
 
 
 class CD74AC164(ShiftRegister):
-    OUTPUT_PINS = RESULT_PINS = ['Q0', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']
+    OUTPUT_PINS = ['Q0', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']
     INPUT_PINS = ['DS1', 'DS2', 'CP', '~MR']
     SERIAL_PINS = ['DS1', 'DS2']
+    RESULT_PINS = OUTPUT_PINS
     RESET_PIN = '~MR'
     CLOCK_PIN = 'CP'
     STARTING_HIGH = ['~MR', 'DS2']
 
 
 class SN74HC595(ShiftRegister):
-    OUTPUT_PINS = RESET_PINS = ['QA', 'QB', 'QC', 'QD', 'QE', 'QF', 'QG', 'QH']
+    OUTPUT_PINS = ['QA', 'QB', 'QC', 'QD', 'QE', 'QF', 'QG', 'QH']
     INPUT_PINS = ['~OE', 'RCLK', 'SER', 'SRCLK', '~SRCLR']
     SERIAL_PINS = ['SER']
+    RESULT_PINS = OUTPUT_PINS
     ENABLE_PINS = ['~OE']
     RESET_PIN = '~SRCLR'
     CLOCK_PIN = 'SRCLK'

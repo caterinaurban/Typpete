@@ -33,4 +33,3 @@ class SN74F161AN(BinaryCounter):
     STARTING_HIGH = ENABLE_PINS
     INPUT_PINS = [CLOCK_PIN] + ENABLE_PINS
     OUTPUT_PINS = ['QA', 'QB', 'QC', 'QD']
-

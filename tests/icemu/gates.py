@@ -80,6 +80,26 @@ class SN74LS27(NOR):
     INPUT_PINS = chain([t[:3] for t in IO_MAPPING])
     OUTPUT_PINS = [t[3] for t in IO_MAPPING]
 
+class SN54ALS27A(SN74LS27):
+    pass
+
+class SN54AS27(SN74LS27):
+    pass
+
+class SN5427(SN74LS27):
+    pass
+
+class SN7427(SN74LS27):
+    pass
+
+class SN54LS27(SN74LS27):
+    pass
+
+class SN74ALS27A(SN74LS27):
+    pass
+
+class SN74AS27(SN74LS27):
+    pass
 
 class SN54S260(NOR):
     IO_MAPPING = [
@@ -89,6 +109,11 @@ class SN54S260(NOR):
     INPUT_PINS = chain([t[:5] for t in IO_MAPPING])
     OUTPUT_PINS = [t[5] for t in IO_MAPPING]
 
+class SN74S260(SN54S260):
+    pass
+
+class SN74F260(SN54S260):
+    pass
 
 class Inverter(Chip):
     def update(self):
@@ -101,4 +126,3 @@ class Inverter(Chip):
 class SN74HC14(Inverter):
     INPUT_PINS = ['1A', '2A', '3A', '4A', '5A', '6A']
     OUTPUT_PINS = ['1Y', '2Y', '3Y', '4Y', '5Y', '6Y']
-

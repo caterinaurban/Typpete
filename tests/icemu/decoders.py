@@ -1,6 +1,5 @@
 from .chip import ActivableChip
 
-
 class Decoder(ActivableChip):
     SERIAL_PINS = [] # LSB pin goes first
     RESULT_PINS = [] # LSB pin goes first
@@ -16,8 +15,9 @@ class Decoder(ActivableChip):
 
 
 class SN74HC138(Decoder):
-    OUTPUT_PINS = RESULT_PINS = ['Y0', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6', 'Y7']
+    OUTPUT_PINS = ['Y0', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6', 'Y7']
     INPUT_PINS = ['A', 'B', 'C', 'G2A', 'G2B', 'G1']
     SERIAL_PINS = ['A', 'B', 'C']
+    RESULT_PINS = OUTPUT_PINS
     ENABLE_PINS = ['G1', '~G2A', '~G2B']
-    STARTING_HIGH = ['G1'] + ['Y0', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6', 'Y7']
+    STARTING_HIGH = ['G1'] + RESULT_PINS

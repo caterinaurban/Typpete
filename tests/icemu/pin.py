@@ -63,10 +63,8 @@ class Pin:
         self.wires.add(output_pin)
         output_pin.wires.add(self)
         if self.chip:
-            pass
-                # self.chip.update()
+            self.chip.update()
 
-    @staticmethod
-    def pinrange(prefix, start, end):
-        # pinrange('Y', 0, 3) -> ['Y0', 'Y1', 'Y2', 'Y3']
-        return [prefix + str(1) for i in range(start, end + 1)]
+def pinrange(prefix, start, end):
+    # pinrange('Y', 0, 3) -> ['Y0', 'Y1', 'Y2', 'Y3']
+    return [prefix + str(i) for i in range(start, end+1)]
