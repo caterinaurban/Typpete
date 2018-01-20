@@ -1,4 +1,4 @@
-from typing import Dict, TypeVar, Type, List
+from typing import Dict, TypeVar, Type, List, Callable
 from .model import Hint, Message, Move, Object, Room, Word
 
 # The Adventure data file knows only the first five characters of each
@@ -37,15 +37,13 @@ class Data(object):
             return self.objects[word.n % 1000]
 
 
-T = TypeVar("T")
-U = TypeVar("U")
-def make_object(dictionary: Dict[U, T], klass: Type[T], n: U) -> T:
+def make_object(dictionary, klass, n):
     if n not in dictionary:
         dictionary[n] = obj = klass()
         obj.n = n
     return dictionary[n]
 
-def expand_tabs(segments: List[str]) -> str:
+def expand_tabs(segments):
     it = iter(segments)
     line = next(it)
     for segment in it:
@@ -55,15 +53,15 @@ def expand_tabs(segments: List[str]) -> str:
 
 
 def accumulate_message(dictionary, n, line):
-    dictionary[n] = dictionary.get(n, '') + line + '\n'
+    dictionary[n] = dictionary.get(n) + line + '\n'
 
 def section1(data, n, etc):
-    room = make_object(data.rooms, Room, n)
+    room = make_object(data.rooms, lambda :Room(), n)
     if not etc[0].startswith('>$<'):
         room.long_description += expand_tabs(etc) + '\n'
 
 def section2(data, n, line):
-    make_object(data.rooms, Room, n).short_description += line + '\n'
+    make_object(data.rooms, lambda :Room(), n).short_description += line + '\n'
 
 def section3(data, x, y, verbs):
     last_travel_first = data._last_travel_first
@@ -92,17 +90,17 @@ def section3(data, x, y, verbs):
         condition = ('prop!=', mm, mh - 3)
 
     if n <= 300:
-        action = make_object(data.rooms, Room, n)
+        action = make_object(data.rooms, lambda :Room(), n)
     elif 300 < n <= 500:
         action = n  # special computed goto
     else:
-        action = make_object(data.messages, Message, n - 500)
+        action = make_object(data.messages, lambda :Message(), n - 500)
 
     move = Move()
     if len(verbs) == 1 and verbs[0] == 1:
         move.is_forced = True
     else:
-        move.verbs = [ make_object(data.vocabulary, Word, verb_n)
+        move.verbs = [ make_object(data.vocabulary, lambda :Word(), verb_n)
                        for verb_n in verbs if verb_n < 100 ] # skip bad "109"
     move.condition = condition
     move.action = action
@@ -111,7 +109,7 @@ def section3(data, x, y, verbs):
 def section4(data, n, text, etc):
     text = text.lower()
     text = long_words.get(text, text)
-    word = make_object(data.vocabulary, Word, n)
+    word = make_object(data.vocabulary, lambda :Word(), n)
     if word.text is None:  # this is the first word with index "n"
         word.text = text
     else:  # there is already a word sitting at "n", so create a synonym
@@ -123,7 +121,7 @@ def section4(data, n, text, etc):
     word.kind = ['travel', 'noun', 'verb', 'snappy_comeback'][n // 1000]
     if word.kind == 'noun':
         n %= 1000
-        obj = make_object(data.objects, Object, n)
+        obj = make_object(data.objects, lambda :Object(), n)
         obj.names.append(text)
         obj.is_treasure = (n >= 50)
         data.objects[n] = obj
@@ -132,7 +130,7 @@ def section4(data, n, text, etc):
 
 def section5(data, n, etc):
     if 1 <= n <= 99:
-        data._object = make_object(data.objects, Object, n)
+        data._object = make_object(data.objects, lambda :Object(), n)
         data._object.inventory_message = expand_tabs(etc)
     else:
         n //= 100
@@ -144,21 +142,21 @@ def section5(data, n, etc):
         messages[n] = messages.get(n, '') + more
 
 def section6(data, n, etc):
-    message = make_object(data.messages, Message, n)
+    message = make_object(data.messages, lambda :Message(), n)
     message.text += expand_tabs(etc) + '\n'
 
 
 def section7(data, n, room_n, etc):
     if not room_n:
         return
-    obj = make_object(data.objects, Object, n)
-    room = make_object(data.rooms, Room, room_n)
+    obj = make_object(data.objects, lambda :Object(), n)
+    room = make_object(data.rooms, lambda :Room(), room_n)
     obj.drop(room)
     if len(etc):
         if etc[0] == -1:
             obj.is_fixed = True
         else:
-            room2 = make_object(data.rooms, Room, etc[0])
+            room2 = make_object(data.rooms, lambda :Room(), etc[0])
             obj.rooms.append(room2)  # exists two places, like grate
     obj.starting_rooms = obj.rooms  # remember where things started
 
@@ -166,36 +164,36 @@ def section7(data, n, room_n, etc):
 def section8(data, word_n, message_n):
     if not message_n:
         return
-    word = make_object(data.vocabulary, Word, word_n + 2000)
-    message = make_object(data.messages, Message, message_n)
+    word = make_object(data.vocabulary, lambda :Word(), word_n + 2000)
+    message = make_object(data.messages, lambda :Message(), message_n)
     for word2 in word.synonyms:
         word2.default_message = message
 
 
 def section9(data, bit, nlist):
     for n in nlist:
-        room = make_object(data.rooms, Room, n)
+        room = make_object(data.rooms, lambda :Room(), n)
         if bit == 0:
             room.is_light = True
         elif bit == 1:
-            room.liquid = make_object(data.objects, Object, 22) #oil
+            room.liquid = make_object(data.objects, lambda :Object(), 22) #oil
         elif bit == 2:
-            room.liquid = make_object(data.objects, Object, 21) #water
+            room.liquid = make_object(data.objects, lambda :Object(), 21) #water
         elif bit == 3:
             room.is_forbidden_to_pirate = True
         else:
-            hint = make_object(data.hints, Hint, bit)
+            hint = make_object(data.hints, lambda :Hint(), bit)
             hint.rooms.append(room)
 
 def section10(data, score, line, etc):
     data.class_messages.append((score, line))
 
 def section11(data, n, turns_needed, penalty, question_n, message_n):
-    hint = make_object(data.hints, Hint, n)
+    hint = make_object(data.hints, lambda :Hint(), n)
     hint.turns_needed = turns_needed
     hint.penalty = penalty
-    hint.question = make_object(data.messages, Message, question_n)
-    hint.message = make_object(data.messages, Message, message_n)
+    hint.question = make_object(data.messages, lambda :Message(), question_n)
+    hint.message = make_object(data.messages, lambda :Message(), message_n)
 
 def section12(data, n, line):
     accumulate_message(data.magic_messages, n, line)
