@@ -2,7 +2,15 @@
 Copyright 2010-2015 Brandon Rhodes.  Licensed as free software under the
 Apache License, Version 2.0 as detailed in the accompanying README.txt.
 """
-class Move:
+from typing import cast
+
+
+class HasN:
+    def __init__(self):
+        self.n = 0
+
+
+class Move(HasN):
     """An entry in the travel table."""
 
     is_forced = False
@@ -27,18 +35,17 @@ class Move:
             cond = ' if prop %d != %d' % self.condition[1:]
 
         if isinstance(self.action, Room):
-            act = 'moves to %r' % (self.action.short_description
-                                      or self.action.long_description[:20]).strip()
+            act = 'moves to %r' % (cast(Room, self.action).short_description
+                                      or  cast(Room, self.action).long_description[:20]).strip()
         elif isinstance(self.action, Message):
-            act = 'prints %r' % self.action.text
+            act = 'prints %r' % cast(Message, self.action).text
         else:
             act = 'special %d' % self.action
 
         return '<{}{} {}>'.format('|'.join(verblist), cond, act)
 
-class Room:
+class Room(HasN):
     """A location in the game."""
-    n = 0
     long_description = ''
     short_description = ''
     times_described = 0
@@ -56,6 +63,7 @@ class Room:
 
     def __init__(self):
         self.travel_table = []
+        self.n = 0
 
     def __repr__(self):
         return '<room {} at {}>'.format(self.n, hex(id(self)))
@@ -75,15 +83,15 @@ class Room:
     def is_dark(self):
         return not self.is_light
 
-class Word:
+class Word(HasN):
     """A word that can be used as part of a command."""
-    n = 0
     text = None
     kind = None
     default_message = None
 
     def __init__(self):
         self.synonyms = [ self ]
+        self.n = 0
 
     def __repr__(self):
         return '<Word {}>'.format(self.text)
@@ -96,7 +104,7 @@ class Word:
         self.synonyms.extend(other.synonyms)
         other.synonyms = self.synonyms
 
-class Object:
+class Object(HasN):
     """An object in the game, like a grate, or a rod with a rusty star."""
 
     def __init__(self):
@@ -139,14 +147,14 @@ class Object:
     def destroy(self):
         self.hide()
 
-class Message:
+class Message(HasN):
     """A message for printing."""
     text = ''
 
     def __str__(self):
         return self.text
 
-class Hint:
+class Hint(HasN):
     """A hint offered if the player loiters in one area too long."""
 
     turns_needed = 0
@@ -158,6 +166,7 @@ class Hint:
 
     def __init__(self):
         self.rooms = []
+        self.n = 0
 
 class Dwarf:
     is_dwarf = True
@@ -173,7 +182,7 @@ class Dwarf:
 
     def can_move(self, move):
         if isinstance(move.action, Room):
-            room = move.action
+            room = cast(Room, move.action)
             return (room.is_after_hall_of_mists()
                     and not room.is_forced()
                     and not move.condition == ('%', 100))
