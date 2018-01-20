@@ -1,7 +1,6 @@
 """Stub file for built in functions"""
 from typing import TypeVar, List, Tuple, Dict, Set
 
-
 T = TypeVar("T")
 U = TypeVar("U")
 Num = TypeVar("Num", bound=complex)
@@ -102,9 +101,8 @@ def divmod(_: float, __: float) -> Tuple[int, int]:
     """ Return the tuple (x//y, x%y).  Invariant: div*y + mod == x. """
     pass
 
-
 def enumerate(l: List[T]) -> List[Tuple[int, T]]:
-    """"""
+    """Iterate over a list with key and value"""
     pass
 
 
@@ -125,6 +123,11 @@ def getattr(o: object, name: str) -> object:
     the result is the value of that attribute.
     For example, getattr(x, 'foobar') is equivalent to x.foobar.
     """
+    pass
+
+
+def hasattr(o: object, attr: str) -> bool:
+    """Check if an object has an attribute"""
     pass
 
 
@@ -182,6 +185,16 @@ def isinstance(x: object, y: object) -> bool:
 
 def len(_: Seq) -> int:
     """ Return the number of items in a container. """
+    pass
+
+
+def min(_: List[T]) -> T:
+    """Return the minimum object from the list
+
+    TODO:
+        - Verify that the argument is comparable
+        - Add support for different iterable objects
+    """
     pass
 
 
@@ -260,8 +273,7 @@ def set(l: List[T] = None) -> Set[T]:
     """Create a set of unique elements
 
     If the parameter is provided, use the elements in the list to create the set,
-    otherwise, create an empty set.
-    """
+    otherwise, create an empty set."""
     pass
 
 

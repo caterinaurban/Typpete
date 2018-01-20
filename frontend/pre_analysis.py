@@ -330,11 +330,11 @@ def propagate_attributes_to_subclasses(class_defs):
     # Save the inherited functions separately. Don't add them to the AST until
     # all classes are processed.
     class_to_inherited_funcs = {}
+    class_to_inherited_attrs = {}
     for class_def in class_defs:
         class_linearization = get_linearization(class_def.name, class_to_bases)
         class_to_inherited_funcs[class_def.name] = []
-        class_assignments = [node.targets[0].id for node in class_def.body
-                             if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)]
+        class_to_inherited_attrs[class_def.name] = []
         # Traverse the parents in the order given by MRO
         for parent in class_linearization:
             if parent == class_def.name:
@@ -344,17 +344,19 @@ def propagate_attributes_to_subclasses(class_defs):
                            (class_def.body + class_to_inherited_funcs[class_def.name])
                            if isinstance(func, ast.FunctionDef)}
 
+            class_assignments = {stmt.targets[0].id for stmt in
+                                 (class_def.body + class_to_inherited_attrs[class_def.name])
+                                 if isinstance(stmt, ast.Assign)}
+
             parent_node = class_to_node[parent]
             # Select only functions that are not overridden in the subclasses.
             inherited_funcs = [func for func in parent_node.body
                                if isinstance(func, ast.FunctionDef) and func.name not in class_funcs]
-            inherited_attrs = [assign for assign in parent_node.body
-                               if isinstance(assign, ast.Assign)
-                               and isinstance(assign.targets[0], ast.Name) and assign.targets[0].id not in class_assignments]
 
-            for attr in inherited_attrs:
-                class_def.body.append(attr)
-                class_assignments.append(attr.targets[0].id)
+            inherited_attrs = [stmt for stmt in parent_node.body
+                               if isinstance(stmt, ast.Assign)
+                               and isinstance(stmt.targets[0], ast.Name)
+                               and stmt.targets[0].id not in class_assignments]
 
             # Store a mapping from the inherited function names to the super class from which they are inherited
             for func in inherited_funcs:
@@ -364,10 +366,12 @@ def propagate_attributes_to_subclasses(class_defs):
             )
 
             class_to_inherited_funcs[class_def.name] += inherited_funcs
+            class_to_inherited_attrs[class_def.name] += inherited_attrs
 
     # Add the inherited functions to the AST.
     for class_def in class_defs:
         class_def.body += class_to_inherited_funcs[class_def.name]
+        class_def.body += class_to_inherited_attrs[class_def.name]
 
     return class_inherited_funcs_to_super
 

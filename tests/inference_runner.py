@@ -6,8 +6,8 @@ import os
 import time
 import astunparse
 
-base_folder = 'tests'
-file_name = 'test'
+base_folder = 'tests/imp'
+file_name = 'imp'
 
 t = ImportHandler.get_module_ast(file_name, base_folder)
 

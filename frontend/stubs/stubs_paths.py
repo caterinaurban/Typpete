@@ -7,8 +7,10 @@ libraries = {
     "sys": "frontend/stubs/libraries/sys.py",
     "re": "frontend/stubs/libraries/re.py",
     "random": "frontend/stubs/libraries/random.py",
-    "itertools": "frontend/stubs/libraries/itertools.py"
-
+    "itertools": "frontend/stubs/libraries/itertools.py",
+    "csv": "frontend/stubs/libraries/csv.py",
+    "time": "frontend/stubs/libraries/time.py",
+    "os": "frontend/stubs/libraries/os.py",
 }
 
 methods = [
