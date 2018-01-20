@@ -321,13 +321,15 @@ def infer_compare(node, context, solver):
     return solver.z3_types.bool
 
 
-def infer_name(node, context):
+def infer_name(node, context, solver):
     """Infer the type of a variable
 
     Attributes:
         node: the variable node whose type is to be inferred
         context: The context to look in for the variable type
     """
+    if node.id == '__name__':
+        return solver.z3_types.string
     try:
         return context.get_type(node.id)
     except NameError:
@@ -552,6 +554,14 @@ def infer_attribute(node, context, from_call, solver):
         else:
             return instance.get_type(node.attr)
 
+    # Check if it's a special attribute access:
+    if node.attr == '__dict__':
+        return solver.z3_types.dict(solver.z3_types.string, solver.z3_types.object)
+    elif node.attr == '__class__':
+        return solver.z3_types.type(instance)
+    elif node.attr == '__name__':
+        return solver.z3_types.string
+
     result_type = solver.new_z3_const("attribute")
 
     # get axioms for built-in attribute access. Ex: x.append(sth)
@@ -640,7 +650,7 @@ def infer(node, context, solver, from_call=False):
     elif isinstance(node, ast.Compare):
         return infer_compare(node, context, solver)
     elif isinstance(node, ast.Name):
-        return infer_name(node, context)
+        return infer_name(node, context, solver)
     elif isinstance(node, ast.ListComp):
         return infer_sequence_comprehension(node, solver.z3_types.list, context, solver)
     elif isinstance(node, ast.SetComp):
