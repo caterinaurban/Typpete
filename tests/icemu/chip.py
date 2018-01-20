@@ -8,12 +8,12 @@ class Chip:
 
     def __init__(self):
         for code in self.OUTPUT_PINS:
-            pin = Pin(code, chip=self, output=True, high=(code in self.STARTING_HIGH))
+            pin = Pin(code, code in self.STARTING_HIGH, self, True)
             setattr(self, 'pin_{}'.format(pin.code), pin)
         for code in self.INPUT_PINS:
-            pin = Pin(code, chip=self, high=(code in self.STARTING_HIGH))
+            pin = Pin(code, code in self.STARTING_HIGH, self)
             setattr(self, 'pin_{}'.format(pin.code), pin)
-        self.vcc = Pin('VCC', chip=self, high=True)
+        self.vcc = Pin('VCC', True, self)
         self.update()
 
     def __str__(self):

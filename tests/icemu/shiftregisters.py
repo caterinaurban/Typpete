@@ -22,7 +22,7 @@ class ShiftRegister(ActivableChip):
 
     def update(self):
         if (not self.is_enabled()) or self.is_resetting():
-            self.setpins(low=self.RESULT_PINS, high=[])
+            self.setpins(self.RESULT_PINS, [])
             if self.is_resetting():
                 self.buffer = 0
             return

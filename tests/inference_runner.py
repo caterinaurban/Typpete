@@ -6,7 +6,7 @@ import time
 import astunparse
 
 base_folder = 'tests/icemu'
-file_name = 'seg7'
+file_name = 'test'
 
 t = ImportHandler.get_module_ast(file_name, base_folder)
 

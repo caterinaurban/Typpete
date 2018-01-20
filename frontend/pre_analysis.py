@@ -23,23 +23,7 @@ class PreAnalyzer:
         # List all the nodes existing in the AST
         self.base_folder = base_folder
 
-        # Pre-analyze predefined modules in the project
-        modules = [
-            'pin',
-            'chip',
-            'util',
-            'counters',
-            'decoders',
-            'gates',
-            'seg7',
-            'shiftregisters',
-        ]
-        self.all_nodes = []
-        if modules:
-            for m in modules:
-                self.all_nodes += list(ast.walk(ImportHandler.get_module_ast(m, self.base_folder)))
-        else:
-            self.all_nodes = self.walk(prog_ast)
+        self.all_nodes = self.walk(prog_ast)
 
         # Pre-analyze only used constructs from the stub files.
         used_names = self.get_all_used_names()
@@ -373,7 +357,7 @@ def propagate_attributes_to_subclasses(class_defs):
             for func in inherited_funcs:
                 func.super = parent
             class_inherited_funcs_to_super[class_def.name].update(
-                {func.name: parent for func in inherited_funcs}
+                {func.name: parent for func in inherited_funcs if func.name != '__init__'}
             )
 
             class_to_inherited_funcs[class_def.name] += inherited_funcs

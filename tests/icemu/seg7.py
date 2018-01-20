@@ -35,7 +35,7 @@ class Segment7(Chip):
 
     def __init__(self, *args, **kwargs):
         # super().__init__(*args, **kwargs)
-        self.vcc = Pin('VCC', chip=self, high=True)
+        self.vcc = Pin('VCC', True, self)
         self.leds = {pin.code: LED(self.vcc, pin) for pin in self.getpins(self.INPUT_PINS)}
 
     def __str__(self):
