@@ -6,6 +6,7 @@ import os
 import time
 import astunparse
 
+start_time = time.time()
 base_folder = 'tests/imp'
 file_name = 'imp'
 
@@ -19,7 +20,11 @@ solver.infer_stubs(context, infer)
 for stmt in t.body:
     infer(stmt, context, solver)
 
+end_time = time.time()
+print("Constraints collection took  {}s".format(end_time - start_time))
+
 solver.push()
+
 
 
 def print_solver(z3solver):
@@ -69,6 +74,7 @@ else:
 
     # uncomment this to write typed source into a file
     write_path = "inference_output/" + base_folder
+    print("Output is written to {}".format(write_path))
     if not os.path.exists(write_path):
         os.makedirs(write_path)
     write_path += '/' + file_name + '.py'
@@ -80,4 +86,4 @@ else:
     # print(astunparse.unparse(t))
 
 
-print("Ran in {} seconds".format(end_time - start_time))
+print("Constraints solving took  {}s".format(end_time - start_time))
