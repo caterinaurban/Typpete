@@ -1,19 +1,19 @@
 from frontend.stmt_inferrer import *
-from z3 import Optimize, Const
+from frontend.import_handler import ImportHandler
+from z3 import Optimize
+
 import ast
+import os
 import time
 import astunparse
 
-# file_path = "/home/marco/infer_scion_types/Typpete/tests/adventure/data.py"
-file_path = "unittests/inference/coop_concatenate.py"
-file_name = file_path.split("/")[-1]
+start_time = time.time()
+base_folder = 'tests/imp'
+file_name = 'imp'
 
-r = open(file_path)
+t = ImportHandler.get_module_ast(file_name, base_folder)
 
-t = ast.parse(r.read())
-r.close()
-
-solver = z3_types.TypesSolver(t)
+solver = z3_types.TypesSolver(t, base_folder=base_folder)
 
 context = Context(t.body, solver)
 context.type_params = solver.config.type_params
@@ -23,7 +23,11 @@ solver.infer_stubs(context, infer)
 for stmt in t.body:
     infer(stmt, context, solver, t)
 
+end_time = time.time()
+print("Constraints collection took  {}s".format(end_time - start_time))
+
 solver.push()
+
 
 
 def print_solver(z3solver):
@@ -67,7 +71,6 @@ def print_context(ctx, ind=""):
     if not ind and children:
         print("---------------------------")
 
-# print(solver)
 start_time = time.time()
 check = solver.optimize.check()
 end_time = time.time()
@@ -98,11 +101,17 @@ else:
     print_model()
 
     # uncomment this to write typed source into a file
-    # write_path = "inference_output/" + file_name
-    # file = open(write_path, 'w')
-    # file.write(astunparse.unparse(t))
-    # file.close()
-    print(astunparse.unparse(t))
+    write_path = "inference_output/" + base_folder
+    print("Output is written to {}".format(write_path))
+    if not os.path.exists(write_path):
+        os.makedirs(write_path)
+    write_path += '/' + file_name + '.py'
+    file = open(write_path, 'w')
+    file.write(astunparse.unparse(t))
+    file.close()
+
+    ImportHandler.write_to_files(model, solver)
+    # print(astunparse.unparse(t))
 
 
-print("Ran in {} seconds".format(end_time - start_time))
+print("Constraints solving took  {}s".format(end_time - start_time))

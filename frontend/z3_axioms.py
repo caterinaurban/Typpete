@@ -238,14 +238,21 @@ def index(indexed, ind, result, types):
 
     return [
         Or(
-            [indexed == types.dict(ind, result),
+            [And(indexed == types.dict(types.dict_key_type(indexed), result),
+                 types.subtype(ind, types.dict_key_type(indexed))),
              And(types.subtype(ind, types.int), indexed == types.list(result)),
              And(types.subtype(ind, types.int), indexed == types.string, result == types.string),
              And(types.subtype(ind, types.int), indexed == types.bytes, result == types.bytes),
              ]
             + t
         )
-    ]
+    ], Or(
+            [indexed == types.dict(ind, result),
+             And(ind == types.int, indexed == types.list(result)),
+             And(ind == types.int, indexed == types.string, result == types.string),
+             And(ind == types.int, indexed == types.bytes, result == types.bytes),
+             ]
+        )
 
 
 def slicing(lower, upper, step, sliced, result, types):
@@ -594,7 +601,7 @@ def instancemethod_call(instance, args, result, attr, types, tvs):
         # if so, add call axioms with a receiver
         if attr in types.class_to_funcs[t]:
             decorators = types.class_to_funcs[t][attr][1]
-            if "staticmethod" not in decorators:
+            if "staticmethod" not in decorators and "property" not in decorators:
                 attr_type = types.instance_attributes[t][attr]
 
                 receiver_subtype = False
@@ -642,7 +649,19 @@ def attribute(instance, attr, result, types):
                 continue
             type_instance = getattr(types.type_sort, "type_arg_0")(types.all_types[t])
 
-            axioms.append(And(types.subtype(instance, type_instance), result == attr_type))
+            # Check if it is a property access
+            if attr in types.class_to_funcs[t] and "property" in \
+                    types.class_to_funcs[t][attr][1]:
+                # Set the attribute type to be the return type of the property method
+                method_type = types.instance_attributes[t][attr]
+                arg_accessor = getattr(types.type_sort, "func_1_arg_1")
+                axioms.append(And(instance == type_instance,
+                                  method_type == types.funcs[1](0,
+                                                                arg_accessor(method_type),
+                                                                result)))
+            else:
+                attr_type = types.instance_attributes[t][attr]
+                axioms.append(And(instance == type_instance, result == attr_type))
         if t in types.class_attributes and attr in types.class_attributes[t]:
             # class access. Ex: A.x
             class_type = types.all_types[t]

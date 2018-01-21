@@ -299,8 +299,10 @@ def infer_subscript(node, context, solver):
     if isinstance(node.slice, ast.Index):
         index_type = infer(node.slice.value, context, solver)
         result_type = solver.new_z3_const("index")
-        solver.add(axioms.index(indexed_type, index_type, result_type, solver.z3_types),
+        hard, soft = axioms.index(indexed_type, index_type, result_type, solver.z3_types)
+        solver.add(hard,
                    fail_message="Indexing in line {}".format(node.lineno))
+        solver.optimize.add_soft(soft)
         return result_type
     else:  # Slicing
         # Some slicing may contain 'None' bounds, ex: a[1:], a[::]. Make Int the default type.
@@ -328,13 +330,15 @@ def infer_compare(node, context, solver):
     return solver.z3_types.bool
 
 
-def infer_name(node, context):
+def infer_name(node, context, solver):
     """Infer the type of a variable
 
     Attributes:
         node: the variable node whose type is to be inferred
         context: The context to look in for the variable type
     """
+    if node.id == '__name__':
+        return solver.z3_types.string
     try:
         return context.get_type(node.id)
     except NameError:
@@ -417,10 +421,11 @@ def _get_args_types(args, context, instance, solver):
         arg_type = solver.new_z3_const("call_arg")
         call_type = infer(arg, context, solver)
 
-        # The call arguments should be subtype of the corresponding function arguments
-        solver.add(solver.z3_types.subtype(call_type, arg_type),
-                   fail_message="Call argument subtyping in line {}".format(arg.lineno))
-        solver.optimize.add_soft(call_type == arg_type)
+        if not isinstance(call_type, AnnotatedFunction):
+            # The call arguments should be subtype of the corresponding function arguments
+            solver.add(solver.z3_types.subtype(call_type, arg_type),
+                       fail_message="Call argument subtyping in line {}".format(arg.lineno))
+            solver.optimize.add_soft(call_type == arg_type)
         args_types += (arg_type,)
     return args_types
 
@@ -568,6 +573,14 @@ def infer_attribute(node, context, from_call, solver):
         else:
             return instance.get_type(node.attr)
 
+    # Check if it's a special attribute access:
+    if node.attr == '__dict__':
+        return solver.z3_types.dict(solver.z3_types.string, solver.z3_types.object)
+    elif node.attr == '__class__':
+        return solver.z3_types.type(instance)
+    elif node.attr == '__name__':
+        return solver.z3_types.string
+
     result_type = solver.new_z3_const("attribute")
 
     # get axioms for built-in attribute access. Ex: x.append(sth)
@@ -613,6 +626,11 @@ def _infer_lambda(node, context, solver):
 
 def infer(node, context, solver, from_call=False):
     """Infer the type of a given AST node"""
+    try:
+        return context.get_isinstance_type(ast.dump(node, annotate_fields=False))
+    except NameError:
+        pass
+
     if isinstance(node, ast.Num):
         return infer_numeric(node, solver)
     elif isinstance(node, ast.Str):
@@ -651,7 +669,7 @@ def infer(node, context, solver, from_call=False):
     elif isinstance(node, ast.Compare):
         return infer_compare(node, context, solver)
     elif isinstance(node, ast.Name):
-        return infer_name(node, context)
+        return infer_name(node, context, solver)
     elif isinstance(node, ast.ListComp):
         return infer_sequence_comprehension(node, solver.z3_types.list, context, solver)
     elif isinstance(node, ast.SetComp):

@@ -36,16 +36,20 @@ set_param("smt.bv.reflect", True)
 class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""
 
-    def __init__(self, tree, solver=None, ctx=None):
+    def __init__(self, tree, solver=None, ctx=None, base_folder=''):
         super().__init__(solver, ctx)
         self.set(auto_config=False, mbqi=False, unsat_core=True)
         self.element_id = 0     # unique id given to newly created Z3 consts
         self.assertions_vars = []
         self.assertions_errors = {}
         self.stubs_handler = StubsHandler()
-        analyzer = PreAnalyzer(tree, "/home/marco/infer_scion_types/Typpete/tests/adventure/", self.stubs_handler)     # TODO: avoid hard-coding
+        analyzer = PreAnalyzer(tree, base_folder, self.stubs_handler)
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config, self)
+
+        # for cls in self.z3_types.classes:
+        #     self.z3_types.all_types[cls] = self.z3_types.type(self.z3_types.classes[cls])
+
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         self.optimize = Optimize(ctx)
         # self.optimize.set("timeout", 30000)

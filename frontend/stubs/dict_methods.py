@@ -42,3 +42,11 @@ def update(self: Dict[T, U], dict2: Dict[T, U]) -> None:
 
 def items(self: Dict[T, U]) -> List[Tuple[T, U]]:
     pass
+
+
+def keys(dict: Dict[T, U]) -> List[T]:
+    pass
+
+
+def values(dict: Dict[T, U]) -> List[U]:
+    pass

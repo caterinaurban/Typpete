@@ -5,7 +5,12 @@ classes_and_functions = [
 libraries = {
     "math": "frontend/stubs/libraries/math.py",
     "sys": "frontend/stubs/libraries/sys.py",
-    "re": "frontend/stubs/libraries/re.py"
+    "re": "frontend/stubs/libraries/re.py",
+    "random": "frontend/stubs/libraries/random.py",
+    "itertools": "frontend/stubs/libraries/itertools.py",
+    "csv": "frontend/stubs/libraries/csv.py",
+    "time": "frontend/stubs/libraries/time.py",
+    "os": "frontend/stubs/libraries/os.py",
 }
 
 methods = [
@@ -20,5 +25,9 @@ methods = [
     {
         "type": "dict",
         "path": "frontend/stubs/dict_methods.py"
+    },
+    {
+        "type": "set",
+        "path": "frontend/stubs/set_methods.py"
     }
 ]

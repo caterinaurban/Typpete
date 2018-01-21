@@ -99,6 +99,10 @@ def divmod(_: float, __: float) -> Tuple[int, int]:
     """ Return the tuple (x//y, x%y).  Invariant: div*y + mod == x. """
     pass
 
+def enumerate(l: List[T]) -> List[Tuple[int, T]]:
+    """Iterate over a list with key and value"""
+    pass
+
 
 def enumerate(l: List[TV]) -> List[Tuple[int, TV]]:
     """"""
@@ -122,6 +126,11 @@ def getattr(o: object, name: str) -> object:
     the result is the value of that attribute.
     For example, getattr(x, 'foobar') is equivalent to x.foobar.
     """
+    pass
+
+
+def hasattr(o: object, attr: str) -> bool:
+    """Check if an object has an attribute"""
     pass
 
 
@@ -185,6 +194,17 @@ def isinstance(x: object, y: object) -> bool:
 
 def len(_: object) -> int:
     """ Return the number of items in a container. """
+    pass
+
+
+
+def min(_: List[TV]) -> TV:
+    """Return the minimum object from the list
+
+    TODO:
+        - Verify that the argument is comparable
+        - Add support for different iterable objects
+    """
     pass
 
 

@@ -2,6 +2,7 @@ import builtins
 import glob
 import os
 import unittest
+from z3.z3types import Z3Exception
 
 import time
 from frontend.stmt_inferrer import *
@@ -105,9 +106,14 @@ class TestInference(unittest.TestCase):
 
             z3_type = context.get_var_from_children(v)
             expected = solver.annotation_resolver.resolve(ast.parse(expected_result[v]).body[0].value, solver, None)
-            self.assertEqual(model[z3_type], expected,
+
+            try:
+                actual = model[z3_type]
+            except Z3Exception:
+                actual = z3_type
+            self.assertEqual(actual, expected,
                              "Test file {}. Expected variable '{}' to have type '{}', but found '{}'"
-                             .format(self.file_name, v, expected, model[z3_type]))
+                             .format(self.file_name, v, expected, actual))
         end_time = time.time()
         print(self.test_end_message(end_time - start_time))
 
