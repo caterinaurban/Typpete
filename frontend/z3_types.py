@@ -47,8 +47,8 @@ class TypesSolver(Solver):
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config, self)
 
-        # for cls in self.z3_types.classes:
-        #     self.z3_types.all_types[cls] = self.z3_types.type(self.z3_types.classes[cls])
+        for cls in self.z3_types.classes:
+            self.z3_types.all_types[cls] = self.z3_types.type(self.z3_types.classes[cls])
 
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         self.optimize = Optimize(ctx)
