@@ -537,8 +537,9 @@ def _infer_class_def(node, context, solver):
             # The context doesn't contain the types of the instance attributes (e.g., self.x)
             # The axioms for such attributes are already added in the condition above.
             continue
-        solver.add(class_attrs[attr] == class_context.types_map[attr],
-                   fail_message="Class attribute in {}".format(node.lineno))
+        if not isinstance(class_context.types_map[attr], AnnotatedFunction):
+            solver.add(class_attrs[attr] == class_context.types_map[attr],
+                       fail_message="Class attribute in {}".format(node.lineno))
 
         if attr in inherited_funcs_to_super:
             continue

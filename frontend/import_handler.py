@@ -37,7 +37,7 @@ class ImportHandler:
         :param module_name: the name of the python module
         :param base_folder: the base folder containing the python module
         """
-        return ImportHandler.get_ast("{}/{}.py".format(base_folder, module_name), module_name)
+        return ImportHandler.get_ast("{}/{}.py".format(base_folder, module_name.replace('.', '/')), module_name)
 
     @staticmethod
     def get_builtin_ast(module_name):
