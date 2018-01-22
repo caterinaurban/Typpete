@@ -31,8 +31,9 @@ class Context:
         # classes in no specific order.
         class_names = [node.name for node in context_nodes if isinstance(node, ast.ClassDef)]
         for cls in class_names:
-            cls_type = solver.z3_types.all_types[cls]
-            self.types_map[cls] = cls_type
+            if cls in solver.z3_types.all_types:
+                cls_type = solver.z3_types.all_types[cls]
+                self.types_map[cls] = cls_type
 
         # Similarly, store function types that appear in this context
         func_names = [node.name for node in context_nodes if isinstance(node, ast.FunctionDef)]

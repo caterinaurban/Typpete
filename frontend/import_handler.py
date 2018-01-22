@@ -1,5 +1,6 @@
 import ast
 import astunparse
+import os
 
 from frontend.context import Context
 from frontend.stubs.stubs_paths import libraries
@@ -80,6 +81,8 @@ class ImportHandler:
             module_context.generate_typed_ast(model, solver)
 
             write_path = "inference_output/" + module_path
+            if not os.path.exists(os.path.dirname(write_path)):
+                os.makedirs(os.path.dirname(write_path))
             file = open(write_path, 'w')
             file.write(astunparse.unparse(module_ast))
             file.close()

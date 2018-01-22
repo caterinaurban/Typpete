@@ -478,7 +478,7 @@ def _infer_func_def(node, context, solver):
         solver.optimize.add_soft(body_type == return_type, weight=2)
     func_type = solver.z3_types.funcs[len(args_types)]((defaults_len,) + args_types + (return_type,))
     solver.add(result_type == func_type,
-               fail_message="Function definition in line {}".format(node.lineno))
+               fail_message="Function definition {} in line {}".format(node.name, node.lineno))
     return solver.z3_types.none
 
 
