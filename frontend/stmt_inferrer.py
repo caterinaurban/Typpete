@@ -512,10 +512,10 @@ def _infer_func_def(node, context, solver):
     if method_key in solver.z3_types.method_ids:
         func = solver.z3_types.generics[len(args) - 1]
         solver.add(result_type == func(*args, func_type),
-                   fail_message = "Generic function definition in line {}".format(node.lineno))
+                   fail_message = "Generic function definition {} in line {}".format(node.name, node.lineno))
     else:
         solver.add(result_type == func_type,
-                   fail_message = "Function definition in line {}".format(node.lineno))
+                   fail_message = "Function definition {} in line {}".format(node.name, node.lineno))
 
     if method_key in solver.z3_types.method_ids:
         solver.z3_types.current_method = old_method
@@ -591,8 +591,9 @@ def _infer_class_def(node, context, solver):
             # The context doesn't contain the types of the instance attributes (e.g., self.x)
             # The axioms for such attributes are already added in the condition above.
             continue
-        solver.add(class_attrs[attr] == class_context.types_map[attr],
-                   fail_message="Class attribute in {}".format(node.lineno))
+        if not isinstance(class_context.types_map[attr], AnnotatedFunction):
+            solver.add(class_attrs[attr] == class_context.types_map[attr],
+                       fail_message="Class attribute in {}".format(node.lineno))
 
         if attr in inherited_funcs_to_super:
             continue

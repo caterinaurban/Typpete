@@ -236,6 +236,8 @@ def index(indexed, ind, result, types):
             *[types.subtype(x, result) for x in tuple_args]
         ))
 
+    t.extend(overloading_axioms(indexed, ind, result, '__getitem__', types))
+
     return [
         Or(
             [And(indexed == types.dict(types.dict_key_type(indexed), result),

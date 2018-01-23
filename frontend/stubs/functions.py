@@ -8,6 +8,10 @@ Num = TypeVar("Num", bound=complex)
 
 
 
+class Exception():
+    pass
+
+
 def abs(x: Num) -> Num:
     """Return the absolute value of the argument. """
     pass
@@ -58,7 +62,7 @@ def bool(_: object = None) -> bool:
     pass
 
 
-def bytes(_: bytes = None) -> bytes:
+def bytes(_: object = None) -> bytes:
     """Return a new "bytes" object."""
     pass
 
