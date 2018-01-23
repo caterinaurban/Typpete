@@ -84,7 +84,7 @@ class ISD_AS():
         self._isd = raw >> 20
         self._as = raw & 0x000fffff
 
-    @staticmethod
+    @staticmethod  # CHANGE: Turned classmethod into staticmethod
     def from_values(isd, as_):  # pragma: no cover
         inst = ISD_AS()
         inst._isd = isd
@@ -92,15 +92,15 @@ class ISD_AS():
         return inst
 
     def pack(self):
-        return struct.pack("!I", self.inturgh())
+        return struct.pack("!I", self.int())
 
-    def inturgh(self):
+    def int(self):
         isd_as = self._isd << 20
         isd_as |= self._as & 0x000fffff
         return isd_as
 
-    def any_as(self):  # pragma: no cover
-        return ISD_AS.from_values(self._isd, 0)
+    def any_as(self):
+        return ISD_AS.from_values(self._isd, 0)  # CHANGE: Changed call target from self to class
 
     def params(self, name="first"):  # pragma: no cover
         """Provides parameters for querying PathSegmentDB"""
@@ -121,27 +121,23 @@ class ISD_AS():
             raise SCIONIndexError("Invalid index used on %s object: %s" % (
                                   (self.NAME, idx)))
 
-    def to_int(self) -> int:
-        return 123
+    def __int__(self):
+        return self.int()
 
-    # def __int__(self):  # pragma: no cover
-    #     return self.int()
-    #
-    # def __iter__(self):  # pragma: no cover
-    #     yield self._isd
-    #     yield self._as
-    #
-    # def __str__(self):
-    #     return "%s-%s" % (self._isd, self._as)
-    #
-    # def __repr__(self):
-    #     return "ISD_AS(isd=%s, as=%s)" % (self._isd, self._as)
-    #
-    # def __len__(self):  # pragma: no cover
-    #     return self.LEN
-    #
-    # def __hash__(self):  # pragma: no cover
-    #     return hash(str(self))
+    def __iter__(self):  # CHANGE: changed generator to return list
+        return [self._isd, self._as]
+
+    def __str__(self):
+        return "%s-%s" % (self._isd, self._as)
+
+    def __repr__(self):
+        return "ISD_AS(isd=%s, as=%s)" % (self._isd, self._as)
+
+    def __len__(self):  # pragma: no cover
+        return self.LEN
+
+    def __hash__(self):  # pragma: no cover
+        return hash(str(self))
 
 
 class SCIONAddr(object):
@@ -176,7 +172,7 @@ class SCIONAddr(object):
         self.isd_as = ISD_AS(data.pop(ISD_AS.LEN))
         self.host = haddr_type(data.pop(haddr_type.LEN))
 
-    @staticmethod
+    @staticmethod    # CHANGE: Turned classmethod into staticmethod
     def from_values(isd_as, host):  # pragma: no cover
         """
         Create an instance of the class SCIONAddr.
@@ -198,20 +194,20 @@ class SCIONAddr(object):
         """
         return self.isd_as.pack() + self.host.pack()
 
-    @staticmethod
+    @staticmethod    # CHANGE: Turned classmethod into staticmethod
     def calc_len(type_):  # pragma: no cover
         class_ = haddr_get_type(type_)
         return ISD_AS.LEN + class_.LEN
 
-    # def __len__(self):  # pragma: no cover
-    #     return len(self.isd_as) + len(self.host)
-    #
-    # def __eq__(self, other):  # pragma: no cover
-    #     return (self.isd_as == other.isd_as and
-    #             self.host == other.host)
-    #
-    # def __str__(self):
-    #     """
-    #     Return a string containing ISD-AS, and host address.
-    #     """
-    #     return "(%s (%s) %s)" % (self.isd_as, self.host.name(), self.host)
+    def __len__(self):  # pragma: no cover
+        return len(self.isd_as) + len(self.host)
+
+    def __eq__(self, other):  # pragma: no cover
+        return (self.isd_as == other.isd_as and
+                self.host == other.host)
+
+    def __str__(self):
+        """
+        Return a string containing ISD-AS, and host address.
+        """
+        return "(%s (%s) %s)" % (self.isd_as, self.host.name(), self.host)

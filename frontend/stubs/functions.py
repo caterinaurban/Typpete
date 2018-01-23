@@ -1,5 +1,5 @@
 """Stub file for built in functions"""
-from typing import TypeVar, List, Tuple, Dict, Set
+from typing import TypeVar, List, Tuple, Dict, Set, Type
 
 
 TV = TypeVar("TV")
@@ -317,6 +317,10 @@ def sum(_: List[Num]) -> Num:
 
     TODO: Add support for different iterable objects
     """
+    pass
+
+
+def type(o: TV) -> Type[TV]:
     pass
 
 

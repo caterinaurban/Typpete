@@ -1,3 +1,4 @@
+from typing import cast
 from .pin import Pin
 
 class Chip:
@@ -56,8 +57,8 @@ class Chip:
     def ispowered(self):
         return self.vcc.ishigh()
 
-    def getpin(self, code) -> Pin:
-        return getattr(self, 'pin_{}'.format(code.replace('~', '')))
+    def getpin(self, code):
+        return cast(Pin, getattr(self, 'pin_{}'.format(code.replace('~', ''))))
 
     def getpins(self, codes):
         return [self.getpin(code) for code in codes]

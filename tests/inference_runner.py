@@ -7,10 +7,12 @@ import ast
 import os
 import time
 import astunparse
+import sys
+sys.setrecursionlimit(10000)
 
 start_time = time.time()
-base_folder = 'tests/scion'
-file_name = 'lib/path_store'
+base_folder = 'tests/icemu'
+file_name = 'seg7'
 
 t = ImportHandler.get_module_ast(file_name, base_folder)
 

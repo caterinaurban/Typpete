@@ -475,18 +475,20 @@ def infer_func_call(node, context, solver):
     # It's none in all cases except method calls
     instance = None
     call_axioms = []
+    target_context = context
 
     if isinstance(node.func, ast.Attribute):
         instance = infer(node.func.value, context, solver)
         if isinstance(instance, Context):
             # Module access; instance is a module, so don't add it as a receiver to `arg_types`
+            target_context = instance
             instance = None
 
     args_types = _get_args_types(node.args, context, instance, solver)
 
     if isinstance(node.func, ast.Attribute):
         # Add axioms for built-in methods
-        call_axioms += _get_builtin_method_call_axioms(args_types, solver, context, result_type, node.func.attr)
+        call_axioms += _get_builtin_method_call_axioms(args_types, solver, target_context, result_type, node.func.attr)
 
         if instance is not None:
             # Add disjunctions for staticmethod calls
@@ -591,7 +593,7 @@ def infer_attribute(node, context, from_call, solver):
     user_defined_attribute_axioms = axioms.attribute(instance, node.attr, result_type, solver.z3_types)
 
     solver.add(Or([user_defined_attribute_axioms] + builtin_axioms),
-               fail_message="Attribute access in line {}".format(node.lineno))
+               fail_message="Attribute access {} in line {}".format(node.attr, node.lineno))
 
     if from_call:
         return result_type, instance

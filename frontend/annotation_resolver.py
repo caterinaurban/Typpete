@@ -36,7 +36,7 @@ class AnnotationResolver:
         self.type_var_poss = {}
         self.type_var_super = {}
 
-    def resolve(self, annotation, solver, module, generics_map=None):
+    def resolve(self, annotation, solver, module, generics_map=None, annotated=False):
         """Resolve the type annotation with the following grammar:
         
         :param annotation: the type annotation to be resolved
@@ -69,7 +69,8 @@ class AnnotationResolver:
             if generics_map is None and module is None:
                 raise ValueError(
                     "Invalid type annotation {} in line {}".format(id, annotation.lineno))
-            if generics_map is not None:
+            key = (module, id)
+            if generics_map is not None and (annotated or key not in self.z3_types.config.type_vars):
                 if id in generics_map:
                     return generics_map[id]
 
@@ -87,7 +88,6 @@ class AnnotationResolver:
                 return result_type
             
             # Check if it's a generic type var
-            key = (module, id)
             if key in self.z3_types.config.type_vars:
                 return self.z3_types.config.type_vars[key]
             else:
@@ -212,9 +212,9 @@ class AnnotationResolver:
         generics_map = {}
 
         for i, annotation in enumerate(args_annotations[:len(args_types)]):
-            arg_type = self.resolve(annotation, solver, None, generics_map=generics_map)
+            arg_type = self.resolve(annotation, solver, annotated_function.module, generics_map=generics_map, annotated=True)
             axioms.append(args_types[i] == arg_type)
-        axioms.append(result_type == self.resolve(result_annotation, solver, None, generics_map))
+        axioms.append(result_type == self.resolve(result_annotation, solver, annotated_function.module, generics_map, annotated=True))
         return And(axioms)
 
     def add_type_var(self, target, type_var_node, solver, module):
@@ -285,7 +285,7 @@ class AnnotationResolver:
         # unparse type type. Example: type_type(class_A) -> Type[A]
         if match:
             # get the instance of this type
-            instance_accessor = getattr(self.z3_types.type_sort, "instance")
+            instance_accessor = getattr(self.z3_types.type_sort, "type_arg_0")
             instance = simplify(instance_accessor(z3_type))
             return "Type[{}]".format(self.unparse_annotation(instance))
 

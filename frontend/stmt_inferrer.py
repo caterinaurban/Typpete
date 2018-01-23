@@ -109,7 +109,7 @@ def _infer_assign(node, context, solver):
     """Infer the types of target variables in an assignment node."""
 
     if _is_type_var_declaration(node.value):
-        module = node._module if hasattr(node, '_module') else None
+        module = get_module(node)
         solver.annotation_resolver.add_type_var(node.targets[0], node.value, solver, module)
     else:
         value_type = expr.infer(node.value, context, solver)
@@ -379,7 +379,7 @@ def is_annotated(node):
     if not node.returns:
         return False
     for arg in node.args.args if not hasattr(node, '_parent') or not isinstance(node._parent, ast.ClassDef) else node.args.args[1:]:
-        if not arg.annotation:
+        if not arg.annotation and arg.arg != 'self':
             return False
     return True
 
@@ -440,8 +440,8 @@ def get_type_vars(node, solver):
 
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
-
-    if is_stub(node) or is_option_generic(node, solver):
+    module = get_module(node)
+    if is_annotated(node) and (is_option_generic(node, solver) or (is_stub(node) and module is None)):
         return_annotation = node.returns
         args_annotations = []
         for arg in node.args.args:
@@ -452,9 +452,10 @@ def _infer_func_def(node, context, solver):
                 context.builtin_methods[node.method_type] = {}
             context.builtin_methods[node.method_type][node.name] = AnnotatedFunction(args_annotations,
                                                                                      return_annotation,
-                                                                                     defaults_count)
+                                                                                     defaults_count,
+                                                                                     get_module(node))
         else:
-            context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count))
+            context.set_type(node.name, AnnotatedFunction(args_annotations, return_annotation, defaults_count, get_module(node)))
         return solver.z3_types.none
     method_key = node.name
     if context.name:

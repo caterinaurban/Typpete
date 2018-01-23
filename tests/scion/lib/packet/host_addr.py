@@ -7,11 +7,13 @@ class HostAddrBase(Serializable):
     TYPE = None  # type: Optional[int]
     LEN = None  # type: Optional[int]
 
+    def __init__(self, addr: bytes) -> None:
+        ...
+
     def __str__(self) -> str:
         ...
 
-    @staticmethod
-    def name() -> str:
+    def name(self) -> str:
         ...
 
     def pack(self) -> bytes:
