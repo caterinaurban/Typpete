@@ -1,3 +1,4 @@
+# class_type_params {'Cell': [0]}
 
 class Cell:
     def __init__(self, val):

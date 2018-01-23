@@ -36,7 +36,8 @@ set_param("smt.bv.reflect", True)
 class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""
 
-    def __init__(self, tree, solver=None, ctx=None, base_folder=''):
+    def __init__(self, tree, solver=None, ctx=None, base_folder='',
+                 type_params:dict=None, class_type_params: dict=None):
         super().__init__(solver, ctx)
         self.set(auto_config=False, mbqi=False, unsat_core=True)
         self.element_id = 0     # unique id given to newly created Z3 consts
@@ -45,6 +46,10 @@ class TypesSolver(Solver):
         self.stubs_handler = StubsHandler()
         analyzer = PreAnalyzer(tree, base_folder, self.stubs_handler)
         self.config = analyzer.get_all_configurations()
+        if type_params:
+            self.config.type_params.update(type_params)
+        if class_type_params:
+            self.config.class_type_params.update(class_type_params)
         self.z3_types = Z3Types(self.config, self)
 
         for cls in self.z3_types.classes:

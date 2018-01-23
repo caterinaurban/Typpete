@@ -1,5 +1,8 @@
+# type_params {'generic_tolist': [0], 'flatten': [1], 'flatten_dicts': [2,3]}
+
+
 def generic_tolist(a):
-    # b = a + 1
+    b = a + 1
     return [a]
 
 u = generic_tolist(1.2)
@@ -34,7 +37,6 @@ def flatten_dict(dicts,
     return result
 
 a = flatten([[1,2], [1,2], [True, False]])
-# a2 = flatten([[1,2], [1,2], [True, False]])
 a2 = flatten([["hi"], ['yo', 'sup']])
 a4 = a[a[0]]
 

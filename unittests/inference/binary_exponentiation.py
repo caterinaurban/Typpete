@@ -1,10 +1,10 @@
 """Binary exponentiation"""
 from typing import TypeVar
 
-Num = TypeVar("Num", bool, int, float, complex)
+AnyNum = TypeVar("Num", bool, int, float, complex)
 
 
-def exp(a: Num, b: int) -> Num:
+def exp(a: AnyNum, b: int) -> AnyNum:
     res = 1
     while b > 0:
         if b & 1 != 0:

@@ -16,7 +16,7 @@ class Node:
         self.next_node = node
 
 
-class List:
+class LList:
     def __init__(self):
         self.first_node = Node(-1)
         self.last_node = Node(-1)
@@ -33,7 +33,7 @@ class List:
             self.first_node = new_node
 
 n = Node(1)
-l = List()
+l = LList()
 
 for i in range(5):
     if l.is_empty():
@@ -47,8 +47,8 @@ for i in range(5):
 # get_next_node := Callable[[Node], Node]
 # set_next_node := Callable[[Node, Node], None]
 
-# List := Type[List]
-# is_empty := Callable[[List], bool]
-# insert_at_begin := Callable[[List, int], None]
+# LList := Type[LList]
+# is_empty := Callable[[LList], bool]
+# insert_at_begin := Callable[[LList, int], None]
 # n := Node
-# l := List
+# l := LList

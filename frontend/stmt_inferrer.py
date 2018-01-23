@@ -218,7 +218,7 @@ def _infer_control_flow(node, context, solver):
             # The only allowed case is when `x` is variable and `t` is a single type (not a tuple).
 
             # Get the type `t`
-            t = solver.resolve_annotation(node.test.args[1])
+            t = solver.resolve_annotation(node.test.args[1], get_module(node))
 
             # Set `x` to be an instance of `t` in the then branch
             body_context.isinstance_nodes[ast.dump(node.test.args[0], annotate_fields=False)] = t
@@ -329,7 +329,7 @@ def _infer_try(node, context, solver):
         if handler.name:
             handler_context = Context(node.body, solver, parent_context=context)
             handler_context.set_type(handler.name,
-                                     solver.annotation_resolver.resolve(handler.type, solver))
+                                     solver.annotation_resolver.resolve(handler.type, solver, get_module(node)))
         handler_body_type = _infer_body(handler.body, handler_context, handler.lineno, solver)
         solver.add(solver.z3_types.subtype(handler_body_type, result_type),
                    fail_message="Exception handler in line {}".format(handler.lineno))
@@ -399,6 +399,11 @@ def is_stub(node):
             or (len(node.body) == 2 and isinstance(node.body[0], ast.Expr) and isinstance(node.body[1], ast.Pass)))
 
 
+def is_option_generic(node, solver):
+    tvs = [tv.id for tv in get_type_vars(node, solver)]
+    return any(solver.annotation_resolver.type_var_poss.get(tv) for tv in tvs)
+
+
 def get_type_vars(node, solver):
     """Check if the function definition has a generic type variable annotation
 
@@ -436,7 +441,7 @@ def get_type_vars(node, solver):
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
 
-    if is_stub(node):
+    if is_stub(node) or is_option_generic(node, solver):
         return_annotation = node.returns
         args_annotations = []
         for arg in node.args.args:

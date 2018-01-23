@@ -293,8 +293,8 @@ class Configuration:
         self.used_names = []
         self.max_default_args = 0
         self.all_classes = {}
-        self.type_params =   {'make_object': ["VALS"]} # {} # {'generic_tolist': [1], 'flatten_dict': [0, 2], 'flatten': [3]}
-        self.class_type_params =  {} # {'Concatenator': [0]} # {'Cell': [0]}
+        self.type_params =   {}
+        self.class_type_params =  {}
         self.type_vars = OrderedDict()
         for vars in self.class_type_params.values():
             for var in vars:

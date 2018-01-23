@@ -228,7 +228,7 @@ class AnnotationResolver:
         type_var_name = target.id
 
         type_var_possibilities = args[1:]
-        if module is None:
+        if module is None or type_var_possibilities:
             if type_var_node.keywords and type_var_node.keywords[0].arg == "bound":
                 type_var_super = type_var_node.keywords[0].value
                 self.type_var_super[type_var_name] = type_var_super

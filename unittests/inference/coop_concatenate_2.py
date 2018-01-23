@@ -1,7 +1,9 @@
-# class_type_params {'Concatenator': [0]}
 # type_params {'concatenate': [1,2]}
+from typing import TypeVar, Generic
 
-class Concatenator:
+TC = TypeVar("TC")
+
+class Concatenator(Generic[TC]):
     def __init__(self, a):
         self.a = a
 

@@ -16,6 +16,8 @@ class TestInference(unittest.TestCase):
         self.sat = True
         self.throws = None
         self.ignore = False
+        self.class_type_params = None
+        self.type_params = None
 
     @staticmethod
     def parse_comment(comment):
@@ -38,12 +40,18 @@ class TestInference(unittest.TestCase):
             if line[2:8] == "throws":
                 self.throws = line[9:]
                 continue
+            if line[2:].startswith("class_type_params"):
+                self.class_type_params = line[19:]
+                continue
+            if line[2:].startswith("type_params"):
+                self.type_params = line[13:]
+                continue
             variable, t = self.parse_comment(line)
             result[variable] = t
         return result
 
     @staticmethod
-    def infer_file(path):
+    def infer_file(path, type_params=None, class_type_params=None):
         """Infer a single python program
 
         :param path: file system path of the program to infer 
@@ -53,7 +61,8 @@ class TestInference(unittest.TestCase):
         t = ast.parse(r.read())
         r.close()
 
-        solver = z3_types.TypesSolver(t)
+        solver = z3_types.TypesSolver(t, type_params=type_params,
+                                      class_type_params=class_type_params)
 
         context = Context(t.body, solver)
 
@@ -83,7 +92,13 @@ class TestInference(unittest.TestCase):
             return
 
         try:
-            solver, context = self.infer_file(self.file_path)
+            class_type_params = None
+            if self.class_type_params:
+                class_type_params = ast.literal_eval(self.class_type_params)
+            type_params = None
+            if self.type_params:
+                type_params = ast.literal_eval(self.type_params)
+            solver, context = self.infer_file(self.file_path, type_params, class_type_params)
         except:
             raise Exception(self.file_path)
 
