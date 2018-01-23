@@ -1,5 +1,6 @@
 from frontend.stmt_inferrer import *
 from frontend.import_handler import ImportHandler
+from frontend.config import config
 from z3 import Optimize
 
 import ast
@@ -61,7 +62,10 @@ def print_context(ctx, ind=""):
         print("---------------------------")
 
 start_time = time.time()
-check = solver.optimize.check()
+if config['enable_soft_constraints']:
+    check = solver.optimize.check()
+else:
+    check = solver.check(solver.assertions_vars)
 end_time = time.time()
 
 if check == z3_types.unsat:
@@ -82,7 +86,11 @@ if check == z3_types.unsat:
             print("Unsat:")
             print(solver.assertions_errors[av])
 else:
-    model = solver.optimize.model()
+    if config['enable_soft_constraints']:
+        model = solver.optimize.model()
+    else:
+        model = solver.model()
+
 context.generate_typed_ast(model, solver)
 
 # uncomment this to write typed source into a file
