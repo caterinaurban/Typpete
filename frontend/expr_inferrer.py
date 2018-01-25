@@ -313,10 +313,15 @@ def infer_subscript(node, context, solver):
 
 
 def infer_compare(node, context, solver):
-    # TODO: verify that types in comparison are comparable
-    infer(node.left, context, solver)
-    for comparator in node.comparators:
-        infer(comparator, context, solver)
+    left_type = infer(node.left, context, solver)
+    for i, comparator in enumerate(node.comparators):
+        comp_type = infer(comparator, context, solver)
+        if isinstance(node.ops[i], (ast.Lt, ast.LtE, ast.Gt, ast.GtE)):
+            solver.add(comp_type != solver.z3_types.none,
+                       fail_message="Types in order comparison mustn't be none.")
+            if i == 0:
+                solver.add(left_type != solver.z3_types.none,
+                           fail_message="Types in order comparison mustn't be none.")
 
     return solver.z3_types.bool
 
