@@ -13,6 +13,8 @@ from frontend.pre_analysis import PreAnalyzer
 from frontend.stubs.stubs_handler import StubsHandler
 from z3 import *
 
+class Dummy():
+    pass
 
 set_param("auto-config", False)
 set_param("smt.mbqi", False)
@@ -53,15 +55,19 @@ class TypesSolver(Solver):
         self.assertions_errors = {}
         self.stubs_handler = StubsHandler()
         analyzer = PreAnalyzer(tree, base_folder, self.stubs_handler)
-        self.config = analyzer.get_all_configurations()
-        if type_params:
-            self.config.type_params.update(type_params)
-        if class_type_params:
-            self.config.class_type_params.update(class_type_params)
+        if type_params is None:
+            type_params = {}
+        if class_type_params is None:
+            class_type_params = {}
+        self.config = analyzer.get_all_configurations(class_type_params, type_params)
         self.z3_types = Z3Types(self.config, self)
 
         for cls in self.z3_types.classes:
-            self.z3_types.all_types[cls] = self.z3_types.type(self.z3_types.classes[cls])
+            cls_func = self.z3_types.classes[cls]
+            if not isinstance(cls_func, z3.FuncDeclRef):
+                self.z3_types.all_types[cls] = self.z3_types.type(cls_func)
+            else:
+                self.z3_types.all_types[cls] = Dummy()
 
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         if config['enable_soft_constraints']:

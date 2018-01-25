@@ -389,41 +389,44 @@ def one_type_instantiation(class_name, args, result, types, tvs):
     """
     init_args_count = types.class_to_funcs[class_name]["__init__"][0]
 
-    # Get the instance accessor from the type_sort data type.
-    instance = getattr(types.type_sort, "type_arg_0")(types.all_types[class_name])
-
     # Get the __init__ function of the this class
     init_func = types.instance_attributes[class_name]["__init__"]
 
-    # Assert that it's a call to this __init__ function
+    if class_name not in types.config.class_type_params:
 
-    # Get the default args count
-    defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(init_args_count))
-    default_count = defaults_accessor(init_func)
+        # Get the instance accessor from the type_sort data type.
+        instance = getattr(types.type_sort, "type_arg_0")(types.all_types[class_name])
 
-    rem_args_count = init_args_count - len(args) - 1
-    rem_args = []
-    for i in range(rem_args_count):
-        arg_idx = len(args) + i + 2
-        # Get the default arg type
-        arg_accessor = getattr(types.type_sort, "func_{}_arg_{}".format(init_args_count, arg_idx))
-        rem_args.append(arg_accessor(init_func))
 
-    all_args = (instance,) + args + tuple(rem_args) + (types.none,)  # The return type of __init__ is None
-    z3_func_args = (default_count,) + all_args
 
-    generic_receiver_type = False
-    generic_args = args
-    if class_name in types.config.class_type_params:
+        # Assert that it's a call to this __init__ function
+
+        # Get the default args count
+        defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(init_args_count))
+        default_count = defaults_accessor(init_func)
+
+        rem_args_count = init_args_count - len(args) - 1
+        rem_args = []
+        for i in range(rem_args_count):
+            arg_idx = len(args) + i + 2
+            # Get the default arg type
+            arg_accessor = getattr(types.type_sort, "func_{}_arg_{}".format(init_args_count, arg_idx))
+            rem_args.append(arg_accessor(init_func))
+
+        all_args = (instance,) + args + tuple(rem_args) + (types.none,)  # The return type of __init__ is None
+        z3_func_args = (default_count,) + all_args
+        return And(
+                  result == instance,
+                  init_func == types.funcs[len(args) + len(rem_args) + 1](z3_func_args), default_count >= rem_args_count)
+    else:
+
+
         rec_type = types.classes[class_name](tvs[:len(types.config.class_type_params[class_name])])
         generic_receiver_type = result == rec_type
         generic_args = (rec_type,) + args
-    # Assert that it's a call to this __init__ function
-    return Or(And(
-                  result == instance,
-                  init_func == types.funcs[len(args) + len(rem_args) + 1](z3_func_args), default_count >= rem_args_count),
-              And(generic_receiver_type, Or(*generic_call_axioms(init_func, generic_args, result, types, tvs)))
-              )
+        # Assert that it's a call to this __init__ function
+        return And(generic_receiver_type, Or(*generic_call_axioms(init_func, generic_args, result, types, tvs)))
+
 
 
 def instance_axioms(called, args, result, types, tvs):
@@ -477,7 +480,7 @@ def function_call_axioms(called, args, result, types):
 
 def generic_call_axioms(called, args, result, types, tvs):
     axioms = []
-    to_iterate_over = range(min(3, len(tvs)))
+    to_iterate_over = range(types.config.max_type_args)
     for i in to_iterate_over:
         generic_constr = types.generics[i]
         cargs = []
@@ -611,10 +614,11 @@ def instancemethod_call(instance, args, result, attr, types, tvs):
                     type_func = types.classes[t] if t not in ALIASES else getattr(types.type_sort, ALIASES[t])
                     rec_type = type_func(tvs[:len(types.config.class_type_params[t])])
                     receiver_subtype = types.subtype(instance, rec_type)
-                axioms.append(Or(And(instance == types.type_sort.type_arg_0(types.all_types[t]),
+                    axioms.append(And(receiver_subtype, Or(*generic_call_axioms(attr_type, list(args), result, types, tvs))))
+                else:
+                    axioms.append(And(instance == types.type_sort.type_arg_0(types.all_types[t]),
                                      Or(function_call_axioms(attr_type, args, result, types))),
-                                 And(receiver_subtype, Or(*generic_call_axioms(attr_type, list(args), result, types, tvs)))
-                                 ))
+                                 )
 
         # Otherwise, check if it is an instance attribute, if so add call axioms with no receiver
         elif attr in types.instance_attributes[t]:
@@ -637,7 +641,8 @@ def attribute(instance, attr, result, types):
             if t in types.config.class_type_params:
                 tps = types.config.class_type_params[t]
                 accessors = [ctb[1:] for ctb in types.config.class_to_base
-                             if isinstance(ctb, tuple) and ctb[0] == t][0]
+                             if isinstance(ctb, tuple) and ctb[0] == t]
+                accessors = accessors[0]
                 args = [getattr(types.type_sort, a)(instance) for a in accessors]
                 params = [getattr(types, "generic{}_tv{}".format(len(tps), i+1))(attr_type)
                           for _, i in enumerate(tps)]

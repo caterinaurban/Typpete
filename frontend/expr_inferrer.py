@@ -496,13 +496,15 @@ def infer_func_call(node, context, solver):
             call_axioms += axioms.staticmethod_call(instance, args_types[1:], result_type,
                                                     node.func.attr, solver.z3_types)
 
-            tv0 = solver.new_z3_const("ta0")
-            tv1 = solver.new_z3_const("ta1")
-            tv2 = solver.new_z3_const("ta2")
+            tvs = []
+            for i in range(solver.z3_types.config.max_type_args):
+                tv = solver.new_z3_const("ta" + str(i))
+                tvs.append(tv)
+
             # Fixes #21: https://github.com/caterinaurban/Typpete/issues/21
             call_axioms += axioms.instancemethod_call(instance, args_types, result_type,
                                                       node.func.attr, solver.z3_types,
-                                                      [tv0, tv1, tv2])
+                                                      tvs)
 
             solver.add(Or(call_axioms),
                        fail_message="Call to {} in line {}".format(node.func.attr, node.lineno))
@@ -513,10 +515,11 @@ def infer_func_call(node, context, solver):
         if func_axioms is not None:
             call_axioms.append(func_axioms)
     else:
-        tv0 = solver.new_z3_const("ta0")
-        tv1 = solver.new_z3_const("ta1")
-        tv2 = solver.new_z3_const("ta2")
-        call_axioms += axioms.call(called, args_types, result_type, solver.z3_types, [tv0, tv1, tv2])
+        tvs = []
+        for i in range(solver.z3_types.config.max_type_args):
+            tv = solver.new_z3_const("ta" + str(i))
+            tvs.append(tv)
+        call_axioms += axioms.call(called, args_types, result_type, solver.z3_types, tvs)
 
     solver.add(Or(call_axioms),
                fail_message="Call in line {}".format(node.lineno))

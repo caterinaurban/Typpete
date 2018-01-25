@@ -651,7 +651,8 @@ def _infer_class_def(node, context, solver):
                                              == base_return_accessor(bases_attrs[base][attr]))
 
     class_type = solver.z3_types.type(instance_type)
-    solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
+    if type(result_type).__name__ != 'Dummy':
+        solver.add(result_type == class_type, fail_message="Class definition in line {}".format(node.lineno))
     result_type.is_class = True
 
     return solver.z3_types.none

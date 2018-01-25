@@ -41,10 +41,10 @@ class TestInference(unittest.TestCase):
                 self.throws = line[9:]
                 continue
             if line[2:].startswith("class_type_params"):
-                self.class_type_params = line[19:]
+                self.class_type_params = line[20:]
                 continue
             if line[2:].startswith("type_params"):
-                self.type_params = line[13:]
+                self.type_params = line[14:]
                 continue
             variable, t = self.parse_comment(line)
             result[variable] = t

@@ -2,7 +2,6 @@
 
 
 def generic_tolist(a):
-    b = a + 1
     return [a]
 
 u = generic_tolist(1.2)
@@ -28,8 +27,6 @@ def flatten_dict(dicts,
         result[key] = []
     for d in dicts:
         for key, value in d.items():
-            a = [1]
-            b = a[key]
             if key in result:
                 result[key].extend(value)
             else:

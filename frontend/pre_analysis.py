@@ -258,8 +258,8 @@ class PreAnalyzer:
                 class_to_base, class_to_funcs,
                 inherited_funcs_to_super)
 
-    def get_all_configurations(self):
-        config = Configuration()
+    def get_all_configurations(self, class_type_params, type_params):
+        config = Configuration(class_type_params, type_params)
         config.max_tuple_length = self.maximum_tuple_length()
         config.max_function_args = self.maximum_function_args()
         config.base_folder = self.base_folder
@@ -274,6 +274,8 @@ class PreAnalyzer:
         config.used_names = self.get_all_used_names()
         config.max_default_args = self.max_default_args()
 
+        config.update_type_vars()
+
         self.analyze_functions(config)
 
         config.complete_class_to_base()
@@ -283,7 +285,7 @@ class PreAnalyzer:
 
 class Configuration:
     """A class holding configurations given by the pre-analyzer"""
-    def __init__(self):
+    def __init__(self, class_type_params, type_params):
         self.max_tuple_length = 0
         self.max_function_args = 1
         self.classes_to_attrs = OrderedDict()
@@ -293,15 +295,23 @@ class Configuration:
         self.used_names = []
         self.max_default_args = 0
         self.all_classes = {}
-        self.type_params =   {}
-        self.class_type_params =  {}
+        self.type_params =  type_params
+        self.class_type_params = class_type_params
+        self.max_type_args = 0
         self.type_vars = OrderedDict()
+
+    def update_type_vars(self):
+        max_class_vars = 0
+        max_func_vars = 0
         for vars in self.class_type_params.values():
+            max_class_vars = max(max_class_vars, len(vars))
             for var in vars:
                 self.type_vars[(None, var)] = str(var)
         for vars in self.type_params.values():
+            max_func_vars = max(max_func_vars, len(vars))
             for var in vars:
                 self.type_vars[(None, var)] = str(var)
+        self.max_type_args = max_func_vars + max_class_vars
 
     def add_class_type_params(self, name, args, module):
         self.class_type_params[name] = args
