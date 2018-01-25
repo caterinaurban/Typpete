@@ -32,6 +32,14 @@ set_param("smt.bv.reflect", True)
 # set_param(verbose=10)
 
 
+class DummyOptimize:
+    def add_soft(self, *args, **kwargs):
+        pass
+
+    def add(self, *args, **kwargs):
+        pass
+
+
 class TypesSolver(Solver):
     """Z3 solver that has all the type system axioms initialized."""
 
@@ -50,8 +58,13 @@ class TypesSolver(Solver):
             self.z3_types.all_types[cls] = self.z3_types.type(self.z3_types.classes[cls])
 
         self.annotation_resolver = AnnotationResolver(self.z3_types)
-        self.optimize = Optimize(ctx)
+        if config['enable_soft_constraints']:
+            self.optimize = Optimize(ctx)
+        else:
+            self.optimize = DummyOptimize()
         # self.optimize.set("timeout", 30000)
+        self.all_assertions = []
+        self.forced = set()
         self.init_axioms()
 
     def add(self, *args, fail_message):
@@ -59,7 +72,9 @@ class TypesSolver(Solver):
         self.assertions_vars.append(assertion)
         self.assertions_errors[assertion] = fail_message
         self.optimize.add(*args)
-        super().add(Implies(assertion, And(*args)))
+        to_add = Implies(assertion, And(*args))
+        super().add(to_add)
+        self.all_assertions.append(to_add)
 
     def init_axioms(self):
         self.add(self.z3_types.subtyping, fail_message="Subtyping error")

@@ -1,5 +1,7 @@
 from frontend.stmt_inferrer import *
 from frontend.import_handler import ImportHandler
+from frontend.config import config
+from z3 import Optimize
 
 import ast
 import os
@@ -7,8 +9,8 @@ import time
 import astunparse
 
 start_time = time.time()
-base_folder = 'tests/imp'
-file_name = 'imp'
+base_folder = 'tests/scion'
+file_name = 'lib/path_store'
 
 t = ImportHandler.get_module_ast(file_name, base_folder)
 
@@ -60,29 +62,50 @@ def print_context(ctx, ind=""):
         print("---------------------------")
 
 start_time = time.time()
-check = solver.optimize.check()
+if config['enable_soft_constraints']:
+    check = solver.optimize.check()
+else:
+    check = solver.check(solver.assertions_vars)
 end_time = time.time()
 
 if check == z3_types.unsat:
     print("Check: unsat")
-    solver.check(solver.assertions_vars)
-    print(solver.unsat_core())
-    print([solver.assertions_errors[x] for x in solver.unsat_core()])
+    opt = Optimize(solver.ctx)
+    for av in solver.assertions_vars:
+        opt.add_soft(av)
+    for a in solver.all_assertions:
+        opt.add(a)
+    for a in solver.z3_types.subtyping:
+        opt.add(a)
+    for a in solver.forced:
+        opt.add(a)
+    checkres = opt.check()
+    model = opt.model()
+    for av in solver.assertions_vars:
+        if not model[av]:
+            print("Unsat:")
+            print(solver.assertions_errors[av])
 else:
-    model = solver.optimize.model()
-    context.generate_typed_ast(model, solver)
+    if config['enable_soft_constraints']:
+        model = solver.optimize.model()
+    else:
+        model = solver.model()
 
-    # uncomment this to write typed source into a file
-    write_path = "inference_output/" + base_folder
-    print("Output is written to {}".format(write_path))
-    if not os.path.exists(write_path):
-        os.makedirs(write_path)
-    write_path += '/' + file_name + '.py'
-    file = open(write_path, 'w')
-    file.write(astunparse.unparse(t))
-    file.close()
+context.generate_typed_ast(model, solver)
 
-    ImportHandler.write_to_files(model, solver)
+# uncomment this to write typed source into a file
+write_path = "inference_output/" + base_folder
+print("Output is written to {}".format(write_path))
+if not os.path.exists(write_path):
+    os.makedirs(write_path)
+write_path += '/' + file_name + '.py'
+if not os.path.exists(os.path.dirname(write_path)):
+    os.makedirs(os.path.dirname(write_path))
+file = open(write_path, 'w')
+file.write(astunparse.unparse(t))
+file.close()
+
+ImportHandler.write_to_files(model, solver)
     # print(astunparse.unparse(t))
 
 

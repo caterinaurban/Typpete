@@ -460,7 +460,7 @@ def infer_func_call(node, context, solver):
                                                      args_types,
                                                      result_type,
                                                      solver.z3_types),
-                       fail_message="Class instantiation in line {}.".format(node.lineno))
+                       fail_message="Class instantiation {} in line {}.".format(node.func.id, node.lineno))
             return result_type
 
     # instance represents the receiver in case of method calls.
@@ -491,7 +491,7 @@ def infer_func_call(node, context, solver):
                                                     node.func.attr, solver.z3_types)
 
             solver.add(Or(call_axioms),
-                       fail_message="Call in line {}".format(node.lineno))
+                       fail_message="Call to {} in line {}".format(node.func.attr, node.lineno))
             return result_type
     called = infer(node.func, context, solver)
     if isinstance(called, AnnotatedFunction):

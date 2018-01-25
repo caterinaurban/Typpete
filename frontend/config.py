@@ -19,5 +19,8 @@ config = {
     "allow_attributes_outside_init": True,
 
     # Whether to make None a subtype of all types
-    "none_subtype_of_all": True
+    "none_subtype_of_all": True,
+
+    # Whether to use soft constraints to infer more precise types for local variables
+    "enable_soft_constraints": True,
 }
