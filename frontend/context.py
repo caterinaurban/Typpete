@@ -26,6 +26,7 @@ class Context:
         self.is_func = is_func
         self.types_map = {}
         self.isinstance_nodes = {}
+        self.context_nodes = context_nodes
 
         # Store all the class types that appear in this context. This enables using
         # classes in no specific order.
@@ -109,8 +110,24 @@ class Context:
                 continue
         raise NameError("Name {} is not defined".format(var_name))
 
+    def should_remove(self, node):
+        if hasattr(node, 'super') and node.super != self.name:
+            return True
+        if hasattr(node, 'remove_later') and node.remove_later:
+            return True
+        return False
+
+    def remove_extra_nodes(self):
+        to_remove = [x for x in self.context_nodes if self.should_remove(x)]
+        for node in to_remove:
+            self.context_nodes.remove(node)
+
+        for child in self.children_contexts:
+            child.remove_extra_nodes()
+
     def generate_typed_ast(self, model, solver):
         """Add type annotations for all functions and assignments statements"""
+        self.remove_extra_nodes()
         self.add_annotations_to_funcs(model, solver)
         self.add_annotation_to_assignments(model, solver)
 
