@@ -3,14 +3,13 @@ from frontend.import_handler import ImportHandler
 from frontend.config import config
 from z3 import Optimize
 
-import ast
 import os
 import time
 import astunparse
 
 start_time = time.time()
-base_folder = 'tests/scion'
-file_name = 'lib/path_store'
+base_folder = 'tests/imp'
+file_name = 'imp'
 
 t = ImportHandler.get_module_ast(file_name, base_folder)
 

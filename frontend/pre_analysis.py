@@ -77,7 +77,7 @@ class PreAnalyzer:
 
     def max_default_args(self):
         """Get the maximum number of default arguments appearing in all function definitions"""
-        func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
+        func_defs = [node for node in (self.all_nodes + self.stub_nodes) if isinstance(node, ast.FunctionDef)]
         return max([len(node.args.defaults) for node in func_defs] + [0])
 
     def maximum_tuple_length(self):

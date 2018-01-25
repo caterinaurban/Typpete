@@ -26,5 +26,4 @@
 #### imp.py:
 | Change | Line # | Justification |
 |--------|--------|---------------|
-| Set `text` to empty string | 42 | File handling is not supported yet |
 | Downcast `ast` to `Equality` | 48 | parse_result.value has static type `object`, but a subtype of `Equality` at runtime |

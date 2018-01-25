@@ -1,5 +1,6 @@
 """Stub file for built in functions"""
 from typing import TypeVar, List, Tuple, Dict, Set, Union
+from sys import IO
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -224,6 +225,12 @@ def oct(_: int) -> str:
        >>> oct(342391)
        '0o1234567'
     """
+    pass
+
+
+def open(file: Union[str, bytes, int], mode: str = None,
+         buffering: int = None, encoding: str = None, errors: str = None, newline: str = None, closefd: bool = None) -> IO:
+    """Open a file stream"""
     pass
 
 
