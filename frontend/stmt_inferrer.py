@@ -88,6 +88,7 @@ def _infer_assignment_target(target, context, value_type, solver):
 
     # Adding weight of 2 to give the assignment soft constraint a higher priority over others.
     solver.optimize.add_soft(target_type == value_type, weight=2)
+    return target_type
 
 
 def _is_type_var_declaration(node):
@@ -101,9 +102,10 @@ def _infer_assign(node, context, solver):
         solver.annotation_resolver.add_type_var(node.targets[0], node.value)
     else:
         value_type = expr.infer(node.value, context, solver)
-        context.add_assignment(value_type, node)
         for target in node.targets:
-            _infer_assignment_target(target, context, value_type, solver)
+            target_type = _infer_assignment_target(target, context, value_type, solver)
+            if len(node.targets) == 1:
+                context.add_assignment(target_type, node)
 
     return solver.z3_types.none
 

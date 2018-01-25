@@ -3,6 +3,7 @@ import ast
 import sys
 
 from z3 import simplify
+from z3.z3types import Z3Exception
 
 
 class Context:
@@ -174,17 +175,22 @@ class Context:
     def add_annotation_to_assignments(self, model, solver):
         """Add a type comment for every assignment statement in the context"""
         for node, z3_t in self.assignments:
-            if (len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+            if (len(node.targets) == 1
                and sys.version_info[0] >= 3 and sys.version_info[1] >= 6):
                 # Replace the normal assignment node with annotated assignment
                 # Annotated assignment only supports single assignment (no tuples or lists)
                 # To unparse the assignment statement into the new syntax of the variable annotation,
                 # The class of the nodes needs to be AnnAssign, to be recognized by the unparser
+                try:
+                    z3_t = model[z3_t] if model[z3_t] is not None else z3_t
+                except Z3Exception:
+                    # tuple assignment found
+                    # Annotating tuple assignment is not supported in Python 3.6
+                    continue
                 node.__class__ = ast.AnnAssign
                 node.target = node.targets[0]
                 node.simple = 1
-                annotation_str = solver.annotation_resolver.unparse_annotation(
-                    model[self.get_type(node.targets[0].id)])
+                annotation_str = solver.annotation_resolver.unparse_annotation(z3_t)
                 node.annotation = ast.parse(annotation_str).body[0].value
 
         # Add the type comment for assignments in children contexts
