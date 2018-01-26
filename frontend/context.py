@@ -156,7 +156,7 @@ class Context:
     def add_type_var_assigns(self, model, solver):
         if isinstance(self.node, ast.Module):
             after_imports = 0
-            while after_imports < len(self.node.body) and isinstance(self.node.body[0], (ast.Import, ast.ImportFrom)):
+            while after_imports < len(self.node.body) and isinstance(self.node.body[after_imports], (ast.Import, ast.ImportFrom)):
                 after_imports += 1
             for tv, upper in self.used_type_vars.items():
                 tv_name = tv[2:]
