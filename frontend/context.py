@@ -2,6 +2,7 @@ import ast
 
 import sys
 
+from collections import OrderedDict
 from z3 import simplify
 
 
@@ -12,7 +13,7 @@ class Context:
         types_map ({str, Type}): a dict mapping variable names to their inferred types.
     """
 
-    def __init__(self, context_nodes, solver, name="", parent_context=None, is_class=False, is_func=False):
+    def __init__(self, node, context_nodes, solver, name="", parent_context=None, is_class=False, is_func=False):
         """
         
         :param context_nodes: The AST nodes that belong to this scope. Used to pre-store all class types in the scope. 
@@ -26,6 +27,7 @@ class Context:
         self.is_func = is_func
         self.types_map = {}
         self.isinstance_nodes = {}
+        self.node = node
 
         self.add_nodes(context_nodes, solver)
 
@@ -34,6 +36,8 @@ class Context:
         self.children_contexts = []
         self.func_to_ast = {}
         self.assignments = []
+
+        self.used_type_vars = OrderedDict()
 
         if parent_context:
             parent_context.children_contexts.append(self)
@@ -118,11 +122,49 @@ class Context:
     def generate_typed_ast(self, model, solver):
         """Add type annotations for all functions and assignments statements"""
         self.add_annotations_to_funcs(model, solver)
+        self.add_annotations_to_classes(model, solver)
         self.add_annotation_to_assignments(model, solver)
+        self.add_type_var_assigns(model, solver)
 
     def add_func_ast(self, func_name, ast_node):
         """Map a function with name `func_name` fo its corresponding AST node"""
         self.func_to_ast[func_name] = ast_node
+
+    def add_annotations_to_classes(self, model, solver):
+        if isinstance(self.node, ast.Module):
+            for cls in [n for n in self.node.body if isinstance(n, ast.ClassDef)]:
+                if cls.name in solver.z3_types.config.class_type_params:
+                    args = []
+                    for name in solver.z3_types.config.class_type_params[cls.name]:
+                        real_name = str(name)
+                        z3_name = 'tv' + real_name
+                        tvar_lit = getattr(solver.z3_types.type_sort, z3_name)
+                        if z3_name not in self.used_type_vars:
+                            upper = solver.z3_types.upper(tvar_lit)
+                            upper = solver.annotation_resolver.unparse_annotation(
+                                model.evaluate(upper))
+                            self.used_type_vars[z3_name] = upper
+                        if real_name[0].isdigit():
+                            real_name = 'T' + real_name
+                        args.append(ast.Name(id=real_name))
+                    if len(args) == 1:
+                        slice = ast.Index(value=args[0])
+                    else:
+                        slice = ast.Index(ast.Tuple(elts=args))
+                    cls.bases.append(ast.Subscript(value=ast.Name(id='Generic'), slice=slice))
+
+    def add_type_var_assigns(self, model, solver):
+        if isinstance(self.node, ast.Module):
+            after_imports = 0
+            while after_imports < len(self.node.body) and isinstance(self.node.body[0], (ast.Import, ast.ImportFrom)):
+                after_imports += 1
+            for tv, upper in self.used_type_vars.items():
+                tv_name = tv[2:]
+                if tv_name[0].isdigit():
+                    tv_name = 'T' + tv_name
+                tv_decl = self._create_type_var_assign(tv_name, upper)
+                self.node.body.insert(after_imports, tv_decl)
+                after_imports += 1
 
     def _create_type_var_assign(self, name, upper):
         target = ast.Name(id=name)
@@ -141,25 +183,27 @@ class Context:
             z3_t = self.types_map[func]
             inferred_type = model[z3_t]
             inferred_type_name = str(inferred_type)
-            if inferred_type_name.startswith("generic"):
-                if hasattr(node, '_parent') and hasattr(node._parent, 'body'):
-                    nargs = int(inferred_type_name[7:8])
-                    for arg in range(1, nargs + 1):
-                        tvar = simplify(getattr(type_sort, inferred_type_name[:8] + '_tv' + str(arg))(inferred_type))
-                        upper = solver.z3_types.upper(tvar)
-                        upper = solver.annotation_resolver.unparse_annotation(model.evaluate(upper))
-                        assign = self._create_type_var_assign("T{}".format(str(tvar)[2:]), upper)
-                        index = node._parent.body.index(node)
-                        node._parent.body.insert(index, assign)
-                inferred_type = getattr(type_sort, inferred_type_name[:8] + "_func")(inferred_type)
-
-
             func_len = len(node.args.args)
+            if inferred_type_name.startswith("generic"):
+                nargs = int(inferred_type_name[7:8])
+                arg_accessor_func = lambda i, n: lambda x: getattr(type_sort, "func_{}_arg_{}".format(n, i))(getattr(type_sort, 'generic{}_func'.format(nargs))(x))
+                return_accessor_func = lambda n: lambda x: getattr(type_sort, "func_{}_return".format(n))(getattr(type_sort, 'generic{}_func'.format(nargs))(x))
+                for arg in range(1, nargs + 1):
+                    tvar_lit = simplify(getattr(type_sort, inferred_type_name[:8] + '_tv' + str(arg))(inferred_type))
+                    tvar = str(tvar_lit)
+                    if tvar not in self.used_type_vars:
+                        upper = solver.z3_types.upper(tvar_lit)
+                        upper = solver.annotation_resolver.unparse_annotation(model.evaluate(upper))
+                        self.used_type_vars[tvar] = upper
+
+            else:
+                arg_accessor_func = lambda i, n: getattr(type_sort, "func_{}_arg_{}".format(n, i))
+                return_accessor_func = lambda n: getattr(type_sort, "func_{}_return".format(n))
+
 
             # Add the type annotations for the function arguments
             for i, arg in enumerate(node.args.args):
-                arg_accessor = getattr(type_sort, "func_{}_arg_{}".format(func_len, i + 1))
-                arg_type = simplify(arg_accessor(inferred_type))
+                arg_type = simplify(arg_accessor_func(i + 1, func_len)(inferred_type))
 
                 # Get the annotation with PEP 484 syntax
                 arg_annotation_str = solver.annotation_resolver.unparse_annotation(arg_type)
@@ -168,8 +212,7 @@ class Context:
                 arg.annotation = ast.parse(arg_annotation_str).body[0].value
 
             # Similarly, add the return type annotation
-            return_accessor = getattr(type_sort, "func_{}_return".format(func_len))
-            return_type = simplify(return_accessor(inferred_type))
+            return_type = simplify(return_accessor_func(func_len)(inferred_type))
             return_annotation_str = solver.annotation_resolver.unparse_annotation(return_type)
             node.returns = ast.parse(return_annotation_str).body[0].value
 

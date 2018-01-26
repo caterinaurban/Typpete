@@ -3,6 +3,7 @@ import glob
 import os
 import unittest
 from z3.z3types import Z3Exception
+from z3 import simplify
 
 import time
 from frontend.stmt_inferrer import *
@@ -64,7 +65,7 @@ class TestInference(unittest.TestCase):
         solver = z3_types.TypesSolver(t, type_params=type_params,
                                       class_type_params=class_type_params)
 
-        context = Context(t.body, solver)
+        context = Context(t, t.body, solver)
 
         solver.infer_stubs(context, infer)
 
@@ -126,6 +127,8 @@ class TestInference(unittest.TestCase):
                 actual = model[z3_type]
             except Z3Exception:
                 actual = z3_type
+            if str(actual).startswith('generic'):
+                actual = simplify(getattr(solver.z3_types.type_sort, str(actual)[:8] + '_func')(actual))
             self.assertEqual(actual, expected,
                              "Test file {}. Expected variable '{}' to have type '{}', but found '{}'"
                              .format(self.file_name, v, expected, actual))

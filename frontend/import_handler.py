@@ -58,7 +58,7 @@ class ImportHandler:
                                                                                                            infer_func)
         else:
             t = ImportHandler.get_module_ast(module_name, base_folder)
-            context = Context(t.body, solver)
+            context = Context(t, t.body, solver)
             ImportHandler.cached_modules[module_name] = context
             solver.infer_stubs(context, infer_func)
             for stmt in t.body:

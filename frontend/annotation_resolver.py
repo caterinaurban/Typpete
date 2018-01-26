@@ -66,9 +66,6 @@ class AnnotationResolver:
                 return getattr(self.z3_types.type_sort, "class_{}".format(id))
 
 
-            if generics_map is None and module is None:
-                raise ValueError(
-                    "Invalid type annotation {} in line {}".format(id, annotation.lineno))
             key = (module, id)
             if generics_map is not None and (annotated or key not in self.z3_types.config.type_vars):
                 if id in generics_map:
@@ -91,7 +88,8 @@ class AnnotationResolver:
             if key in self.z3_types.config.type_vars:
                 return self.z3_types.config.type_vars[key]
             else:
-                assert False
+                raise ValueError(
+                    "Invalid type annotation {} in line {}".format(id, annotation.lineno))
 
             # possible_types = [self.resolve(x, solver, generics_map, available_type_args) for x in self.type_var_poss[id]]
             # if possible_types:
@@ -192,6 +190,13 @@ class AnnotationResolver:
 
                 return result_type
 
+            if annotation_val in self.z3_types.all_types:
+                func = getattr(self.z3_types.type_sort, "class_{}".format(annotation_val))
+                if isinstance(annotation.slice.value, ast.Name):
+                    args = self.resolve(annotation.slice.value, solver, module, generics_map=generics_map)
+                else:
+                    args = [self.resolve(x, solver, module, generics_map=generics_map) for x in annotation.slice.value.elts]
+                return func(args)
         raise ValueError("Invalid type annotation in line {}".format(annotation.lineno))
 
     def get_annotated_function_axioms(self, args_types, solver, annotated_function, result_type):
@@ -279,6 +284,22 @@ class AnnotationResolver:
         match = re.match("class_(.+)", type_str)
         # unparse user defined class types. Example: class_A -> A
         if match:
+            generic = re.match("([a-zA-Z]+)\(.+\)", match.group(1))
+            if generic:
+                generic_name = generic.group(1)
+                type_def = None
+                for cls in self.z3_types.config.all_classes:
+                    if not isinstance(cls, tuple):
+                        continue
+                    if cls[0] == 'class_' + generic_name:
+                        type_def = cls
+                        break
+                args = []
+                for name in type_def[1:]:
+                    accessor = getattr(self.z3_types.type_sort, name)
+                    instance = simplify(accessor(z3_type))
+                    args.append(self.unparse_annotation(instance))
+                return '{}[{}]'.format(generic_name, ', '.join(args))
             return match.group(1)
 
         match = re.match("type", type_str)
@@ -340,9 +361,11 @@ class AnnotationResolver:
 
             return "Callable[[{}], {}]".format(", ".join(args), return_annotation)
 
-        match = re.match("tv(\d+)", type_str)
-        if match:
-            tv_index = int(match.group(1))
-            return "T{}".format(tv_index)
+        if type_str.startswith('tv'):
+            tv_name = type_str[2:]
+            if tv_name[0].isdigit():
+                tv_name = 'T' + tv_name
+            return tv_name
+
         return type_str
         #raise TypeError("Couldn't unparse type {}".format(type_str))

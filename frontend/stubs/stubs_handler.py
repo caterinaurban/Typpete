@@ -39,7 +39,7 @@ class StubsHandler:
         # Function definitions
         relevant_nodes = StubsHandler.get_relevant_nodes(tree, used_names)
 
-        context = Context(tree.body, solver)
+        context = Context(tree, tree.body, solver)
         INFERRED[tree] = context
         if method_type:
             # Add the flag in the statements to recognize the method statements during the inference

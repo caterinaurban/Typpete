@@ -206,8 +206,8 @@ def _infer_control_flow(node, context, solver):
 
         type: super{String, Float}
     """
-    body_context = Context(node.body, solver, parent_context=context)
-    else_context = Context(node.body, solver, parent_context=context)
+    body_context = Context(node, node.body, solver, parent_context=context)
+    else_context = Context(node, node.body, solver, parent_context=context)
 
     var_is_instance = None
     if hasattr(node, "test"):
@@ -327,7 +327,7 @@ def _infer_try(node, context, solver):
     for handler in node.handlers:
         handler_context = context
         if handler.name:
-            handler_context = Context(node.body, solver, parent_context=context)
+            handler_context = Context(node, node.body, solver, parent_context=context)
             handler_context.set_type(handler.name,
                                      solver.annotation_resolver.resolve(handler.type, solver, get_module(node)))
         handler_body_type = _infer_body(handler.body, handler_context, handler.lineno, solver)
@@ -339,7 +339,7 @@ def _infer_try(node, context, solver):
 
 def _init_func_context(node, args, context, solver, type_args):
     """Initialize the local function scope, and the arguments types"""
-    local_context = Context(node.body, solver, name=node.name, parent_context=context, is_func=True)
+    local_context = Context(node, node.body, solver, name=node.name, parent_context=context, is_func=True)
 
     # TODO starred args
 
@@ -524,7 +524,7 @@ def _infer_func_def(node, context, solver):
 
 
 def _infer_class_def(node, context, solver):
-    class_context = Context(node.body, solver, name=node.name, parent_context=context, is_class=True)
+    class_context = Context(node, node.body, solver, name=node.name, parent_context=context, is_class=True)
     result_type = context.get_type(node.name)
 
     class_attrs = solver.z3_types.instance_attributes[node.name]

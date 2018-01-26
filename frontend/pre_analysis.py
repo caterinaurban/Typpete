@@ -175,8 +175,6 @@ class PreAnalyzer:
 
         for cls in class_defs:
             key = cls.name
-            if cls.name in conf.class_type_params:
-                key = (key,) + tuple([key + '_arg_' + str(n) for n in conf.class_type_params[key]])
             if cls.bases:
                 real_bases = [b for b in cls.bases
                               if not (isinstance(b, ast.Subscript) and b.value.id == 'Generic')]
@@ -184,10 +182,6 @@ class PreAnalyzer:
             else:
                 real_bases = []
                 class_type_params = []
-            if real_bases:
-                class_to_base[key] = [x.id for x in cls.bases]
-            else:
-                class_to_base[key] = ["object"]
 
             if class_type_params:
                 if isinstance(class_type_params[0].slice.value, ast.Tuple):
@@ -195,6 +189,14 @@ class PreAnalyzer:
                 else:
                     args = [class_type_params[0].slice.value.id]
                 conf.add_class_type_params(cls.name, args, get_module(cls))
+
+            if cls.name in conf.class_type_params:
+                key = (key,) + tuple([key + '_arg_' + str(n) for n in conf.class_type_params[key]])
+
+            if real_bases:
+                class_to_base[key] = [x.id for x in cls.bases]
+            else:
+                class_to_base[key] = ["object"]
 
             add_init_if_not_existing(cls)
 
@@ -295,7 +297,7 @@ class Configuration:
         self.used_names = []
         self.max_default_args = 0
         self.all_classes = {}
-        self.type_params =  type_params
+        self.type_params = type_params
         self.class_type_params = class_type_params
         self.max_type_args = 0
         self.type_vars = OrderedDict()

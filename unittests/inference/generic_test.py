@@ -1,4 +1,4 @@
-# type_params {'generic_tolist': [0], 'flatten': [1], 'flatten_dicts': [2,3]}
+# type_params {'generic_tolist': ['GTL'], 'flatten': ['FL'], 'flatten_dict': ['DK','DV']}
 
 
 def generic_tolist(a):
@@ -43,10 +43,17 @@ c = b[0][1]
 d = flatten_dict(b, [True, 1])
 e = flatten_dict([{1.2: ['hi']}], [3, 5])
 
+class A:
+    def bar(self):
+        return 1
 
-# a := List[int]
-# b := List[Dict[int, List[float]]]
-# c := List[float]
-# d := Dict[int, List[float]]
-# flatten := Callable[[List[List[int]]], List[int]]
-# flatten_dict := Callable[[List[Dict[int, List[float]]], List[int]], Dict[int, List[float]]]
+class B(A):
+    pass
+
+ff = flatten_dict([{'hi': [A()]}, {'sup': [A()], 'hey': [B(), A()]}], ['asd', 'erer'])
+ff['hi'][0].bar()
+
+
+# flatten := Callable[[List[List[FL]]], List[FL]]
+# flatten_dict := Callable[[List[Dict[DV, List[DK]]], List[DV]], Dict[DV, List[DK]]]
+# generic_tolist := Callable[[GTL], List[GTL]]

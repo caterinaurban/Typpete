@@ -471,10 +471,9 @@ def function_call_axioms(called, args, result, types):
         defaults_accessor = getattr(types.type_sort, "func_{}_defaults_args".format(i))
         defaults_count = defaults_accessor(called)
         # Add the axioms for function call, default args count, and arguments subtyping.
-        axioms.append(
-            And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
-
-                defaults_count >= rem_args))
+        axiom = And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
+                    defaults_count >= rem_args)
+        axioms.append(axiom)
     return axioms
 
 
@@ -645,7 +644,7 @@ def attribute(instance, attr, result, types):
                 accessors = accessors[0]
                 args = [getattr(types.type_sort, a)(instance) for a in accessors]
                 params = [getattr(types, "generic{}_tv{}".format(len(tps), i+1))(attr_type)
-                          for _, i in enumerate(tps)]
+                          for i, _ in enumerate(tps)]
                 gen_func = getattr(types, "generic{}_func".format(len(tps)))(attr_type)
 
                 type_instance = types.classes[t](args)
