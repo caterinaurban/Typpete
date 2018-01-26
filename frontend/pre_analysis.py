@@ -77,7 +77,7 @@ class PreAnalyzer:
 
     def max_default_args(self):
         """Get the maximum number of default arguments appearing in all function definitions"""
-        func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
+        func_defs = [node for node in (self.all_nodes + self.stub_nodes) if isinstance(node, ast.FunctionDef)]
         return max([len(node.args.defaults) for node in func_defs] + [0])
 
     def maximum_tuple_length(self):
@@ -108,7 +108,6 @@ class PreAnalyzer:
             - Return a mapping from class names to their base classes if they have any.
             
         """
-        # TODO propagate attributes to subclasses.
         class_defs = [node for node in self.all_nodes + self.stub_nodes if isinstance(node, ast.ClassDef)]
         inherited_funcs_to_super = propagate_attributes_to_subclasses(class_defs)
 
@@ -361,6 +360,8 @@ def propagate_attributes_to_subclasses(class_defs):
             # Store a mapping from the inherited function names to the super class from which they are inherited
             for func in inherited_funcs:
                 func.super = parent
+            for attr in inherited_attrs:
+                attr.super = parent
             class_inherited_funcs_to_super[class_def.name].update(
                 {func.name: parent for func in inherited_funcs if func.name != '__init__'}
             )
@@ -381,7 +382,7 @@ def add_init_if_not_existing(class_node):
     for stmt in class_node.body:
         if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
             return
-    class_node.body.append(ast.FunctionDef(
+    init_method = ast.FunctionDef(
         name="__init__",
         args=ast.arguments(
             args=[ast.arg(arg="self", annotation=None, lineno=class_node.lineno)],
@@ -395,4 +396,6 @@ def add_init_if_not_existing(class_node):
         decorator_list=[],
         returns=None,
         lineno=class_node.lineno
-    ))
+    )
+    init_method.remove_later = True
+    class_node.body.append(init_method)

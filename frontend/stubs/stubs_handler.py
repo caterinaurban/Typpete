@@ -29,12 +29,11 @@ class StubsHandler:
             r.close()
             self.lib_asts[lib] = tree
 
-    @staticmethod
-    def infer_file(tree, solver, used_names, infer_func, method_type=None):
+    def infer_file(self, tree, solver, used_names, infer_func, method_type=None):
         # Infer only structs that are used in the program to be inferred
 
         # Function definitions
-        relevant_nodes = StubsHandler.get_relevant_nodes(tree, used_names)
+        relevant_nodes = self.get_relevant_nodes(tree, used_names)
 
         # Only give class definitions to the context to prevent the creation of Z3 constants for stub functions
         context = Context([stmt for stmt in tree.body if isinstance(stmt, ast.ClassDef)], solver)
@@ -48,8 +47,8 @@ class StubsHandler:
 
         return context
 
-    @staticmethod
-    def get_relevant_nodes(tree, used_names):
+
+    def get_relevant_nodes(self, tree, used_names):
         """Get relevant nodes (which are used in the program) from the given AST `tree`"""
         # Function definitions
         relevant_nodes = [node for node in tree.body
@@ -67,6 +66,15 @@ class StubsHandler:
                                isinstance(node.value, ast.Call) and
                                isinstance(node.value.func, ast.Name) and
                                node.value.func.id == "TypeVar")]
+
+        import_nodes = [node for node in tree.body if isinstance(node, ast.ImportFrom)]
+        for node in import_nodes:
+            if node.module == 'typing':
+                # FIXME remove after added typing stub
+                continue
+            relevant_nodes.append(self.lib_asts[node.module])
+        relevant_nodes += import_nodes
+        used_names += [name.name for node in import_nodes for name in node.names]
 
         # Variable assignments
         # For example, math package has `pi` declaration as pi = 3.14...

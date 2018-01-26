@@ -1,5 +1,6 @@
 from .chip import ActivableChip
 from .util import set_binary_value
+from .pin import Pin
 
 class ShiftRegister(ActivableChip):
     SERIAL_PINS = []
@@ -12,7 +13,14 @@ class ShiftRegister(ActivableChip):
         self.prev_clock_high = False
         self.prev_buffer_high = False
         self.buffer = 0
-        # super().__init__(*args, **kwargs)
+        for code in self.OUTPUT_PINS:
+            pin = Pin(code, code in self.STARTING_HIGH, self, True)
+            setattr(self, 'pin_{}'.format(pin.code), pin)
+        for code in self.INPUT_PINS:
+            pin = Pin(code, code in self.STARTING_HIGH, self)
+            setattr(self, 'pin_{}'.format(pin.code), pin)
+        self.vcc = Pin('VCC', True, self)
+        self.update()
 
     def is_resetting(self):
         if self.RESET_PIN:
