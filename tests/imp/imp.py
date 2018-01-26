@@ -28,8 +28,17 @@
 from typing import cast
 
 import sys
-from imp_parser import *
+# from imp_parser import *
 from imp_lexer import *
+from equality import *
+
+def imp_parse(o):
+    return Result(object(), 3)
+
+class Result:
+    def __init__(self, value, pos):
+        self.value = value
+        self.pos = pos
 
 def usage():
     sys.stderr.write('Usage: imp filename\n')

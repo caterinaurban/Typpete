@@ -77,6 +77,8 @@ def print_context(ctx, ind=""):
     if not ind and children:
         print("---------------------------")
 
+print_solver(solver)
+
 start_time = time.time()
 if config['enable_soft_constraints']:
     check = solver.optimize.check()

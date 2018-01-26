@@ -23,7 +23,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import lexer
+# import lexer
 
 RESERVED = 'RESERVED'
 INT      = 'INT'
@@ -60,4 +60,4 @@ token_exprs = [
 ]
 
 def imp_lex(characters):
-    return lexer.lex(characters, token_exprs)
+    return ['asd', 'asd']
