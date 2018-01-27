@@ -472,7 +472,8 @@ def function_call_axioms(called, args, result, types):
         defaults_count = defaults_accessor(called)
         # Add the axioms for function call, default args count, and arguments subtyping.
         axiom = And(called == types.funcs[i]((defaults_accessor(called),) + tuple(args) + rem_args_types + (result,)),
-                    defaults_count >= rem_args)
+                    defaults_count >= rem_args,
+                    defaults_count <= types.config.max_default_args)
         axioms.append(axiom)
     return axioms
 

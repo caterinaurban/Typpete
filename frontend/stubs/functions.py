@@ -5,7 +5,10 @@ from typing import TypeVar, List, Tuple, Dict, Set, Type
 TV = TypeVar("TV")
 UV = TypeVar("UV")
 Num = TypeVar("Num", bound=complex)
-
+Str = TypeVar("Str", str, bytes)
+Seq = TypeVar("Seq", Str, List[T])
+NumOrStr = TypeVar("NumOrStr", Num, Str)
+NumOrStrNoComplex = TypeVar("NumOrStr", bool, int, float, Str)
 
 
 class Exception():
@@ -17,7 +20,7 @@ def abs(x: Num) -> Num:
     pass
 
 
-def all(_: object) -> bool:
+def all(_: Seq) -> bool:
     """
     Return True if bool(x) is True for all values x in the iterable.
 
@@ -26,7 +29,7 @@ def all(_: object) -> bool:
     pass
 
 
-def any(_: object) -> bool:
+def any(_: Seq) -> bool:
     """
     Return True if bool(x) is True for any x in the iterable.
 
@@ -82,7 +85,7 @@ def chr(_: int) -> str:
     pass
 
 
-def complex(_: object = None) -> complex:
+def complex(_: NumOrStr = None) -> complex:
     """Create a complex number"""
     pass
 
@@ -108,12 +111,7 @@ def enumerate(l: List[T]) -> List[Tuple[int, T]]:
     pass
 
 
-def enumerate(l: List[TV]) -> List[Tuple[int, TV]]:
-    """"""
-    pass
-
-
-def float(_: object = None) -> float:
+def float(_: NumOrStrNoComplex = None) -> float:
     """Convert a string or a number to floating point."""
     pass
 
@@ -179,13 +177,6 @@ def input(_: object = None) -> str:
     """
     pass
 
-def iter(l: List[TV]) -> List[TV]:
-    pass
-
-def next(l: List[TV]) -> TV:
-    pass
-
-
 def int(_: object = None, base: int = 10) -> int:
     """Convert a number or string to an integer."""
     pass
@@ -196,7 +187,7 @@ def isinstance(x: object, y: object) -> bool:
     pass
 
 
-def len(_: object) -> int:
+def len(_: Seq) -> int:
     """ Return the number of items in a container. """
     pass
 

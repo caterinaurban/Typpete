@@ -490,8 +490,7 @@ def _infer_func_def(node, context, solver):
 
     if node.returns:
         return_type = solver.resolve_annotation(node.returns, get_module(node))
-        if (inference_config["ignore_fully_annotated_function"] and is_annotated(node)
-                or is_stub(node)):
+        if (inference_config["ignore_fully_annotated_function"] or isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Ellipsis)):
 
             # Ignore the body if it has return annotation and one of the following conditions:
             # The configuration flag for doing so is set

@@ -89,9 +89,8 @@ class TypesSolver(Solver):
         self.all_assertions.append(to_add)
 
     def init_axioms(self):
-        for st in self.z3_types.subtyping:
-            self.add(st, fail_message="Subtyping error")
-        self.add(self.z3_types.subst_axioms, fail_message="Subst definition")
+        self.add(self.z3_types.subtyping, fail_message="Subtyping error")
+        # self.add(self.z3_types.subst_axioms, fail_message="Subst definition")
 
     def infer_stubs(self, context, infer_func):
         self.stubs_handler.infer_all_files(context, self, self.config.used_names, infer_func)
@@ -254,16 +253,16 @@ class Z3Types:
         for i in range(self.config.max_type_args):
             self.generics.append(getattr(type_sort, 'generic{}'.format(i + 1)))
 
-        self.issubst = Function('issubst', type_sort, type_sort, type_sort, type_sort, BoolSort())
-        self.subst = Function('subst', type_sort, type_sort, type_sort, type_sort)
-        self.upper = Function('upper', type_sort, type_sort)
+        # self.issubst = Function('issubst', type_sort, type_sort, type_sort, type_sort, BoolSort())
+        # self.subst = Function('subst', type_sort, type_sort, type_sort, type_sort)
+        # self.upper = Function('upper', type_sort, type_sort)
 
         # function representing subtyping between types: subtype(x, y) if and only if x is a subtype of y
         self._subtype2 = Function("subtype", type_sort, type_sort, BoolSort())
         self.current_method = method_sort.m__none
         tree = self.create_class_tree(config.all_classes, type_sort)
         self.subtyping = self.create_subtype_axioms(tree)
-        self.subst_axioms = self.create_subst_axioms(tree)
+        # self.subst_axioms = self.create_subst_axioms(tree)
 
     def _subtype(self, m, t0, t1):
         return self._subtype2(t0, t1)
