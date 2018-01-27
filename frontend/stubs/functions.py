@@ -1,11 +1,14 @@
 """Stub file for built in functions"""
-from typing import TypeVar, List, Tuple, Dict, Set, Type
+from typing import TypeVar, List, Tuple, Dict, Set, Union
+from sys import IO
 
-
-TV = TypeVar("TV")
-UV = TypeVar("UV")
+T = TypeVar("T")
+U = TypeVar("U")
 Num = TypeVar("Num", bound=complex)
-
+Str = TypeVar("Str", str, bytes)
+Seq = TypeVar("Seq", Str, List[T])
+NumOrStr = TypeVar("NumOrStr", Num, Str)
+NumOrStrNoComplex = TypeVar("NumOrStr", bool, int, float, Str)
 
 
 class Exception():
@@ -17,7 +20,7 @@ def abs(x: Num) -> Num:
     pass
 
 
-def all(_: object) -> bool:
+def all(_: Seq) -> bool:
     """
     Return True if bool(x) is True for all values x in the iterable.
 
@@ -26,7 +29,7 @@ def all(_: object) -> bool:
     pass
 
 
-def any(_: object) -> bool:
+def any(_: Seq) -> bool:
     """
     Return True if bool(x) is True for any x in the iterable.
 
@@ -82,12 +85,12 @@ def chr(_: int) -> str:
     pass
 
 
-def complex(_: object = None) -> complex:
+def complex(_: NumOrStr = None) -> complex:
     """Create a complex number"""
     pass
 
 
-def dict(_: Dict[TV, UV] = None) -> Dict[TV, UV]:
+def dict(_: Dict[T, U] = None) -> Dict[T, U]:
     """Create a new dictionary.
     Make argument of type Mappable after implementing interfaces
     """
@@ -108,12 +111,7 @@ def enumerate(l: List[T]) -> List[Tuple[int, T]]:
     pass
 
 
-def enumerate(l: List[TV]) -> List[Tuple[int, TV]]:
-    """"""
-    pass
-
-
-def float(_: object = None) -> float:
+def float(_: NumOrStrNoComplex = None) -> float:
     """Convert a string or a number to floating point."""
     pass
 
@@ -179,14 +177,8 @@ def input(_: object = None) -> str:
     """
     pass
 
-def iter(l: List[TV]) -> List[TV]:
-    pass
 
-def next(l: List[TV]) -> TV:
-    pass
-
-
-def int(_: object = None, base: int = 10) -> int:
+def int(_: NumOrStrNoComplex = None, base: int = 10) -> int:
     """Convert a number or string to an integer."""
     pass
 
@@ -196,13 +188,12 @@ def isinstance(x: object, y: object) -> bool:
     pass
 
 
-def len(_: object) -> int:
+def len(_: Seq) -> int:
     """ Return the number of items in a container. """
     pass
 
 
-
-def min(_: List[TV]) -> TV:
+def min(_: List[T]) -> T:
     """Return the minimum object from the list
 
     TODO:
@@ -212,7 +203,7 @@ def min(_: List[TV]) -> TV:
     pass
 
 
-def max(_: List[TV]) -> TV:
+def max(_: List[T]) -> T:
     """Return the maximum object from the list any
 
     TODO:
@@ -234,6 +225,12 @@ def oct(_: int) -> str:
        >>> oct(342391)
        '0o1234567'
     """
+    pass
+
+
+def open(file: Union[str, bytes, int], mode: str = None,
+         buffering: int = None, encoding: str = None, errors: str = None, newline: str = None, closefd: bool = None) -> IO:
+    """Open a file stream"""
     pass
 
 
@@ -264,7 +261,7 @@ def repr(_: object) -> str:
     pass
 
 
-def reversed(_: List[TV]) -> List[TV]:
+def reversed(_: List[T]) -> List[T]:
     """Return a reversed version of the input list
 
     TODO: make it return reversed object after implementing interfaces
@@ -283,12 +280,11 @@ def round(_: float) -> int:
     pass
 
 
-def set(l: List[TV] = None) -> Set[TV]:
+def set(l: List[T] = None) -> Set[T]:
     """Create a set of unique elements
 
     If the parameter is provided, use the elements in the list to create the set,
-    otherwise, create an empty set.
-    """
+    otherwise, create an empty set."""
     pass
 
 
@@ -299,7 +295,7 @@ def setattr(o: object, name: str, val: object) -> None:
     pass
 
 
-def sorted(_: List[TV]) -> List[TV]:
+def sorted(_: List[T]) -> List[T]:
     """Return the input list in a sorted order
 
     TODO: Add support for different iterable objects
@@ -320,11 +316,7 @@ def sum(_: List[Num]) -> Num:
     pass
 
 
-def type(o: TV) -> Type[TV]:
-    pass
-
-
-def zip(x: List[TV], y: List[UV]) -> List[Tuple[TV, UV]]:
+def zip(x: Union[List[T], str], y: List[U]) -> List[Tuple[T, U]]:
     """This function returns a list of tuples,
     where the i-th tuple contains the i-th element from each of the argument lists"""
     pass

@@ -76,7 +76,7 @@ class AnnotationResolver:
 
                 result_type = solver.new_z3_const("generic")
                 generics_map[id] = result_type
-                possible_types = [self.resolve(x, solver, generics_map) for x in
+                possible_types = [self.resolve(x, solver, module, generics_map) for x in
                                   self.type_var_poss[id]]
 
                 if possible_types:
