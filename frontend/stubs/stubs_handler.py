@@ -127,8 +127,6 @@ class StubsHandler:
         for tree in self.methods_asts:
             ctx = self.infer_file(tree, solver, used_names, infer_func,
                                   tree.method_type)
-            # Merge the stub types into the context
-            context.types_map.update(ctx.types_map)
             context.builtin_methods.update(ctx.builtin_methods)
 
     def infer_builtin_lib(self, module_name, solver, used_names, infer_func):
