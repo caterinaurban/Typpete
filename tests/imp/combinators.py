@@ -24,6 +24,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from typing import cast
+from abc import ABCMeta, abstractmethod
 
 class Result:
     def __init__(self, value, pos):
@@ -33,7 +34,7 @@ class Result:
     def __repr__(self):
         return 'Result(%s, %d)' % (self.value, self.pos)
 
-class Parser:
+class Parser(metaclass=ABCMeta):
     def __add__(self, other):
         return Concat(self, other)
 
@@ -46,6 +47,7 @@ class Parser:
     def __xor__(self, function):
         return Process(self, function)
 
+    @abstractmethod
     def __call__(self, tokens, pos):
         pass
 

@@ -29,6 +29,7 @@ import sys
 from frontend.config import config as inference_config
 from frontend.context import Context, AnnotatedFunction
 from frontend.import_handler import ImportHandler
+from z3 import Or, And
 
 
 def _infer_one_target(target, context, solver):
@@ -425,6 +426,18 @@ def has_type_var(node, solver):
     return found_type_var
 
 
+def is_abstract(node):
+    """Return True iff the FunctionDef node denotes an abstract method"""
+    for decorator in node.decorator_list:
+        if isinstance(decorator, ast.Name) and decorator.id == 'abstractmethod':
+            return True
+        if (isinstance(decorator, ast.Attribute) and isinstance(decorator.value, ast.Name)
+           and decorator.value.id == 'abc' and decorator.attr == 'abstractmethod'):
+            return True
+
+    return False
+
+
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
     if is_stub(node) or has_type_var(node, solver):
@@ -473,8 +486,17 @@ def _infer_func_def(node, context, solver):
     else:
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
         return_type = solver.new_z3_const("return")
-        solver.add(solver.z3_types.subtype(body_type, return_type),
-                   fail_message="Return type in line {}".format(node.lineno))
+
+        # functions with no return must have None return type except abstract methods
+        if is_abstract(node):
+            solver.add(solver.z3_types.subtype(body_type, return_type),
+                       fail_message="Return type in line {}".format(node.lineno))
+        else:
+            solver.add(Or(
+                And(body_type == solver.z3_types.none, return_type == body_type),
+                And(body_type != solver.z3_types.none, return_type == body_type)
+            ), fail_message="Return type in line {}".format(node.lineno))
+
         # Putting higher weight for this soft constraint to give it higher priority over soft-constraint
         # added by inheritance covariance/contravariance return type
         solver.optimize.add_soft(body_type == return_type, weight=2)

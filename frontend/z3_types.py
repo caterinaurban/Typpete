@@ -54,6 +54,7 @@ class TypesSolver(Solver):
         self.config = analyzer.get_all_configurations()
         self.z3_types = Z3Types(self.config)
 
+        self.z3_types.abstract_types = self.config.abstract_classes
         for cls in self.z3_types.classes:
             self.z3_types.all_types[cls] = self.z3_types.type(self.z3_types.classes[cls])
 
@@ -100,6 +101,7 @@ class Z3Types:
     def __init__(self, config):
         self.config = config
         self.all_types = OrderedDict()
+        self.abstract_types = set()
         self.instance_attributes = OrderedDict()
         self.class_attributes = OrderedDict()
         self.class_to_funcs = config.class_to_funcs

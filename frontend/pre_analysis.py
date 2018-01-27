@@ -115,6 +115,7 @@ class PreAnalyzer:
         class_to_class_attributes = OrderedDict()
         class_to_base = OrderedDict()
         class_to_funcs = OrderedDict()
+        abstract_classes = set()
 
         for cls in class_defs:
             if cls.bases:
@@ -122,6 +123,12 @@ class PreAnalyzer:
 
             else:
                 class_to_base[cls.name] = ["object"]
+
+            kwords = cls.keywords
+            has_abstract_method = False
+            has_abcmeta = (kwords and kwords[0].arg == 'metaclass' and
+                           (isinstance(kwords[0].value, ast.Name) and kwords[0].value.id == 'ABCMeta'
+                           or isinstance(kwords[0].value, ast.Attribute) and kwords[0].value.attr == 'ABCMeta'))
 
             add_init_if_not_existing(cls)
 
@@ -147,9 +154,11 @@ class PreAnalyzer:
                 if isinstance(cls_stmt, ast.FunctionDef):
                     decorators = []
                     for d in cls_stmt.decorator_list:
-                        if not isinstance(d, ast.Name) or d.id not in config["decorators"]:
-                            raise TypeError("Decorator {} is not supported".format(d))
-                        decorators.append(d.id)
+                        decorator = d.id if isinstance(d, ast.Name) else d.attr
+                        if decorator not in config["decorators"]:
+                            raise TypeError("Decorator {} is not supported".format(decorator))
+                        has_abstract_method |= decorator == 'abstractmethod'
+                        decorators.append(decorator)
                     class_funcs[cls_stmt.name] = (len(cls_stmt.args.args), decorators,
                                                   len(cls_stmt.args.defaults))
                     # Add function to class attributes and get attributes defined by self.some_attribute = value
@@ -180,9 +189,11 @@ class PreAnalyzer:
                         if isinstance(target, ast.Name):
                             class_attributes.add(target.id)
                             instance_attributes.add(target.id)
+            if has_abcmeta or has_abstract_method:
+                abstract_classes.add(cls.name)
         return (class_to_instance_attributes, class_to_class_attributes,
                 class_to_base, class_to_funcs,
-                inherited_funcs_to_super)
+                inherited_funcs_to_super, abstract_classes)
 
     def get_all_configurations(self):
         config = Configuration()
@@ -196,6 +207,7 @@ class PreAnalyzer:
         config.class_to_base = class_analysis[2]
         config.class_to_funcs = class_analysis[3]
         config.inherited_funcs_to_super = class_analysis[4]
+        config.abstract_classes = class_analysis[5]
 
         config.used_names = self.get_all_used_names()
         config.max_default_args = self.max_default_args()
