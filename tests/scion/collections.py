@@ -7,5 +7,5 @@ V = TypeVar('V')
 def defaultdict(factory: Callable[[], V]) -> Dict[T, V]:
     ...
 
-def deque(maxlen: int = 0) -> List[T]:
+def deque(maxlen: int) -> List[T]:
     ...

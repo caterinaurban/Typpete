@@ -1,9 +1,9 @@
 """Stub file for built in functions"""
-from typing import TypeVar, List, Tuple, Dict, Set, Union
+from typing import TypeVar, List, Tuple, Dict, Set, Union, Type, Callable
 from sys import IO
 
-T = TypeVar("T")
-U = TypeVar("U")
+Tf = TypeVar("Tf")
+Uf = TypeVar("Uf")
 Num = TypeVar("Num", bound=complex)
 Str = TypeVar("Str", str, bytes)
 Seq = TypeVar("Seq", Str, List[T])
@@ -90,7 +90,7 @@ def complex(_: NumOrStr = None) -> complex:
     pass
 
 
-def dict(_: Dict[T, U] = None) -> Dict[T, U]:
+def dict(_: Dict[Tf, Uf] = None) -> Dict[Tf, Uf]:
     """Create a new dictionary.
     Make argument of type Mappable after implementing interfaces
     """
@@ -106,7 +106,7 @@ def divmod(_: float, __: float) -> Tuple[int, int]:
     """ Return the tuple (x//y, x%y).  Invariant: div*y + mod == x. """
     pass
 
-def enumerate(l: List[T]) -> List[Tuple[int, T]]:
+def enumerate(l: List[Tf]) -> List[Tuple[int, Tf]]:
     """Iterate over a list with key and value"""
     pass
 
@@ -139,7 +139,7 @@ def hasattr(o: object, attr: str) -> bool:
 def hash(_: object) -> int:
     """
     Return the hash value for the given object.
-    
+
     Two objects that compare equal must also have the same hash value, but the
     reverse is not necessarily true."""
     pass
@@ -188,12 +188,20 @@ def isinstance(x: object, y: object) -> bool:
     pass
 
 
-def len(_: Seq) -> int:
+def iter(l: List[Tf]) -> List[Tf]:
+    pass
+
+
+def next(l: List[Tf]) -> Tf:
+    pass
+
+
+def len(_: object) -> int:
     """ Return the number of items in a container. """
     pass
 
 
-def min(_: List[T]) -> T:
+def min(_: List[Tf]) -> Tf:
     """Return the minimum object from the list
 
     TODO:
@@ -203,9 +211,9 @@ def min(_: List[T]) -> T:
     pass
 
 
-def max(_: List[T]) -> T:
+def max(_: List[Tf]) -> Tf:
     """Return the maximum object from the list any
-    
+
     TODO:
         - Verify that the argument is comparable
         - Add support for different iterable objects
@@ -246,7 +254,7 @@ def print(_: object) -> None:
 
 def range(x: int, y:int=None, z:int=None) -> List[int]:
     """Return a list of int from 0 (inclusive) to `x` (exclusive)
-    
+
     TODO: make it RangeObject after implementing interfaces
     """
     pass
@@ -261,9 +269,9 @@ def repr(_: object) -> str:
     pass
 
 
-def reversed(_: List[T]) -> List[T]:
+def reversed(_: List[Tf]) -> List[Tf]:
     """Return a reversed version of the input list
-    
+
     TODO: make it return reversed object after implementing interfaces
     """
     pass
@@ -280,7 +288,7 @@ def round(_: float) -> int:
     pass
 
 
-def set(l: List[T] = None) -> Set[T]:
+def set(l: List[Tf] = None) -> Set[Tf]:
     """Create a set of unique elements
 
     If the parameter is provided, use the elements in the list to create the set,
@@ -295,7 +303,7 @@ def setattr(o: object, name: str, val: object) -> None:
     pass
 
 
-def sorted(_: List[T]) -> List[T]:
+def sorted(_: List[Tf], key: Callable[[Tf], float]=lambda x: 1.0, reverse: bool=None) -> List[Tf]:
     """Return the input list in a sorted order
 
     TODO: Add support for different iterable objects
@@ -310,13 +318,17 @@ def str(_: object = None) -> str:
 
 def sum(_: List[Num]) -> Num:
     """Return the sum of numbers in a list
-    
+
     TODO: Add support for different iterable objects
     """
     pass
 
 
-def zip(x: Union[List[T], str], y: List[U]) -> List[Tuple[T, U]]:
+def type(o: Tf) -> Type[Tf]:
+    pass
+
+
+def zip(x: Union[List[Tf], str], y: List[Uf]) -> List[Tuple[Tf, Uf]]:
     """This function returns a list of tuples,
     where the i-th tuple contains the i-th element from each of the argument lists"""
     pass

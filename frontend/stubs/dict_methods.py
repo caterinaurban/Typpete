@@ -1,46 +1,52 @@
 """Stub file for methods invoked on lists"""
-from typing import TypeVar, Dict, List, Tuple
+from typing import TypeVar, Dict, List, Tuple, Generic
 
-T = TypeVar("T")
-U = TypeVar("U")
+Tdict = TypeVar("Tdict")
+Udict = TypeVar("Udict")
 
 
-def clear(dict: Dict[T, U]) -> None:
+def clear(self: Dict[Tdict, Udict]) -> None:
     """Removes all elements of dictionary dict"""
     pass
 
 
-def copy(dict: Dict[T, U]) -> Dict[T, U]:
+def copy(self: Dict[Tdict, Udict]) -> Dict[Tdict, Udict]:
     """Returns a shallow copy of dictionary dict"""
     pass
 
 
-def get(dict: Dict[T, U], key: T, default: U = None) -> U:
+def get(self: Dict[Tdict, Udict], key: Tdict, default: Udict = None) -> Udict:
     """For key key, returns value"""
     pass
 
+def __getitem__(self: Dict[Tdict, Udict], item: Tdict) -> Udict:
+    pass
 
-def pop(dict: Dict[T, U], key: T) -> U:
+def __setitem__(self: Dict[Tdict, Udict], key: Tdict, value: Udict) -> None:
+    pass
+
+
+def pop(self: Dict[Tdict, Udict], key: Tdict) -> Udict:
     """Removes the key key in the dictionary dict and returns its value."""
     pass
 
 
-def popitem(dict: Dict[T, U]) -> Tuple[T, U]:
+def popitem(self: Dict[Tdict, Udict]) -> Tuple[Tdict, Udict]:
     """Removes and returns an arbitrary (key, value) pair from the dictionary dict."""
     pass
 
 
-def update(dict: Dict[T, U], dict2: Dict[T, U]) -> None:
+def update(self: Dict[Tdict, Udict], dict2: Dict[Tdict, Udict]) -> None:
     """Adds dictionary dict2's key-values pairs to dict"""
     pass
 
-def items(dict: Dict[T, U]) -> List[Tuple[T, U]]:
+def items(self: Dict[Tdict, Udict]) -> List[Tuple[Tdict, Udict]]:
     pass
 
 
-def keys(dict: Dict[T, U]) -> List[T]:
+def keys(dict: Dict[Tdict, Udict]) -> List[Tdict]:
     pass
 
 
-def values(dict: Dict[T, U]) -> List[U]:
+def values(dict: Dict[Tdict, Udict]) -> List[Udict]:
     pass

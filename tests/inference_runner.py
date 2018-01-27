@@ -3,24 +3,29 @@ from frontend.import_handler import ImportHandler
 from frontend.config import config
 from z3 import Optimize
 
-import ast
 import os
 import time
 import astunparse
 
 start_time = time.time()
-base_folder = 'tests/scion'
-file_name = 'lib/path_store'
+base_folder = 'tests/adventure'
+file_name = 'data'
+
+class_type_params = None
+type_params = {'make_object': [1]}
 
 t = ImportHandler.get_module_ast(file_name, base_folder)
 
-solver = z3_types.TypesSolver(t, base_folder=base_folder)
+solver = z3_types.TypesSolver(t, base_folder=base_folder, type_params=type_params,
+                              class_type_params=class_type_params)
 
-context = Context(t.body, solver)
+context = Context(t, t.body, solver)
+context.type_params = solver.config.type_params
+context.class_type_params = solver.config.class_type_params
 solver.infer_stubs(context, infer)
 
 for stmt in t.body:
-    infer(stmt, context, solver)
+    infer(stmt, context, solver, t)
 
 end_time = time.time()
 print("Constraints collection took  {}s".format(end_time - start_time))
@@ -37,6 +42,15 @@ def print_solver(z3solver):
     printer.set_pp_option('max_depth', 1000000)
     printer.set_pp_option('max_args', 512)
     printer.pp(z3solver)
+
+def print_model():
+    printer = z3_types.z3printer
+    printer.set_pp_option('max_lines', 4000)
+    printer.set_pp_option('max_width', 120)
+    printer.set_pp_option('max_visited', 10000000)
+    printer.set_pp_option('max_depth', 1000000)
+    printer.set_pp_option('max_args', 512)
+    printer.pp(model)
 
 
 def print_context(ctx, ind=""):
@@ -77,6 +91,8 @@ if check == z3_types.unsat:
         opt.add(a)
     for a in solver.z3_types.subtyping:
         opt.add(a)
+    for a in solver.z3_types.subst_axioms:
+        opt.add(a)
     for a in solver.forced:
         opt.add(a)
     checkres = opt.check()
@@ -106,7 +122,6 @@ file.write(astunparse.unparse(t))
 file.close()
 
 ImportHandler.write_to_files(model, solver)
-    # print(astunparse.unparse(t))
 
 
 print("Constraints solving took  {}s".format(end_time - start_time))

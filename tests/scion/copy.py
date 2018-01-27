@@ -1,5 +1,5 @@
 from typing import TypeVar
 
-T = TypeVar('T')
-def deepcopy(o: T) -> T:
+Tcopy = TypeVar('Tcopy', bound=object)
+def deepcopy(o: Tcopy) -> Tcopy:
     ...

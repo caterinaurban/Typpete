@@ -40,6 +40,15 @@ from z3 import Or, And
 from frontend.context import Context, AnnotatedFunction
 
 
+def get_module(node):
+    if isinstance(node, ast.Module):
+        return node
+    if hasattr(node, "_module"):
+        return node._module
+    if hasattr(node, "_parent"):
+        return get_module(node._parent)
+    assert False
+
 def infer_numeric(node, solver):
     """Infer the type of a numeric node"""
     if type(node.n) == int:
@@ -373,7 +382,7 @@ def infer_sequence_comprehension(node, sequence_type, context, solver):
         The iterable should always be a list or a set (not a tuple or a dict)
         The iteration target should be always a variable name.
     """
-    local_context = Context([], solver, parent_context=context)
+    local_context = Context(None, [], solver, parent_context=context)
     infer_generators(node.generators, local_context, node.lineno, solver)
     return sequence_type(infer(node.elt, local_context, solver))
 
@@ -393,7 +402,7 @@ def infer_dict_comprehension(node, context, solver):
         The iterable should always be a list or a set (not a tuple or a dict)
         The iteration target should be always a variable name.
     """
-    local_context = Context([], solver, parent_context=context)
+    local_context = Context(None, [], solver, parent_context=context)
     infer_generators(node.generators, local_context, node.lineno, solver)
     key_type = infer(node.key, local_context, solver)
     val_type = infer(node.value, local_context, solver)
@@ -451,34 +460,39 @@ def infer_func_call(node, context, solver):
             if len(node.args) != 2:
                 raise TypeError("Casts need two arguments (target type and expression).")
             infer(node.args[1], context, solver)
-            return solver.annotation_resolver.resolve(node.args[0], solver)
+            return solver.annotation_resolver.resolve(node.args[0], solver, get_module(node))
         called = context.get_type(node.func.id)
         # check if the type has the manually added flag for class-types
         if hasattr(called, "is_class"):
+            tvs = [solver.new_z3_const("ta" + str(i)) for i
+                   in range(solver.z3_types.config.max_type_args)]
             args_types = _get_args_types(node.args, context, None, solver)
             solver.add(axioms.one_type_instantiation(node.func.id,
                                                      args_types,
                                                      result_type,
-                                                     solver.z3_types),
-                       fail_message="Class instantiation {} in line {}.".format(node.func.id, node.lineno))
+                                                     solver.z3_types, tvs),
+                       fail_message="Class instantiation {} in line {}.".format(
+                           node.func.id, node.lineno))
             return result_type
 
     # instance represents the receiver in case of method calls.
     # It's none in all cases except method calls
     instance = None
     call_axioms = []
+    target_context = context
 
     if isinstance(node.func, ast.Attribute):
         instance = infer(node.func.value, context, solver)
         if isinstance(instance, Context):
             # Module access; instance is a module, so don't add it as a receiver to `arg_types`
+            target_context = instance
             instance = None
 
     args_types = _get_args_types(node.args, context, instance, solver)
 
     if isinstance(node.func, ast.Attribute):
         # Add axioms for built-in methods
-        call_axioms += _get_builtin_method_call_axioms(args_types, solver, context, result_type, node.func.attr)
+        call_axioms += _get_builtin_method_call_axioms(args_types, solver, target_context, result_type, node.func.attr)
 
         if instance is not None:
             # Add disjunctions for staticmethod calls
@@ -486,9 +500,15 @@ def infer_func_call(node, context, solver):
             call_axioms += axioms.staticmethod_call(instance, args_types[1:], result_type,
                                                     node.func.attr, solver.z3_types)
 
+            tvs = []
+            for i in range(solver.z3_types.config.max_type_args):
+                tv = solver.new_z3_const("ta" + str(i))
+                tvs.append(tv)
+
             # Fixes #21: https://github.com/caterinaurban/Typpete/issues/21
             call_axioms += axioms.instancemethod_call(instance, args_types, result_type,
-                                                    node.func.attr, solver.z3_types)
+                                                      node.func.attr, solver.z3_types,
+                                                      tvs)
 
             solver.add(Or(call_axioms),
                        fail_message="Call to {} in line {}".format(node.func.attr, node.lineno))
@@ -499,7 +519,11 @@ def infer_func_call(node, context, solver):
         if func_axioms is not None:
             call_axioms.append(func_axioms)
     else:
-        call_axioms += axioms.call(called, args_types, result_type, solver.z3_types)
+        tvs = []
+        for i in range(solver.z3_types.config.max_type_args):
+            tv = solver.new_z3_const("ta" + str(i))
+            tvs.append(tv)
+        call_axioms += axioms.call(called, args_types, result_type, solver.z3_types, tvs)
 
     solver.add(Or(call_axioms),
                fail_message="Call in line {}".format(node.lineno))
@@ -576,7 +600,7 @@ def infer_attribute(node, context, from_call, solver):
     user_defined_attribute_axioms = axioms.attribute(instance, node.attr, result_type, solver.z3_types)
 
     solver.add(Or([user_defined_attribute_axioms] + builtin_axioms),
-               fail_message="Attribute access in line {}".format(node.lineno))
+               fail_message="Attribute access {} in line {}".format(node.attr, node.lineno))
 
     if from_call:
         return result_type, instance
@@ -588,7 +612,7 @@ def _init_lambda_context(node, args, context, solver):
     
     # TODO: Reuse the _init_func_context function
     """
-    local_context = Context([node.body], solver, parent_context=context)
+    local_context = Context(None, [node.body], solver, parent_context=context)
 
     args_types = ()
     for arg in args:

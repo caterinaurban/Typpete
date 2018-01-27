@@ -1,10 +1,11 @@
 """Stub file for methods invoked on lists"""
-from typing import TypeVar, List
+from typing import TypeVar, List, Generic
 
-T = TypeVar("T")
+TT = TypeVar("TT")
 
 
-def append(l: List[T], e: T) -> None:
+
+def append(self: List[TT], e: TT) -> None:
     """Append a new element `e` to the list `l`
     
     Invoked on any list
@@ -12,41 +13,41 @@ def append(l: List[T], e: T) -> None:
     pass
 
 
-def count(l: List[T], e: T) -> int:
+def count(self: List[TT], e: TT) -> int:
     """Return how many times element `e` appears in list `l`"""
     pass
 
 
-def extend(l: List[T], l2: List[T]) -> None:
+def extend(self: List[TT], l2: List[TT]) -> None:
     """Append the contents of list `l2` to list `l`"""
     pass
 
 
-def index(l: List[T], e: T) -> int:
+def index(self: List[TT], e: TT) -> int:
     """Return the index of the first appearance of element `e` in list `l`"""
     pass
 
 
-def insert(l: List[T], i: int, e: T) -> None:
+def insert(self: List[TT], i: int, e: TT) -> None:
     """Insert element `e` to the list `l` at index `i`"""
     pass
 
 
-def pop(l: List[T]) -> T:
+def pop(self: List[TT]) -> TT:
     """Delete an item from the list `l` at the index i"""
     pass
 
 
-def remove(l: List[T], e: T) -> None:
+def remove(self: List[TT], e: TT) -> None:
     """Remove element `e` from the list `l`"""
     pass
 
 
-def reverse(l: List[T]) -> None:
+def reverse(self: List[TT]) -> None:
     """Reverse a list"""
     pass
 
 
-def sort(l: List[T]) -> None:
+def sort(self: List[TT]) -> None:
     """Sort a list"""
     pass

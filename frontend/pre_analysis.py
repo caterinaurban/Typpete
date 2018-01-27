@@ -2,10 +2,19 @@ from collections import OrderedDict
 
 from copy import copy
 from frontend.config import config
-from frontend.constants import BUILTINS
+from frontend.constants import ALIASES, BUILTINS
 from frontend.import_handler import ImportHandler
 import ast
 
+
+def get_module(node):
+    if hasattr(node, '_module'):
+        return node._module
+    if hasattr(node, '_containing_class'):
+        return get_module(node._containing_class)
+    if hasattr(node, '_parent'):
+        return get_module(node._parent)
+    return None
 
 class PreAnalyzer:
     """Analyzer for the AST, It provides the following configurations before the type inference:
@@ -35,6 +44,8 @@ class PreAnalyzer:
 
     def walk(self, prog_ast):
         result = list(ast.walk(prog_ast))
+        for n in result:
+            n._module = prog_ast
         import_nodes = [node for node in result if isinstance(node, ast.Import)]
         import_from_nodes = [node for node in result if isinstance(node, ast.ImportFrom)]
         for node in import_nodes:
@@ -98,7 +109,51 @@ class PreAnalyzer:
         names += [node.name for node in self.all_nodes if isinstance(node, ast.alias)]
         return names
 
-    def analyze_classes(self):
+    def analyze_functions(self, conf):
+        """
+        Pre-analyze functions
+        """
+        type_vars = [node for node in self.all_nodes + self.stub_nodes
+                     if (isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
+                         and isinstance(node.value.func, ast.Name)
+                         and node.value.func.id == 'TypeVar')]
+        functions = [node for node in self.all_nodes + self.stub_nodes
+                     if isinstance(node, ast.FunctionDef)]
+        existing_type_vars = {str(item) for entry in dict(conf.type_params, **conf.class_type_params) for item in entry}
+
+        for tv in type_vars:
+            if not hasattr(tv, '_module'):
+                continue
+            tv_name = tv.targets[0].id
+            tv_id = tv_name
+            if tv_id in existing_type_vars:
+                current = 0
+                while tv_id + str(current) in existing_type_vars:
+                    current += 1
+                tv_id = tv_id + str(current)
+            conf.type_vars[(tv._module, tv_name)] = tv_id
+
+
+
+        for func in functions:
+            local_type_vars = [name for (module, name) in conf.type_vars.keys()
+                               if module is get_module(func)]
+            all_tv_refs = set()
+            for annotation in [ann.annotation for ann in func.args.args if ann.annotation is not None] + ([func.returns] if func.returns else []):
+                tv_refs = [node.id for node in ast.walk(annotation)
+                           if isinstance(node, ast.Name) and node.id in local_type_vars]
+                tv_refs = list(OrderedDict.fromkeys(tv_refs))  # remove duplicates
+                if hasattr(func, '_containing_class'):
+                    class_tvs = {node.id for base in func._containing_class.bases for node in ast.walk(base)
+                                 if isinstance(node, ast.Name) and node.id in local_type_vars}
+                    tv_refs = [tvr for tvr in tv_refs if tvr not in class_tvs]
+                all_tv_refs |= set(tv_refs)
+            if all_tv_refs:
+                all_tv_refs = [conf.type_vars[(func._module, tv)] for tv in all_tv_refs]
+                conf.type_params[func.name] = all_tv_refs
+
+
+    def analyze_classes(self, conf):
         """Pre-analyze and configure classes before the type inference
         
         Do the following:
@@ -107,6 +162,7 @@ class PreAnalyzer:
             - Return a mapping from class names to their attributes and methods.
             - Return a mapping from class names to their base classes if they have any.
             
+
         """
         class_defs = [node for node in self.all_nodes + self.stub_nodes if isinstance(node, ast.ClassDef)]
         inherited_funcs_to_super = propagate_attributes_to_subclasses(class_defs)
@@ -118,11 +174,29 @@ class PreAnalyzer:
         abstract_classes = set()
 
         for cls in class_defs:
+            key = cls.name
             if cls.bases:
-                class_to_base[cls.name] = [x.id for x in cls.bases]
-
+                real_bases = [b for b in cls.bases
+                              if not (isinstance(b, ast.Subscript) and b.value.id == 'Generic')]
+                class_type_params = [b for b in cls.bases if b not in real_bases]
             else:
-                class_to_base[cls.name] = ["object"]
+                real_bases = []
+                class_type_params = []
+
+            if class_type_params:
+                if isinstance(class_type_params[0].slice.value, ast.Tuple):
+                    args = [e.id for e in class_type_params[0].slice.value.elts]
+                else:
+                    args = [class_type_params[0].slice.value.id]
+                conf.add_class_type_params(cls.name, args, get_module(cls))
+
+            if cls.name in conf.class_type_params:
+                key = (key,) + tuple([key + '_arg_' + str(n) for n in conf.class_type_params[key]])
+
+            if real_bases:
+                class_to_base[key] = [x.id for x in cls.bases]
+            else:
+                class_to_base[key] = ["object"]
 
             kwords = cls.keywords
             has_abstract_method = False
@@ -152,6 +226,7 @@ class PreAnalyzer:
             # Inspect all class-level statements
             for cls_stmt in cls.body:
                 if isinstance(cls_stmt, ast.FunctionDef):
+                    cls_stmt._containing_class = cls
                     decorators = []
                     for d in cls_stmt.decorator_list:
                         decorator = d.id if isinstance(d, ast.Name) else d.attr
@@ -195,13 +270,13 @@ class PreAnalyzer:
                 class_to_base, class_to_funcs,
                 inherited_funcs_to_super, abstract_classes)
 
-    def get_all_configurations(self):
-        config = Configuration()
+    def get_all_configurations(self, class_type_params, type_params):
+        config = Configuration(class_type_params, type_params)
         config.max_tuple_length = self.maximum_tuple_length()
         config.max_function_args = self.maximum_function_args()
         config.base_folder = self.base_folder
 
-        class_analysis = self.analyze_classes()
+        class_analysis = self.analyze_classes(config)
         config.classes_to_instance_attrs = class_analysis[0]
         config.classes_to_class_attrs = class_analysis[1]
         config.class_to_base = class_analysis[2]
@@ -212,6 +287,10 @@ class PreAnalyzer:
         config.used_names = self.get_all_used_names()
         config.max_default_args = self.max_default_args()
 
+        self.analyze_functions(config)
+
+        config.update_type_vars()
+
         config.complete_class_to_base()
 
         return config
@@ -219,7 +298,7 @@ class PreAnalyzer:
 
 class Configuration:
     """A class holding configurations given by the pre-analyzer"""
-    def __init__(self):
+    def __init__(self, class_type_params, type_params):
         self.max_tuple_length = 0
         self.max_function_args = 1
         self.classes_to_attrs = OrderedDict()
@@ -229,6 +308,27 @@ class Configuration:
         self.used_names = []
         self.max_default_args = 0
         self.all_classes = {}
+        self.type_params = type_params
+        self.class_type_params = class_type_params
+        self.max_type_args = 0
+        self.type_vars = OrderedDict()
+
+    def update_type_vars(self):
+        max_class_vars = 0
+        max_func_vars = 0
+        for vars in self.class_type_params.values():
+            max_class_vars = max(max_class_vars, len(vars))
+            for var in vars:
+                self.type_vars[(None, var)] = str(var)
+        for vars in self.type_params.values():
+            max_func_vars = max(max_func_vars, len(vars))
+            for var in vars:
+                self.type_vars[(None, var)] = str(var)
+        self.max_type_args = max_func_vars + max_class_vars
+
+    def add_class_type_params(self, name, args, module):
+        self.class_type_params[name] = args
+
 
     def complete_class_to_base(self):
         """
@@ -263,7 +363,12 @@ class Configuration:
             builtins[tuple([name] + func_args)] = ['object']
         self.all_classes = builtins
         for key, val in self.class_to_base.items():
-            ukey = 'class_' + key
+            name = key if isinstance(key, str) else key[0]
+            if name in ALIASES:
+                continue
+            ukey = 'class_' + name
+            if isinstance(key, tuple):
+                ukey = (ukey,) + key[1:]
             uval = [x if x == 'object' else 'class_' + x for x in val]
             self.all_classes[ukey] = uval
         return
@@ -334,7 +439,7 @@ def propagate_attributes_to_subclasses(class_defs):
     class_inherited_funcs_to_super = {}
     for class_def in class_defs:
         class_to_bases[class_def.name] = [x.id for x in class_def.bases
-                                          if x.id != 'object']
+                                          if isinstance(x, ast.Name) and x.id != 'object']
         class_to_node[class_def.name] = class_def
         class_inherited_funcs_to_super[class_def.name] = {}
 

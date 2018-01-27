@@ -17,8 +17,6 @@ UNICODE = 0
 T = 0
 TEMPLATE = 0
 
-Any = TypeVar('Any')
-
 class Match:
     pos = 0
     endpos = 0
@@ -58,7 +56,7 @@ def fullmatch(pattern: Union[Pattern, str], string: str, flags: int = 1) -> Matc
 
 def split(pattern: Union[Pattern, str], maxsplit: int = 1, flags: int = 1) -> Match: ...
 
-def findall(pattern: Union[Pattern, str], maxsplit: int = 1, flags: int = 1) -> List[Any]: ...
+def findall(pattern: Union[Pattern, str], maxsplit: int = 1, flags: int = 1) -> List[object]: ...
 
 def sub(pattern: Union[Pattern, str], repl: Union[str, Callable[[Match], str]],
         string: str, count: int = 0, flags: int = 0) -> str: ...

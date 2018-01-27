@@ -4,6 +4,7 @@ import os
 
 from frontend.context import Context
 from frontend.stubs.stubs_paths import libraries
+from frontend.stubs.stubs_handler import STUB_ASTS
 
 
 class ImportHandler:
@@ -21,6 +22,8 @@ class ImportHandler:
         """
         if module_name in ImportHandler.cached_asts:
             return ImportHandler.cached_asts[module_name]
+        if path in STUB_ASTS:
+            return STUB_ASTS[path]
         try:
             r = open(path)
         except FileNotFoundError:
@@ -58,7 +61,7 @@ class ImportHandler:
                                                                                                            infer_func)
         else:
             t = ImportHandler.get_module_ast(module_name, base_folder)
-            context = Context(t.body, solver)
+            context = Context(t, t.body, solver)
             ImportHandler.cached_modules[module_name] = context
             solver.infer_stubs(context, infer_func)
             for stmt in t.body:

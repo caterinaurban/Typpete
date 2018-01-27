@@ -36,7 +36,7 @@ class AnnotationResolver:
         self.type_var_poss = {}
         self.type_var_super = {}
 
-    def resolve(self, annotation, solver, generics_map=None):
+    def resolve(self, annotation, solver, module, generics_map=None, annotated=False):
         """Resolve the type annotation with the following grammar:
         
         :param annotation: the type annotation to be resolved
@@ -64,29 +64,33 @@ class AnnotationResolver:
                 return self.primitives[id]
             if id in self.z3_types.all_types:
                 return getattr(self.z3_types.type_sort, "class_{}".format(id))
+
+
+            key = (module, id)
+            if generics_map is not None and (annotated or key not in self.z3_types.config.type_vars):
+                if id in generics_map:
+                    return generics_map[id]
+
+                if id not in self.type_var_poss:
+                    raise ValueError("Invalid type annotation {} in line {}".format(id, annotation.lineno))
+
+                result_type = solver.new_z3_const("generic")
+                generics_map[id] = result_type
+                possible_types = [self.resolve(x, solver, module, generics_map) for x in
+                                  self.type_var_poss[id]]
+
+                if possible_types:
+                    solver.add(Or([result_type == x for x in possible_types]),
+                               fail_message = "Generic type in line {}".format(annotation.lineno))
+                return result_type
             
             # Check if it's a generic type var
-            if generics_map is None:
-                raise ValueError("Invalid type annotation {} in line {}".format(id, annotation.lineno))
-            if id in generics_map:
-                return generics_map[id]
-            if id not in self.type_var_poss:
-                raise ValueError("Invalid type annotation {} in line {}".format(id, annotation.lineno))
+            if key in self.z3_types.config.type_vars:
+                return self.z3_types.config.type_vars[key]
+            else:
+                raise ValueError(
+                    "Invalid type annotation {} in line {}".format(id, annotation.lineno))
 
-            result_type = solver.new_z3_const("generic")
-            generics_map[id] = result_type
-
-            possible_types = [self.resolve(x, solver, generics_map) for x in self.type_var_poss[id]]
-            if possible_types:
-                solver.add(Or([result_type == x for x in possible_types]),
-                           fail_message="Generic type in line {}".format(annotation.lineno))
-
-            if id in self.type_var_super:
-                type_var_super = self.resolve(self.type_var_super[id], solver, generics_map)
-                solver.add(solver.z3_types.subtype(result_type, type_var_super),
-                           fail_message="Generic bound in line {}".format(annotation.lineno))
-
-            return result_type
 
         if isinstance(annotation, ast.Subscript):
             if not (isinstance(annotation.value, ast.Name) and isinstance(annotation.slice, ast.Index)):
@@ -95,7 +99,7 @@ class AnnotationResolver:
             annotation_val = annotation.value.id
             if annotation_val == "List":
                 # Parse List type
-                return self.z3_types.list(self.resolve(annotation.slice.value, solver, generics_map))
+                return self.z3_types.list(self.resolve(annotation.slice.value, solver, module, generics_map=generics_map))
             
             if annotation_val == "Dict":
                 # Parse Dict type
@@ -104,20 +108,20 @@ class AnnotationResolver:
                                     .format(annotation.lineno))
 
                 # Get the types of the dict args
-                keys_type = self.resolve(annotation.slice.value.elts[0], solver, generics_map)
-                vals_type = self.resolve(annotation.slice.value.elts[1], solver, generics_map)
+                keys_type = self.resolve(annotation.slice.value.elts[0], solver, module, generics_map=generics_map)
+                vals_type = self.resolve(annotation.slice.value.elts[1], solver, module, generics_map=generics_map)
                 return self.z3_types.dict(keys_type, vals_type)
             
             if annotation_val == "Set":
                 # Parse Set type
-                return self.z3_types.set(self.resolve(annotation.slice.value, solver, generics_map))
+                return self.z3_types.set(self.resolve(annotation.slice.value, solver, module, generics_map=generics_map))
 
             if annotation_val == 'Optional':
-                return self.resolve(annotation.slice.value, solver, generics_map)
+                return self.resolve(annotation.slice.value, solver, module, generics_map=generics_map)
             
             if annotation_val == "Type":
                 # Parse Type type
-                return self.z3_types.type(self.resolve(annotation.slice.value, solver, generics_map))
+                return self.z3_types.type(self.resolve(annotation.slice.value, solver, module, generics_map=generics_map))
             
             if annotation_val == "Tuple":
                 # Parse Tuple type
@@ -126,9 +130,9 @@ class AnnotationResolver:
 
                 # Get the types of the tuple args
                 if isinstance(annotation.slice.value, ast.Name):
-                    tuple_args_types = [self.resolve(annotation.slice.value, solver, generics_map)]
+                    tuple_args_types = [self.resolve(annotation.slice.value, solver, module, generics_map=generics_map)]
                 else:
-                    tuple_args_types = [self.resolve(x, solver, generics_map) for x in annotation.slice.value.elts]
+                    tuple_args_types = [self.resolve(x, solver, module, generics_map=generics_map) for x in annotation.slice.value.elts]
 
                 if len(tuple_args_types) == 0:
                     return self.z3_types.tuples[0]
@@ -146,8 +150,8 @@ class AnnotationResolver:
 
                 # Get the args and return types
                 args_annotations = annotation.slice.value.elts[0].elts
-                args_types = [self.resolve(x, solver, generics_map) for x in args_annotations]
-                return_type = self.resolve(annotation.slice.value.elts[1], solver, generics_map)
+                args_types = [self.resolve(x, solver, module, generics_map=generics_map) for x in args_annotations]
+                return_type = self.resolve(annotation.slice.value.elts[1], solver, module, generics_map=generics_map)
 
                 return self.z3_types.funcs[len(args_types)](*([0] + args_types + [return_type]))
 
@@ -158,9 +162,9 @@ class AnnotationResolver:
 
                 # Get the types of the union args
                 if isinstance(annotation.slice.value, ast.Name):
-                    union_args_types = [self.resolve(annotation.slice.value, solver, generics_map)]
+                    union_args_types = [self.resolve(annotation.slice.value, solver, module, generics_map=generics_map)]
                 else:
-                    union_args_types = [self.resolve(x, solver, generics_map) for x in annotation.slice.value.elts]
+                    union_args_types = [self.resolve(x, solver, module, generics_map=generics_map) for x in annotation.slice.value.elts]
 
                 # The result of the union type is only one of args, Z3 picks the appropriate one
                 # according to the added constraints.
@@ -176,6 +180,13 @@ class AnnotationResolver:
 
                 return result_type
 
+            if annotation_val in self.z3_types.all_types:
+                func = getattr(self.z3_types.type_sort, "class_{}".format(annotation_val))
+                if isinstance(annotation.slice.value, ast.Name):
+                    args = self.resolve(annotation.slice.value, solver, module, generics_map=generics_map)
+                else:
+                    args = [self.resolve(x, solver, module, generics_map=generics_map) for x in annotation.slice.value.elts]
+                return func(args)
         raise ValueError("Invalid type annotation in line {}".format(annotation.lineno))
 
     def get_annotated_function_axioms(self, args_types, solver, annotated_function, result_type):
@@ -196,12 +207,12 @@ class AnnotationResolver:
         generics_map = {}
 
         for i, annotation in enumerate(args_annotations[:len(args_types)]):
-            arg_type = self.resolve(annotation, solver, generics_map)
+            arg_type = self.resolve(annotation, solver, annotated_function.module, generics_map=generics_map, annotated=True)
             axioms.append(args_types[i] == arg_type)
-        axioms.append(result_type == self.resolve(result_annotation, solver, generics_map))
+        axioms.append(result_type == self.resolve(result_annotation, solver, annotated_function.module, generics_map, annotated=True))
         return And(axioms)
 
-    def add_type_var(self, target, type_var_node):
+    def add_type_var(self, target, type_var_node, solver, module):
         if not isinstance(target, ast.Name):
             raise TypeError("TypeVar assignment target should be a variable name.")
         if not type_var_node.args:
@@ -210,16 +221,34 @@ class AnnotationResolver:
         if not isinstance(args[0], ast.Str):
             raise TypeError("Name of type variable in line {} should be a string".format(type_var_node.lineno))
         type_var_name = target.id
+
         type_var_possibilities = args[1:]
+        if module is None or type_var_possibilities:
+            if type_var_node.keywords and type_var_node.keywords[0].arg == "bound":
+                type_var_super = type_var_node.keywords[0].value
+                self.type_var_super[type_var_name] = type_var_super
+            self.type_var_poss[type_var_name] = type_var_possibilities
+            return
+
+        if not hasattr(solver.z3_types, "tv" + type_var_name):
+            return
+        type_var_type = getattr(solver.z3_types, "tv" + type_var_name)
 
         if type_var_node.keywords and type_var_node.keywords[0].arg == "bound":
-            type_var_super = type_var_node.keywords[0].value
-            self.type_var_super[type_var_name] = type_var_super
-
-        if len(type_var_possibilities) == 1:
-            raise TypeError("A single constraint is not allowed in TypeVar in line {}".format(type_var_node.lineno))
-
-        self.type_var_poss[type_var_name] = type_var_possibilities
+            bound = self.resolve(type_var_node.keywords[0].value, solver, module)
+            solver.add(solver.z3_types.upper(type_var_type) == bound,
+                       fail_message="Upper bound of type variable {}".format(type_var_name))
+        elif len(type_var_possibilities) > 0:
+            if len(type_var_possibilities) == 1:
+                raise TypeError("A single constraint is not allowed in TypeVar in line {}".format(type_var_node.lineno))
+            possibilities = [solver.z3_types.upper(type_var_type) == self.resolve(p, solver, module)
+                             for p in type_var_possibilities]
+            solver.add(Or(*possibilities), fail_message="Options of type variable {}".format(type_var_name))
+        else:
+            bound = solver.z3_types.object
+            solver.add(solver.z3_types.upper(type_var_type) == bound,
+                       fail_message="Upper bound of type variable {}".format(
+                           type_var_name))
 
     def unparse_annotation(self, z3_type):
         """Unparse the z3_type into a type annotation in PEP 484 syntax
@@ -245,13 +274,29 @@ class AnnotationResolver:
         match = re.match("class_(.+)", type_str)
         # unparse user defined class types. Example: class_A -> A
         if match:
+            generic = re.match("([a-zA-Z]+)\(.+\)", match.group(1))
+            if generic:
+                generic_name = generic.group(1)
+                type_def = None
+                for cls in self.z3_types.config.all_classes:
+                    if not isinstance(cls, tuple):
+                        continue
+                    if cls[0] == 'class_' + generic_name:
+                        type_def = cls
+                        break
+                args = []
+                for name in type_def[1:]:
+                    accessor = getattr(self.z3_types.type_sort, name)
+                    instance = simplify(accessor(z3_type))
+                    args.append(self.unparse_annotation(instance))
+                return '{}[{}]'.format(generic_name, ', '.join(args))
             return match.group(1)
 
         match = re.match("type", type_str)
         # unparse type type. Example: type_type(class_A) -> Type[A]
         if match:
             # get the instance of this type
-            instance_accessor = getattr(self.z3_types.type_sort, "instance")
+            instance_accessor = getattr(self.z3_types.type_sort, "type_arg_0")
             instance = simplify(instance_accessor(z3_type))
             return "Type[{}]".format(self.unparse_annotation(instance))
 
@@ -306,4 +351,11 @@ class AnnotationResolver:
 
             return "Callable[[{}], {}]".format(", ".join(args), return_annotation)
 
-        raise TypeError("Couldn't unparse type {}".format(type_str))
+        if type_str.startswith('tv'):
+            tv_name = type_str[2:]
+            if tv_name[0].isdigit():
+                tv_name = 'T' + tv_name
+            return tv_name
+
+        return type_str
+        #raise TypeError("Couldn't unparse type {}".format(type_str))
