@@ -1,6 +1,8 @@
-class Aexp:
+from abc import ABCMeta, abstractmethod
+class Aexp(metaclass=ABCMeta):
+    @abstractmethod
     def eval(self, env):
-        return 1
+        pass
 
 
 class IntAexp(Aexp):
@@ -134,7 +136,8 @@ class NotBexp(Bexp):
         return not value
 
 
-class Statement:
+class Statement(metaclass=ABCMeta):
+    @abstractmethod
     def eval(self, env):
         pass
 

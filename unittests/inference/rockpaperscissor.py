@@ -1,4 +1,4 @@
-
+from abc import ABCMeta, abstractmethod
 
 class Outcome:
     def __init__(self, value, name):
@@ -6,16 +6,20 @@ class Outcome:
         self.name = name
 
 
-class Item(object):
+class Item(metaclass=ABCMeta):
+    @abstractmethod
     def compete(self, item):
         pass
 
+    @abstractmethod
     def evalPaper(self, item):
         pass
 
+    @abstractmethod
     def evalScissors(self, item):
         pass
 
+    @abstractmethod
     def evalRock(self, item):
         pass
 

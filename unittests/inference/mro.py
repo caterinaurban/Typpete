@@ -1,6 +1,6 @@
 class A:
     def who_am_i(self):
-        return A
+        return A()
 
 
 class B(A):
@@ -9,7 +9,7 @@ class B(A):
 
 class C(A):
     def who_am_i(self):
-        return C
+        return C()
 
 
 class D(B, C):
@@ -30,4 +30,4 @@ so the type of `who` is Type[C]
 # C := Type[C]
 # D := Type[D]
 # d1 := D
-# who := Type[C]
+# who := C
