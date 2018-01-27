@@ -1,10 +1,11 @@
 from itertools import chain
-
+from abc import abstractmethod
 from .chip import Chip
 
 class Gate(Chip):
     IO_MAPPING = None # [(I1, I2, ..., IN, O)]
 
+    @abstractmethod
     def _test(self, input_pins):
         raise NotImplementedError()
 

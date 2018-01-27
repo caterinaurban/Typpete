@@ -3,8 +3,11 @@ import frontend.stubs.stubs_paths as paths
 from frontend.context import Context
 
 INFERRED = {}
+STUB_ASTS = {}
 
 class StubsHandler:
+
+
     def __init__(self):
         self.asts = []
         self.lib_asts = {}
@@ -15,12 +18,14 @@ class StubsHandler:
             r = open(file)
             tree = ast.parse(r.read())
             r.close()
+            STUB_ASTS[file] = tree
             self.asts.append(tree)
 
         for method in paths.methods:
             r = open(method["path"])
             tree = ast.parse(r.read())
             r.close()
+            STUB_ASTS[method["path"]] = tree
             tree.method_type = method["type"]
             self.methods_asts.append(tree)
 
@@ -28,19 +33,20 @@ class StubsHandler:
             r = open(paths.libraries[lib])
             tree = ast.parse(r.read())
             r.close()
+            STUB_ASTS[paths.libraries[lib]] = tree
             self.lib_asts[lib] = tree
 
-    @staticmethod
-    def infer_file(tree, solver, used_names, infer_func, method_type=None):
-        if tree in INFERRED:
-            return INFERRED[tree]
+    def infer_file(self, tree, solver, used_names, infer_func, method_type=None):
         # Infer only structs that are used in the program to be inferred
 
         # Function definitions
-        relevant_nodes = StubsHandler.get_relevant_nodes(tree, used_names)
+        if tree in INFERRED:
+            return INFERRED[tree]
+        relevant_nodes = self.get_relevant_nodes(tree, used_names)
 
         context = Context(tree, tree.body, solver)
         INFERRED[tree] = context
+
         if method_type:
             # Add the flag in the statements to recognize the method statements during the inference
             for node in relevant_nodes:
@@ -51,14 +57,14 @@ class StubsHandler:
 
         return context
 
-    @staticmethod
-    def get_relevant_nodes(tree, used_names):
+
+    def get_relevant_nodes(self, tree, used_names):
         """Get relevant nodes (which are used in the program) from the given AST `tree`"""
 
         # Class definitions
         relevant_nodes = [node for node in tree.body
                            if (isinstance(node, ast.ClassDef) and
-                               (node.name in used_names or StubsHandler.get_relevant_nodes(node, used_names)))]
+                               (node.name in used_names or self.get_relevant_nodes(node, used_names)))]
 
         # TypeVar definitions
         relevant_nodes += [node for node in tree.body
@@ -71,6 +77,14 @@ class StubsHandler:
         relevant_nodes += [node for node in tree.body
                           if (isinstance(node, ast.FunctionDef) and
                               node.name in used_names)]
+        import_nodes = [node for node in tree.body if isinstance(node, ast.ImportFrom)]
+        for node in import_nodes:
+            if node.module == 'typing':
+                # FIXME remove after added typing stub
+                continue
+            relevant_nodes.append(self.lib_asts[node.module])
+        relevant_nodes += import_nodes
+        used_names += [name.name for node in import_nodes for name in node.names]
 
         # Variable assignments
         # For example, math package has `pi` declaration as pi = 3.14...

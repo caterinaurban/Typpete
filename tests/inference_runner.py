@@ -3,23 +3,21 @@ from frontend.import_handler import ImportHandler
 from frontend.config import config
 from z3 import Optimize
 
-import ast
 import os
 import time
 import astunparse
-import sys
-sys.setrecursionlimit(10000)
 
 start_time = time.time()
-base_folder = 'tests/imp'
-file_name = 'imp'
+base_folder = 'tests/adventure'
+file_name = 'data'
 
 class_type_params = None
-type_params = None
+type_params = {'make_object': [1]}
 
 t = ImportHandler.get_module_ast(file_name, base_folder)
 
-solver = z3_types.TypesSolver(t, base_folder=base_folder, type_params=type_params, class_type_params=class_type_params)
+solver = z3_types.TypesSolver(t, base_folder=base_folder, type_params=type_params,
+                              class_type_params=class_type_params)
 
 context = Context(t, t.body, solver)
 context.type_params = solver.config.type_params

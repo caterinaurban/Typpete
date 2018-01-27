@@ -1,5 +1,6 @@
 from .chip import ActivableChip
 from .util import set_binary_value
+from .pin import Pin
 
 class BinaryCounter(ActivableChip):
     CLOCK_PIN = ''
@@ -7,7 +8,14 @@ class BinaryCounter(ActivableChip):
     def __init__(self, *args, **kwargs):
         self.value = 0
         self.prev_clock_high = False
-        # super().__init__(*args, **kwargs)
+        for code in self.OUTPUT_PINS:
+            pin = Pin(code, code in self.STARTING_HIGH, self, True)
+            setattr(self, 'pin_{}'.format(pin.code), pin)
+        for code in self.INPUT_PINS:
+            pin = Pin(code, code in self.STARTING_HIGH, self)
+            setattr(self, 'pin_{}'.format(pin.code), pin)
+        self.vcc = Pin('VCC', True, self)
+        self.update()
 
     def maxvalue(self):
         return (1 << len(self.OUTPUT_PINS)) - 1

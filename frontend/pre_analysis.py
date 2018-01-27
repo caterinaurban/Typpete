@@ -33,8 +33,6 @@ class PreAnalyzer:
         self.base_folder = base_folder
         self.analyzed = set()
         self.all_nodes = self.walk(prog_ast)
-        for node in self.all_nodes:
-            node._module = prog_ast
 
         # Pre-analyze only used constructs from the stub files.
         used_names = self.get_all_used_names()
@@ -46,6 +44,8 @@ class PreAnalyzer:
 
     def walk(self, prog_ast):
         result = list(ast.walk(prog_ast))
+        for n in result:
+            n._module = prog_ast
         import_nodes = [node for node in result if isinstance(node, ast.Import)]
         import_from_nodes = [node for node in result if isinstance(node, ast.ImportFrom)]
         for node in import_nodes:
@@ -88,7 +88,7 @@ class PreAnalyzer:
 
     def max_default_args(self):
         """Get the maximum number of default arguments appearing in all function definitions"""
-        func_defs = [node for node in self.all_nodes if isinstance(node, ast.FunctionDef)]
+        func_defs = [node for node in (self.all_nodes + self.stub_nodes) if isinstance(node, ast.FunctionDef)]
         return max([len(node.args.defaults) for node in func_defs] + [0])
 
     def maximum_tuple_length(self):
@@ -164,7 +164,6 @@ class PreAnalyzer:
             
 
         """
-        # TODO propagate attributes to subclasses.
         class_defs = [node for node in self.all_nodes + self.stub_nodes if isinstance(node, ast.ClassDef)]
         inherited_funcs_to_super = propagate_attributes_to_subclasses(class_defs)
 
@@ -172,6 +171,7 @@ class PreAnalyzer:
         class_to_class_attributes = OrderedDict()
         class_to_base = OrderedDict()
         class_to_funcs = OrderedDict()
+        abstract_classes = set()
 
         for cls in class_defs:
             key = cls.name
@@ -198,6 +198,12 @@ class PreAnalyzer:
             else:
                 class_to_base[key] = ["object"]
 
+            kwords = cls.keywords
+            has_abstract_method = False
+            has_abcmeta = (kwords and kwords[0].arg == 'metaclass' and
+                           (isinstance(kwords[0].value, ast.Name) and kwords[0].value.id == 'ABCMeta'
+                           or isinstance(kwords[0].value, ast.Attribute) and kwords[0].value.attr == 'ABCMeta'))
+
             add_init_if_not_existing(cls)
 
             # instance attributes contains all attributes that can be accessed through the instance
@@ -223,9 +229,11 @@ class PreAnalyzer:
                     cls_stmt._containing_class = cls
                     decorators = []
                     for d in cls_stmt.decorator_list:
-                        if not isinstance(d, ast.Name) or d.id not in config["decorators"]:
-                            raise TypeError("Decorator {} is not supported".format(d))
-                        decorators.append(d.id)
+                        decorator = d.id if isinstance(d, ast.Name) else d.attr
+                        if decorator not in config["decorators"]:
+                            raise TypeError("Decorator {} is not supported".format(decorator))
+                        has_abstract_method |= decorator == 'abstractmethod'
+                        decorators.append(decorator)
                     class_funcs[cls_stmt.name] = (len(cls_stmt.args.args), decorators,
                                                   len(cls_stmt.args.defaults))
                     # Add function to class attributes and get attributes defined by self.some_attribute = value
@@ -256,9 +264,11 @@ class PreAnalyzer:
                         if isinstance(target, ast.Name):
                             class_attributes.add(target.id)
                             instance_attributes.add(target.id)
+            if has_abcmeta or has_abstract_method:
+                abstract_classes.add(cls.name)
         return (class_to_instance_attributes, class_to_class_attributes,
                 class_to_base, class_to_funcs,
-                inherited_funcs_to_super)
+                inherited_funcs_to_super, abstract_classes)
 
     def get_all_configurations(self, class_type_params, type_params):
         config = Configuration(class_type_params, type_params)
@@ -272,13 +282,14 @@ class PreAnalyzer:
         config.class_to_base = class_analysis[2]
         config.class_to_funcs = class_analysis[3]
         config.inherited_funcs_to_super = class_analysis[4]
+        config.abstract_classes = class_analysis[5]
 
         config.used_names = self.get_all_used_names()
         config.max_default_args = self.max_default_args()
 
-        config.update_type_vars()
-
         self.analyze_functions(config)
+
+        config.update_type_vars()
 
         config.complete_class_to_base()
 
@@ -466,6 +477,8 @@ def propagate_attributes_to_subclasses(class_defs):
             # Store a mapping from the inherited function names to the super class from which they are inherited
             for func in inherited_funcs:
                 func.super = parent
+            for attr in inherited_attrs:
+                attr.super = parent
             class_inherited_funcs_to_super[class_def.name].update(
                 {func.name: parent for func in inherited_funcs if func.name != '__init__'}
             )
@@ -486,7 +499,7 @@ def add_init_if_not_existing(class_node):
     for stmt in class_node.body:
         if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
             return
-    class_node.body.append(ast.FunctionDef(
+    init_method = ast.FunctionDef(
         name="__init__",
         args=ast.arguments(
             args=[ast.arg(arg="self", annotation=None, lineno=class_node.lineno)],
@@ -500,4 +513,6 @@ def add_init_if_not_existing(class_node):
         decorator_list=[],
         returns=None,
         lineno=class_node.lineno
-    ))
+    )
+    init_method.remove_later = True
+    class_node.body.append(init_method)

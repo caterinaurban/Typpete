@@ -4,6 +4,7 @@ import os
 
 from frontend.context import Context
 from frontend.stubs.stubs_paths import libraries
+from frontend.stubs.stubs_handler import STUB_ASTS
 
 
 class ImportHandler:
@@ -21,6 +22,8 @@ class ImportHandler:
         """
         if module_name in ImportHandler.cached_asts:
             return ImportHandler.cached_asts[module_name]
+        if path in STUB_ASTS:
+            return STUB_ASTS[path]
         try:
             r = open(path)
         except FileNotFoundError:

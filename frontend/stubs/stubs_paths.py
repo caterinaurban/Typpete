@@ -11,6 +11,7 @@ libraries = {
     "csv": "frontend/stubs/libraries/csv.py",
     "time": "frontend/stubs/libraries/time.py",
     "os": "frontend/stubs/libraries/os.py",
+    "abc": "frontend/stubs/libraries/abc.py",
 }
 
 methods = [

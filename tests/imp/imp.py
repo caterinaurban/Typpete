@@ -39,7 +39,7 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         usage()
     filename = sys.argv[1]
-    text = ""
+    text = open(filename).read()
     tokens = imp_lex(text)
     parse_result = imp_parse(tokens)
     if not parse_result:

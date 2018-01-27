@@ -1,7 +1,8 @@
 from typing import cast
 from .pin import Pin
+from abc import ABCMeta
 
-class Chip:
+class Chip(metaclass=ABCMeta):
     OUTPUT_PINS = []
     INPUT_PINS = []
     STARTING_HIGH = [] # pins that start high

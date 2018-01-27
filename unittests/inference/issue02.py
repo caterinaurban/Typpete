@@ -1,6 +1,9 @@
-class Aexp:
+from abc import ABCMeta, abstractmethod
+
+class Aexp(ABCMeta):
+    @abstractmethod
     def eval(self, env):
-        return 0
+        pass
 
 class IntAexp(Aexp):
     def __init__(self, i):
@@ -24,7 +27,8 @@ class BinopAexp(Aexp):
         else:
             raise RuntimeError('unknown operator: ' + self.op)
 
-class Statement:
+class Statement(metaclass=ABCMeta):
+    @abstractmethod
     def eval(self, env):
         pass
 

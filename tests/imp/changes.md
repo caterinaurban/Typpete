@@ -2,14 +2,16 @@
 
 | Change | Line # | Justification |
 |--------|--------|---------------|
-| Added `__call__` method to Parser class | 49 | Implemented by every subclass |
+| Added abstract `__call__` method to Parser class | 51 | Implemented by every subclass |
+| Declared class Parser as abstract | 37 | It has abstract method `__call__` |
 | Downcast `arg` to None | 154 | `self.function` expects a subtype of None as an arg |
 
 #### equality.py:
 
 | Change | Line # | Justification |
 |--------|--------|---------------|
-| added `eval` method to Equality class | 34 | Implemented by every subclass |
+| added abstract `eval` method to Equality class | 35 | Implemented by every subclass |
+| Declared class Equality as abstract | 27 | It has abstract method `eval` |
 
 #### imp_ast.py:
 | Change | Line # | Justification |
@@ -26,5 +28,4 @@
 #### imp.py:
 | Change | Line # | Justification |
 |--------|--------|---------------|
-| Set `text` to empty string | 42 | File handling is not supported yet |
 | Downcast `ast` to `Equality` | 48 | parse_result.value has static type `object`, but a subtype of `Equality` at runtime |

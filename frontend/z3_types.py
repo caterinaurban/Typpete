@@ -62,6 +62,7 @@ class TypesSolver(Solver):
         self.config = analyzer.get_all_configurations(class_type_params, type_params)
         self.z3_types = Z3Types(self.config, self)
 
+        self.z3_types.abstract_types = self.config.abstract_classes
         for cls in self.z3_types.classes:
             cls_func = self.z3_types.classes[cls]
             if not isinstance(cls_func, z3.FuncDeclRef):
@@ -109,28 +110,12 @@ class TypesSolver(Solver):
     def resolve_annotation(self, annotation, module):
         return self.annotation_resolver.resolve(annotation, self, module)
 
-    # def create_type_var_axioms(self):
-    #     axioms = []
-    #     type_var_map = {}
-    #     for name, (id, options, bound) in self.config.type_vars.items():
-    #         type_var_type = getattr(self.z3_types.type_sort, 'tv' + id)
-    #         if options[1:]:
-    #             type_options = [self.resolve_annotation(o, type_var_map=type_var_map) for o in options[1:]]
-    #             axioms.append(Or(*[self.z3_types.upper(type_var_type) == o for o in type_options]))
-    #         else:
-    #             if bound:
-    #                 bound_type = self.resolve_annotation(bound[0].value, type_var_map=type_var_map)
-    #             else:
-    #                 bound_type = self.z3_types.object
-    #             axioms.append(self.z3_types.upper(type_var_type) == bound_type)
-    #         type_var_map[name] = type_var_type
-    #     self.add(axioms, fail_message="Type var upper bounds")
-
 
 class Z3Types:
     def __init__(self, config, solver):
         self.config = config
         self.all_types = OrderedDict()
+        self.abstract_types = set()
         self.instance_attributes = OrderedDict()
         self.class_attributes = OrderedDict()
         self.class_to_funcs = config.class_to_funcs

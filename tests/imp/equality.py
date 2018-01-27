@@ -22,8 +22,9 @@
 # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+from abc import ABCMeta, abstractmethod
 
-class Equality:
+class Equality(metaclass=ABCMeta):
     def __eq__(self, other):
         return isinstance(other, self.__class__) and \
                self.__dict__ == other.__dict__
@@ -31,5 +32,6 @@ class Equality:
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    @abstractmethod
     def eval(self, env):
         pass

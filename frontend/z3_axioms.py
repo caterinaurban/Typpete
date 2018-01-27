@@ -387,6 +387,8 @@ def one_type_instantiation(class_name, args, result, types, tvs):
     :param result: The resulting instance from instantiation
     :param types: Z3Types object for this inference program
     """
+    if class_name in types.abstract_types:
+        return Or()
     init_args_count = types.class_to_funcs[class_name]["__init__"][0]
 
     # Get the __init__ function of the this class
@@ -425,7 +427,7 @@ def one_type_instantiation(class_name, args, result, types, tvs):
         generic_receiver_type = result == rec_type
         generic_args = (rec_type,) + args
         # Assert that it's a call to this __init__ function
-        return And(generic_receiver_type, Or(*generic_call_axioms(init_func, generic_args, result, types, tvs)))
+        return And(generic_receiver_type, Or(*generic_call_axioms(init_func, generic_args, types.none, types, tvs)))
 
 
 
@@ -539,8 +541,6 @@ def call(called, args, result, types, tvs):
     r2 = instance_axioms(called, args, result, types, tvs)
     r3 = class_call_axioms(called, args, result, types)
     r4 = generic_call_axioms(called, args, result, types, tvs)
-    # if str(called) == "func_arg_1610":
-    #     return r1
     return [
         Or(
             (r1

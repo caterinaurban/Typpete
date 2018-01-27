@@ -91,16 +91,6 @@ class AnnotationResolver:
                 raise ValueError(
                     "Invalid type annotation {} in line {}".format(id, annotation.lineno))
 
-            # possible_types = [self.resolve(x, solver, generics_map, available_type_args) for x in self.type_var_poss[id]]
-            # if possible_types:
-            #     solver.add(Or([result_type == x for x in possible_types]),
-            #                fail_message="Generic type in line {}".format(annotation.lineno))
-            #
-            # if id in self.type_var_super:
-            #     type_var_super = self.resolve(self.type_var_super[id], solver, generics_map, available_type_args)
-            #     solver.add(solver.z3_types.subtype(result_type, type_var_super),
-            #                fail_message="Generic bound in line {}".format(annotation.lineno))
-
 
         if isinstance(annotation, ast.Subscript):
             if not (isinstance(annotation.value, ast.Name) and isinstance(annotation.slice, ast.Index)):

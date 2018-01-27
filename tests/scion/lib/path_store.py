@@ -355,8 +355,8 @@ class PathStore(object):
             self._remove_expired_segments()
         if len(self.candidates) > self.path_policy.candidates_set_size:
             self._update_all_fidelity()
-            self.candidates = sorted(self.candidates, key=lambda x: x.fidelity,
-                                     reverse=True)[:-1]
+            self.candidates = sorted(self.candidates, lambda x: x.fidelity,
+                                     True)[:-1]
 
     def _update_disjointness_db(self):
         """

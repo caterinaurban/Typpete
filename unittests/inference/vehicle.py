@@ -1,4 +1,6 @@
-class Vehicle:
+from abc import ABCMeta, abstractmethod
+
+class Vehicle(metaclass=ABCMeta):
     """A vehicle for sale by Jeffco Car Dealership.
 
     Attributes:
@@ -31,6 +33,7 @@ class Vehicle:
             return 0.0  # Not yet sold
         return self.base_sale_price - (.10 * self.miles)
 
+    @abstractmethod
     def vehicle_type(self):
         """"Return a string representing the type of vehicle this is."""
         pass

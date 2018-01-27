@@ -33,8 +33,14 @@ class Segment7(Chip):
     INPUT_PINS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'DP']
 
     def __init__(self, *args, **kwargs):
-        # super().__init__(*args, **kwargs)
+        for code in self.OUTPUT_PINS:
+            pin = Pin(code, code in self.STARTING_HIGH, self, True)
+            setattr(self, 'pin_{}'.format(pin.code), pin)
+        for code in self.INPUT_PINS:
+            pin = Pin(code, code in self.STARTING_HIGH, self)
+            setattr(self, 'pin_{}'.format(pin.code), pin)
         self.vcc = Pin('VCC', True, self)
+        self.update()
         self.leds = {pin.code: LED(self.vcc, pin) for pin in self.getpins(self.INPUT_PINS)}
 
     def __str__(self):

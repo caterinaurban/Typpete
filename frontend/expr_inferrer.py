@@ -322,10 +322,15 @@ def infer_subscript(node, context, solver):
 
 
 def infer_compare(node, context, solver):
-    # TODO: verify that types in comparison are comparable
-    infer(node.left, context, solver)
-    for comparator in node.comparators:
-        infer(comparator, context, solver)
+    left_type = infer(node.left, context, solver)
+    for i, comparator in enumerate(node.comparators):
+        comp_type = infer(comparator, context, solver)
+        if isinstance(node.ops[i], (ast.Lt, ast.LtE, ast.Gt, ast.GtE)):
+            solver.add(comp_type != solver.z3_types.none,
+                       fail_message="Types in order comparison mustn't be none.")
+            if i == 0:
+                solver.add(left_type != solver.z3_types.none,
+                           fail_message="Types in order comparison mustn't be none.")
 
     return solver.z3_types.bool
 
@@ -459,14 +464,13 @@ def infer_func_call(node, context, solver):
         called = context.get_type(node.func.id)
         # check if the type has the manually added flag for class-types
         if hasattr(called, "is_class"):
-            tv0 = solver.new_z3_const("ta0")
-            tv1 = solver.new_z3_const("ta1")
-            tv2 = solver.new_z3_const("ta2")
+            tvs = [solver.new_z3_const("ta" + str(i)) for i
+                   in range(solver.z3_types.config.max_type_args)]
             args_types = _get_args_types(node.args, context, None, solver)
             solver.add(axioms.one_type_instantiation(node.func.id,
                                                      args_types,
                                                      result_type,
-                                                     solver.z3_types, [tv0, tv1, tv2]),
+                                                     solver.z3_types, tvs),
                        fail_message="Class instantiation {} in line {}.".format(
                            node.func.id, node.lineno))
             return result_type

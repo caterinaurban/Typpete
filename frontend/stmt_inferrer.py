@@ -30,6 +30,7 @@ from frontend.config import config as inference_config
 from frontend.constants import ALIASES
 from frontend.context import Context, AnnotatedFunction
 from frontend.import_handler import ImportHandler
+from z3 import Or, And
 
 
 def get_module(node):
@@ -99,6 +100,7 @@ def _infer_assignment_target(target, context, value_type, solver):
 
     # Adding weight of 2 to give the assignment soft constraint a higher priority over others.
     solver.optimize.add_soft(target_type == value_type, weight=2)
+    return target_type
 
 
 def _is_type_var_declaration(node):
@@ -113,9 +115,10 @@ def _infer_assign(node, context, solver):
         solver.annotation_resolver.add_type_var(node.targets[0], node.value, solver, module)
     else:
         value_type = expr.infer(node.value, context, solver)
-        context.add_assignment(value_type, node)
         for target in node.targets:
-            _infer_assignment_target(target, context, value_type, solver)
+            target_type = _infer_assignment_target(target, context, value_type, solver)
+            if len(node.targets) == 1:
+                context.add_assignment(target_type, node)
 
     return solver.z3_types.none
 
@@ -438,6 +441,18 @@ def get_type_vars(node, solver):
     return type_vars
 
 
+def is_abstract(node):
+    """Return True iff the FunctionDef node denotes an abstract method"""
+    for decorator in node.decorator_list:
+        if isinstance(decorator, ast.Name) and decorator.id == 'abstractmethod':
+            return True
+        if (isinstance(decorator, ast.Attribute) and isinstance(decorator.value, ast.Name)
+           and decorator.value.id == 'abc' and decorator.attr == 'abstractmethod'):
+            return True
+
+    return False
+
+
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
     module = get_module(node)
@@ -504,8 +519,17 @@ def _infer_func_def(node, context, solver):
     else:
         body_type = _infer_body(node.body, func_context, node.lineno, solver)
         return_type = solver.new_z3_const("return")
-        solver.add(solver.z3_types.subtype(body_type, return_type),
-                   fail_message="Return type in line {}".format(node.lineno))
+
+        # functions with no return must have None return type except abstract methods
+        if is_abstract(node):
+            solver.add(solver.z3_types.subtype(body_type, return_type),
+                       fail_message="Return type in line {}".format(node.lineno))
+        else:
+            solver.add(Or(
+                And(body_type == solver.z3_types.none, return_type == body_type),
+                And(body_type != solver.z3_types.none, return_type == body_type)
+            ), fail_message="Return type in line {}".format(node.lineno))
+
         # Putting higher weight for this soft constraint to give it higher priority over soft-constraint
         # added by inheritance covariance/contravariance return type
         solver.optimize.add_soft(body_type == return_type, weight=2)
