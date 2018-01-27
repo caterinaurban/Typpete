@@ -16,6 +16,5 @@ f(a, 1)
 f(b, "str")
 
 
-# f := Callable[[Callable[([H], object)], H], object]
 # a := Callable[[int], int]
 # b := Callable[[str], object]
