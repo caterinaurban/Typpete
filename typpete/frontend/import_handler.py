@@ -1,10 +1,9 @@
 import ast
 import astunparse
 import os
-
-from frontend.context import Context
-from frontend.stubs.stubs_paths import libraries
-from frontend.stubs.stubs_handler import STUB_ASTS
+from typpete.frontend.context import Context
+from typpete.frontend.stubs.stubs_paths import libraries
+from typpete.frontend.stubs.stubs_handler import STUB_ASTS
 
 
 class ImportHandler:
@@ -22,12 +21,14 @@ class ImportHandler:
         """
         if module_name in ImportHandler.cached_asts:
             return ImportHandler.cached_asts[module_name]
+
         if path in STUB_ASTS:
             return STUB_ASTS[path]
         try:
             r = open(path)
         except FileNotFoundError:
             raise ImportError("No module named {}.".format(module_name))
+
         ImportHandler.module_to_path[module_name] = path
         tree = ast.parse(r.read())
         r.close()
@@ -41,12 +42,16 @@ class ImportHandler:
         :param module_name: the name of the python module
         :param base_folder: the base folder containing the python module
         """
-        return ImportHandler.get_ast("{}/{}.py".format(base_folder, module_name.replace('.', '/')), module_name)
+        module_name = module_name.replace('.', '/')
+        if not base_folder:
+            return ImportHandler.get_ast(module_name + ".py", module_name)
+        return ImportHandler.get_ast("{}/{}.py".format(base_folder, module_name), module_name)
 
     @staticmethod
     def get_builtin_ast(module_name):
         """Return the AST of a built-in module"""
-        return ImportHandler.get_ast(libraries[module_name], module_name)
+        directory = os.path.dirname(__file__) + '/stubs/'
+        return ImportHandler.get_ast(directory + libraries[module_name], module_name)
 
     @staticmethod
     def infer_import(module_name, base_folder, infer_func, solver):

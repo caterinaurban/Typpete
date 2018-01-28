@@ -21,15 +21,15 @@ Infers the types for the following expressions:
 """
 
 import ast
-import frontend.expr_inferrer as expr
-import frontend.z3_axioms as axioms
-import frontend.z3_types as z3_types
+import typpete.frontend.expr_inferrer as expr
+import typpete.frontend.z3_axioms as axioms
+import typpete.frontend.z3_types as z3_types
 import sys
+from typpete.frontend.constants import ALIASES
+from typpete.frontend.config import config as inference_config
+from typpete.frontend.context import Context, AnnotatedFunction
+from typpete.frontend.import_handler import ImportHandler
 
-from frontend.config import config as inference_config
-from frontend.constants import ALIASES
-from frontend.context import Context, AnnotatedFunction
-from frontend.import_handler import ImportHandler
 from z3 import Or, And
 
 

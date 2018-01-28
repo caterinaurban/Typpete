@@ -5,12 +5,14 @@ Limitations:
     - Functions with generic type variables are not supported.
 """
 from collections import OrderedDict
-from frontend.annotation_resolver import AnnotationResolver
-from frontend.class_node import ClassNode
-from frontend.config import config
-from frontend.constants import ALIASES
-from frontend.pre_analysis import PreAnalyzer
-from frontend.stubs.stubs_handler import StubsHandler
+
+from typpete.frontend.annotation_resolver import AnnotationResolver
+from typpete.frontend.class_node import ClassNode
+from typpete.frontend.config import config
+from typpete.frontend.constants import ALIASES
+from typpete.frontend.pre_analysis import PreAnalyzer
+from typpete.frontend.stubs.stubs_handler import StubsHandler
+
 from z3 import *
 
 class Dummy():
@@ -69,7 +71,6 @@ class TypesSolver(Solver):
                 self.z3_types.all_types[cls] = self.z3_types.type(cls_func)
             else:
                 self.z3_types.all_types[cls] = Dummy()
-
         self.annotation_resolver = AnnotationResolver(self.z3_types)
         if config['enable_soft_constraints']:
             self.optimize = Optimize(ctx)

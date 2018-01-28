@@ -1,6 +1,6 @@
 from typing import TypeVar, List, Union, Dict
 
-Any = TypeVar('Any')
+T = TypeVar('T')
 
 class Dialect(object):
     delimiter = ""  # type: str

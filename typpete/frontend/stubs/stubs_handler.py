@@ -1,39 +1,41 @@
 import ast
-import frontend.stubs.stubs_paths as paths
-from frontend.context import Context
+import os
+import typpete.frontend.stubs.stubs_paths as paths
+from typpete.frontend.context import Context
 
 INFERRED = {}
 STUB_ASTS = {}
 
 class StubsHandler:
-
-
     def __init__(self):
         self.asts = []
         self.lib_asts = {}
         self.methods_asts = []
-
+        cur_directory = os.path.dirname(__file__)
         classes_and_functions_files = paths.classes_and_functions
         for file in classes_and_functions_files:
-            r = open(file)
+            path = cur_directory + '/' + file
+            r = open(path)
             tree = ast.parse(r.read())
             r.close()
-            STUB_ASTS[file] = tree
+            STUB_ASTS[path] = tree
             self.asts.append(tree)
 
         for method in paths.methods:
-            r = open(method["path"])
+            path = cur_directory + '/' + method["path"]
+            r = open(path)
             tree = ast.parse(r.read())
             r.close()
-            STUB_ASTS[method["path"]] = tree
+            STUB_ASTS[path] = tree
             tree.method_type = method["type"]
             self.methods_asts.append(tree)
 
         for lib in paths.libraries:
-            r = open(paths.libraries[lib])
+            path = cur_directory + '/' + paths.libraries[lib]
+            r = open(path)
             tree = ast.parse(r.read())
             r.close()
-            STUB_ASTS[paths.libraries[lib]] = tree
+            STUB_ASTS[path] = tree
             self.lib_asts[lib] = tree
 
     def infer_file(self, tree, solver, used_names, infer_func, method_type=None):
@@ -111,8 +113,6 @@ class StubsHandler:
         # Get nodes from normal classes and functions stubs.
         for tree in self.asts:
             current = self.get_relevant_nodes(tree, used_names)
-            # for node in current:
-            #     node._module = tree
             relevant_nodes += current
 
         # Get nodes from builtin methods stubs.
@@ -123,9 +123,6 @@ class StubsHandler:
 
     def infer_all_files(self, context, solver, used_names, infer_func):
         for tree in self.asts:
-            all_nodes = ast.walk(tree)
-            # for n in all_nodes:
-            #     n._module = tree
             ctx = self.infer_file(tree, solver, used_names, infer_func)
             # Merge the stub types into the context
             context.types_map.update(ctx.types_map)

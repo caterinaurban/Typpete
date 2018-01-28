@@ -65,7 +65,6 @@ class AnnotationResolver:
             if id in self.z3_types.all_types:
                 return getattr(self.z3_types.type_sort, "class_{}".format(id))
 
-
             key = (module, id)
             if generics_map is not None and (annotated or key not in self.z3_types.config.type_vars):
                 if id in generics_map:

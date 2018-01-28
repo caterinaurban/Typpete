@@ -1,5 +1,5 @@
-from frontend.constants import ALIASES
-from frontend.z3_types import And, Or, Implies, Not, Exists, Const
+from typpete.frontend.constants import ALIASES
+from typpete.frontend.z3_types import And, Or, Implies, Not
 
 
 def overloading_axioms(left, right, result, method_name, types):

@@ -6,7 +6,7 @@ Tf = TypeVar("Tf")
 Uf = TypeVar("Uf")
 Num = TypeVar("Num", bound=complex)
 Str = TypeVar("Str", str, bytes)
-Seq = TypeVar("Seq", Str, List[T])
+Seq = TypeVar("Seq", Str, List[Tf])
 NumOrStr = TypeVar("NumOrStr", Num, Str)
 NumOrStrNoComplex = TypeVar("NumOrStr", bool, int, float, Str)
 

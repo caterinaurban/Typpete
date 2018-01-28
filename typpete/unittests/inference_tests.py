@@ -6,7 +6,7 @@ from z3.z3types import Z3Exception
 from z3 import simplify
 
 import time
-from frontend.stmt_inferrer import *
+from typpete.frontend.stmt_inferrer import *
 
 
 class TestInference(unittest.TestCase):
@@ -141,7 +141,7 @@ class TestInference(unittest.TestCase):
 
 def suite():
     s = unittest.TestSuite()
-    g = os.getcwd() + '/unittests/inference/**.py'
+    g = os.getcwd() + '/typpete/unittests/inference/**.py'
     for path in glob.iglob(g):
         if os.path.basename(path) != "__init__.py":
             name = path.split("/")[-1]
