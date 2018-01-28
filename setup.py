@@ -17,7 +17,7 @@ config = {
     'scripts': [],
     'name': 'Typpete',
     'entry_points': {
-        'console_scripts': ['typpete=typpete.tests.inference_runner:run_inference'],
+        'console_scripts': ['typpete=typpete.inference_runner:run_inference'],
     }
 }
 
