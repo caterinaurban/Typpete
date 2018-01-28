@@ -57,7 +57,6 @@ class StubsHandler:
 
         return context
 
-
     def get_relevant_nodes(self, tree, used_names):
         """Get relevant nodes (which are used in the program) from the given AST `tree`"""
 
@@ -77,14 +76,21 @@ class StubsHandler:
         relevant_nodes += [node for node in tree.body
                           if (isinstance(node, ast.FunctionDef) and
                               node.name in used_names)]
+
+        name_nodes = [x.id for node in relevant_nodes for x in ast.walk(node) if isinstance(x, ast.Name)]
         import_nodes = [node for node in tree.body if isinstance(node, ast.ImportFrom)]
         for node in import_nodes:
+            appended = False
             if node.module == 'typing':
                 # FIXME remove after added typing stub
                 continue
-            relevant_nodes.append(self.lib_asts[node.module])
-        relevant_nodes += import_nodes
-        used_names += [name.name for node in import_nodes for name in node.names]
+            for name in node.names:
+                if name.name in name_nodes and not appended:
+                    appended = True
+                    relevant_nodes.append(self.lib_asts[node.module])
+                    relevant_nodes.append(node)
+                    used_names.append(name.name)
+
 
         # Variable assignments
         # For example, math package has `pi` declaration as pi = 3.14...
