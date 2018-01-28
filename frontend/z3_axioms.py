@@ -647,11 +647,13 @@ def attribute(instance, attr, result, types):
                           for i, _ in enumerate(tps)]
                 gen_func = getattr(types, "generic{}_func".format(len(tps)))(attr_type)
 
+                generic_attr_type = getattr(types.type_sort, 'is_generic{}'.format(len(tps)))(attr_type)
+
                 type_instance = types.classes[t](args)
                 substituted = gen_func
                 for arg, param in zip(args, params):
                     substituted = types.subst(substituted, param, arg)
-                axioms.append(And(instance == type_instance, result == substituted))
+                axioms.append(And(instance == type_instance, generic_attr_type, result == substituted))
                 continue
             type_instance = getattr(types.type_sort, "type_arg_0")(types.all_types[t])
 
