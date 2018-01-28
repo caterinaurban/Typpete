@@ -1,6 +1,6 @@
-from typpete.frontend.stmt_inferrer import *
-from typpete.frontend.import_handler import ImportHandler
-import typpete.frontend.config as config
+from typpete.src.stmt_inferrer import *
+from typpete.src.import_handler import ImportHandler
+import typpete.src.config as config
 from z3 import Optimize
 
 import os

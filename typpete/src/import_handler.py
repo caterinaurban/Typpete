@@ -1,9 +1,9 @@
 import ast
 import astunparse
 import os
-from typpete.frontend.context import Context
-from typpete.frontend.stubs.stubs_paths import libraries
-from typpete.frontend.stubs.stubs_handler import STUB_ASTS
+from typpete.src.context import Context
+from typpete.src.stubs.stubs_paths import libraries
+from typpete.src.stubs.stubs_handler import STUB_ASTS
 
 
 class ImportHandler:

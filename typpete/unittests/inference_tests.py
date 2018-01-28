@@ -6,7 +6,7 @@ from z3.z3types import Z3Exception
 from z3 import simplify
 
 import time
-from typpete.frontend.stmt_inferrer import *
+from typpete.src.stmt_inferrer import *
 
 
 class TestInference(unittest.TestCase):
