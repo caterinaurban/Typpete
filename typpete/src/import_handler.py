@@ -11,6 +11,19 @@ class ImportHandler:
     cached_asts = {}
     cached_modules = {}
     module_to_path = {}
+    class_to_module = {
+        'List': ('typing', 0),
+        'Tuple': ('typing', 0),
+        'Callable': ('typing', 0),
+        'Set': ('typing', 0),
+        'Dict': ('typing', 0),
+        'Union': ('typing', 0),
+        'TypeVar': ('typing', 0),
+        'Type': ('typing', 0),
+        'IO': ('typing', 0),
+        'Pattern': ('typing', 0),
+        'Match': ('typing', 0),
+    }
 
     @staticmethod
     def get_ast(path, module_name):
@@ -66,6 +79,11 @@ class ImportHandler:
                                                                                                            infer_func)
         else:
             t = ImportHandler.get_module_ast(module_name, base_folder)
+
+            class_names = [c.name for c in t.body if isinstance(c, ast.ClassDef)]
+            for cls in class_names:
+                ImportHandler.class_to_module[cls] = (module_name, 1)
+
             context = Context(t, t.body, solver)
             ImportHandler.cached_modules[module_name] = context
             solver.infer_stubs(context, infer_func)
@@ -88,10 +106,35 @@ class ImportHandler:
             module_context = ImportHandler.cached_modules[module]
             module_context.generate_typed_ast(model, solver)
 
+            ImportHandler.add_required_imports(module, module_ast, module_context)
+
             write_path = "inference_output/" + module_path
             if not os.path.exists(os.path.dirname(write_path)):
                 os.makedirs(os.path.dirname(write_path))
             file = open(write_path, 'w')
             file.write(astunparse.unparse(module_ast))
             file.close()
+
+    @staticmethod
+    def add_required_imports(module_name, module_ast, module_context):
+        imports = module_context.get_imports()
+        module_to_names = {}
+        for imp in imports:
+            if imp not in ImportHandler.class_to_module:
+                continue
+            mod = ImportHandler.class_to_module[imp]
+            if mod in module_to_names:
+                module_to_names[mod].append(imp)
+            else:
+                module_to_names[mod] = [imp]
+
+        for (mod, level), names in module_to_names.items():
+            if mod == module_name:
+                continue
+            aliases = [ast.alias(name=name, asname=None) for name in names]
+            module_ast.body.insert(0, ast.ImportFrom(
+                module=mod,
+                names=aliases,
+                level=level
+            ))
 

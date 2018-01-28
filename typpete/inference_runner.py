@@ -92,6 +92,7 @@ def run_inference(file_path=None):
             model = solver.model()
 
     context.generate_typed_ast(model, solver)
+    ImportHandler.add_required_imports(file_name, t, context)
 
     # uncomment this to write typed source into a file
     write_path = "inference_output/" + base_folder

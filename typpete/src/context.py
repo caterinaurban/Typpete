@@ -38,6 +38,7 @@ class Context:
         self.children_contexts = []
         self.func_to_ast = {}
         self.assignments = []
+        self.imports = set()
 
         self.used_type_vars = OrderedDict()
 
@@ -229,10 +230,17 @@ class Context:
                 # Add the type annotation as an AST node
                 arg.annotation = ast.parse(arg_annotation_str).body[0].value
 
+                names = {name.id for name in list(ast.walk(arg.annotation)) if isinstance(name, ast.Name)}
+                self.imports |= names
+
             # Similarly, add the return type annotation
             return_type = simplify(return_accessor_func(func_len)(inferred_type))
             return_annotation_str = solver.annotation_resolver.unparse_annotation(return_type)
             node.returns = ast.parse(return_annotation_str).body[0].value
+
+            names = {name.id for name in list(ast.walk(node.returns)) if isinstance(name, ast.Name)}
+            self.imports |= names
+
 
         # Add the type annotations for functions in children contexts
         for child in self.children_contexts:
@@ -266,9 +274,18 @@ class Context:
                 annotation_str = solver.annotation_resolver.unparse_annotation(z3_t)
                 node.annotation = ast.parse(annotation_str).body[0].value
 
+                names = {name.id for name in list(ast.walk(node.annotation)) if isinstance(name, ast.Name)}
+                self.imports |= names
+
         # Add the type comment for assignments in children contexts
         for child in self.children_contexts:
             child.add_annotation_to_assignments(model, solver)
+
+    def get_imports(self):
+        result = set()
+        for child in self.children_contexts:
+            result |= child.get_imports()
+        return result | self.imports
 
     def get_matching_methods(self, method_name):
         """Return the built-in methods in this context (or a parent context) which match the given method name"""
