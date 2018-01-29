@@ -101,11 +101,11 @@ class ImportHandler:
     @staticmethod
     def write_to_files(model, solver):
         for module in ImportHandler.module_to_path:
-            if ImportHandler.is_builtin(module) or module not in ImportHandler.cached_modules:
+            if ImportHandler.is_builtin(module) or module.replace('/', '.') not in ImportHandler.cached_modules:
                 continue
             module_path = ImportHandler.module_to_path[module]
             module_ast = ImportHandler.cached_asts[module]
-            module_context = ImportHandler.cached_modules[module]
+            module_context = ImportHandler.cached_modules[module.replace('/', '.')]
             module_context.generate_typed_ast(model, solver)
 
             ImportHandler.add_required_imports(module, module_ast, module_context)
