@@ -1,6 +1,6 @@
-from .chip import ActivableChip
-from .util import set_binary_value
-from .pin import Pin
+from chip import ActivableChip
+from util import set_binary_value
+from pin import Pin
 
 class BinaryCounter(ActivableChip):
     CLOCK_PIN = ''

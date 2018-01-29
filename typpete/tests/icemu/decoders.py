@@ -1,4 +1,4 @@
-from .chip import ActivableChip
+from chip import ActivableChip
 
 class Decoder(ActivableChip):
     SERIAL_PINS = [] # LSB pin goes first

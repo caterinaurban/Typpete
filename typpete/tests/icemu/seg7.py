@@ -1,5 +1,5 @@
-from .chip import Chip
-from .pin import Pin
+from chip import Chip
+from pin import Pin
 
 class LED:
     def __init__(self, vcc, gnd, fade_delay_us=10000):

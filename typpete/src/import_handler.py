@@ -82,7 +82,7 @@ class ImportHandler:
 
             class_names = [c.name for c in t.body if isinstance(c, ast.ClassDef)]
             for cls in class_names:
-                ImportHandler.class_to_module[cls] = (module_name, 1)
+                ImportHandler.class_to_module[cls] = (module_name, 0)
 
             context = Context(t, t.body, solver)
             ImportHandler.cached_modules[module_name] = context

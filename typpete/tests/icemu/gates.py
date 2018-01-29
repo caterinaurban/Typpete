@@ -1,6 +1,6 @@
 from itertools import chain
 from abc import abstractmethod
-from .chip import Chip
+from chip import Chip
 
 class Gate(Chip):
     IO_MAPPING = None # [(I1, I2, ..., IN, O)]

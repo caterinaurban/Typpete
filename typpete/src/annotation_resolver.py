@@ -29,7 +29,7 @@ class AnnotationResolver:
             "str": "str",
             "bytes": "bytes",
             "number": "number",
-            "sequence": "sequence",
+            "sequence": "Sequence",
             "tuple": "Tuple"
         }
 

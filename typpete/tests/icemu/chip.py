@@ -1,5 +1,5 @@
 from typing import cast
-from .pin import Pin
+from pin import Pin
 from abc import ABCMeta
 
 class Chip(metaclass=ABCMeta):
