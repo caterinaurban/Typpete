@@ -1,5 +1,8 @@
-from typing import Dict, TypeVar, Type, List, Callable
-from .model import Hint, Message, Move, Object, Room, Word
+"""Parse the original PDP ``advent.dat`` file.
+Copyright 2010-2015 Brandon Rhodes.  Licensed as free software under the
+Apache License, Version 2.0 as detailed in the accompanying README.txt.
+"""
+from .model import Hint, Message, Move, Object, Room, Word, HasN
 
 # The Adventure data file knows only the first five characters of each
 # word in the game, so we have to know the full verion of each word.
@@ -53,7 +56,7 @@ def expand_tabs(segments):
 
 
 def accumulate_message(dictionary, n, line):
-    dictionary[n] = dictionary.get(n) + line + '\n'
+    dictionary[n] = dictionary.get(n, '') + line + '\n'
 
 def section1(data, n, etc):
     room = make_object(data.rooms, lambda :Room(), n)

@@ -2,7 +2,6 @@
 Copyright 2010-2015 Brandon Rhodes.  Licensed as free software under the
 Apache License, Version 2.0 as detailed in the accompanying README.txt.
 """
-from typing import cast
 
 
 class HasN:
@@ -22,30 +21,30 @@ class Move(HasN):
         verblist = [ verb.text for verb in self.verbs ]
 
         c = self.condition[0]
-        cond = ''
+        condition = ''
         if c == '%':
-            cond = ' %d%% of the time' % self.condition[1]
+            condition = ' %d%% of the time' % self.condition[1]
         elif c == 'not_dwarf':
-            cond = ' if not a dwarf'
+            condition = ' if not a dwarf'
         elif c == 'carrying':
-            cond = ' if carrying %s' % self.condition[1]
+            condition = ' if carrying %s' % self.condition[1]
         elif c == 'carrying_or_in_room_with':
-            cond = ' if carrying or in room with %s' % self.condition[1]
+            condition = ' if carrying or in room with %s' % self.condition[1]
         elif c == 'prop!=':
-            cond = ' if prop %d != %d' % self.condition[1:]
+            condition = ' if prop %d != %d' % self.condition[1:]
 
         if isinstance(self.action, Room):
-            act = 'moves to %r' % (cast(Room, self.action).short_description
-                                      or  cast(Room, self.action).long_description[:20]).strip()
+            action = 'moves to %r' % (self.action.short_description or self.action.long_description[:20]).strip()
         elif isinstance(self.action, Message):
-            act = 'prints %r' % cast(Message, self.action).text
+            action = 'prints %r' % self.action.text
         else:
-            act = 'special %d' % self.action
+            action = 'special %d' % self.action
 
-        return '<{}{} {}>'.format('|'.join(verblist), cond, act)
+        return '<{}{} {}>'.format('|'.join(verblist), condition, action)
 
 class Room(HasN):
     """A location in the game."""
+
     long_description = ''
     short_description = ''
     times_described = 0
@@ -68,18 +67,23 @@ class Room(HasN):
     def __repr__(self):
         return '<room {} at {}>'.format(self.n, hex(id(self)))
 
+    @property
     def is_forced(self):
-        pass
+        return self.travel_table and self.travel_table[0].is_forced
 
+    @property
     def is_aboveground(self):
         return 1 <= self.n <= 8
 
+    @property
     def is_before_hall_of_mists(self):
         return self.n < 15
 
+    @property
     def is_after_hall_of_mists(self):
         return self.n >= 15
 
+    @property
     def is_dark(self):
         return not self.is_light
 
@@ -182,9 +186,9 @@ class Dwarf:
 
     def can_move(self, move):
         if isinstance(move.action, Room):
-            room = cast(Room, move.action)
-            return (room.is_after_hall_of_mists()
-                    and not room.is_forced()
+            room = move.action
+            return (room.is_after_hall_of_mists
+                    and not room.is_forced
                     and not move.condition == ('%', 100))
         else:
             return False

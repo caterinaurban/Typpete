@@ -96,7 +96,7 @@ class Context:
 
     def has_variable(self, var_name):
         """Check if this context (or parent context) has a variable `var_name`"""
-        if var_name in self.types_map:
+        if var_name in self.types_map and not self.is_class:
             return True
         if self.parent_context is None:
             return False
