@@ -250,11 +250,7 @@ def _infer_control_flow(node, context, solver):
         if context.has_variable(v) and v != var_is_instance:
             t1 = body_context.types_map[v]
 
-            try:
-                t2 = context.get_type(v)
-            except:
-                print(context.has_variable(v), v)
-                exit()
+            t2 = context.get_type(v)
             solver.add(t1 == t2,
                        fail_message="re-assigning in flow branching in line {}".format(node.lineno))
 
