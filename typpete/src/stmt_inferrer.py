@@ -748,6 +748,14 @@ def _infer_import_from(node, context, solver):
     return solver.z3_types.none
 
 
+def _infer_raise(node, context, solver):
+    if isinstance(node.exc, ast.Call):
+        for arg in node.exc.args:
+            expr.infer(arg, context, solver)
+
+    return solver.z3_types.none
+
+
 def infer(node, context, solver, parent=None):
     if parent:
         node._parent = parent
@@ -785,4 +793,6 @@ def infer(node, context, solver, parent=None):
         return _infer_import(node, context, solver)
     elif isinstance(node, ast.ImportFrom):
         return _infer_import_from(node, context, solver)
+    elif isinstance(node, ast.Raise):
+        return _infer_raise(node, context, solver)
     return solver.z3_types.none
