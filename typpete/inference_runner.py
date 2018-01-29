@@ -65,7 +65,16 @@ def run_inference(file_path=None):
         check = solver.check(solver.assertions_vars)
     end_time = time.time()
     print("Constraints solving took  {}s".format(end_time - start_time))
-    # print_solver(solver)
+
+    write_path = "inference_output/" + base_folder
+    print("Writing output to {}".format(write_path))
+    if not os.path.exists(write_path):
+        os.makedirs(write_path)
+
+    file = open(write_path + '/constraints_{}.txt'.format(file_name), 'w')
+    file.write(print_solver(solver))
+    file.close()
+
     if check == z3_types.unsat:
         print("Check: unsat")
         opt = Optimize(solver.ctx)
@@ -94,14 +103,7 @@ def run_inference(file_path=None):
         context.generate_typed_ast(model, solver)
         ImportHandler.add_required_imports(file_name, t, context)
 
-        # uncomment this to write typed source into a file
-        write_path = "inference_output/" + base_folder
-        print("Output is written to {}".format(write_path))
-        if not os.path.exists(write_path):
-            os.makedirs(write_path)
         write_path += '/' + file_name + '.py'
-        if not os.path.exists(os.path.dirname(write_path)):
-            os.makedirs(os.path.dirname(write_path))
         file = open(write_path, 'w')
         file.write(astunparse.unparse(t))
         file.close()
@@ -110,12 +112,12 @@ def run_inference(file_path=None):
 
 def print_solver(z3solver):
     printer = z3_types.z3printer
-    printer.set_pp_option('max_lines', 4000)
-    printer.set_pp_option('max_width', 120)
+    printer.set_pp_option('max_lines', 10000)
+    printer.set_pp_option('max_width', 1000)
     printer.set_pp_option('max_visited', 10000000)
     printer.set_pp_option('max_depth', 1000000)
-    printer.set_pp_option('max_args', 512)
-    printer.pp(z3solver)
+    printer.set_pp_option('max_args', 1024)
+    return str(z3solver)
 
 
 def print_context(ctx, model, ind=""):
