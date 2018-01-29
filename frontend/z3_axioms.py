@@ -509,23 +509,44 @@ def generic_call_axioms(called, args, result, types, tvs):
 
         called_func = getattr(types, 'generic{}_func'.format(i + 1))(called)
 
-        if len(args) == 0:
-            axiom = mysubst(called_func) == types.funcs[0](0, result)
-            axioms.append(And(is_generic, axiom))
-        else:
-            subtype_axioms = []
-            z3_args = []
-            for i in range(len(args)):
-                z3_arg = mysubst(getattr(types.type_sort, "func_{}_arg_{}".format(len(args), i + 1))(called_func))
-                z3_args.append(z3_arg)
-                arg = args[i]
-                subtype_axioms.append(types.subtype(arg, z3_arg))
 
-            func_type = types.funcs[len(args)]
-            z3_args.append(result)
-            res = And(subtype_axioms + [mysubst(called_func) == func_type(0, *z3_args)])
-            axiom = And(is_generic, *under_upper, res)
-            axioms.append(axiom)
+        ##
+        for i in range(len(args), len(types.funcs)):  # Only assert with functions with length >= call arguments length
+            rem_args = i - len(args)  # The remaining arguments are expected to have default value in the func definition.
+            if rem_args > types.config.max_default_args:
+                break
+            rem_args_types = ()
+            for j in range(rem_args):
+                arg_idx = len(args) + j + 1
+                arg_accessor = getattr(types.type_sort, "func_{}_arg_{}".format(i, arg_idx))  # Get the default arg type
+                rem_args_types += (arg_accessor(called_func),)
+
+            all_args = tuple(args) + rem_args_types
+
+            # Get the default args count accessor
+            defaults_accessor = getattr(types.type_sort,
+                                        "func_{}_defaults_args".format(i))
+            defaults_count = defaults_accessor(called_func)
+            if len(all_args) == 0:
+                axiom = mysubst(called_func) == types.funcs[0](0, result)
+                axioms.append(And(is_generic, axiom))
+            else:
+                subtype_axioms = []
+                z3_args = []
+                for i in range(len(all_args)):
+                    z3_arg = mysubst(getattr(types.type_sort,
+                                             "func_{}_arg_{}".format(len(all_args), i + 1))(called_func))
+                    z3_args.append(z3_arg)
+                    if i < len(args):
+                        arg = args[i]
+                        subtype_axioms.append(types.subtype(arg, z3_arg))
+
+                func_type = types.funcs[len(all_args)]
+                z3_args.append(result)
+                res = And(subtype_axioms + [mysubst(called_func) == func_type(defaults_count, *z3_args), defaults_count >= rem_args])
+                axiom = And(is_generic, *under_upper, res)
+                axioms.append(axiom)
+
     return axioms
 
 
