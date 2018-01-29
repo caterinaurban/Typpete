@@ -1,5 +1,5 @@
 """Stub file for built in functions"""
-from typing import TypeVar, List, Tuple, Dict, Set, Union, Type, Callable
+from typing import TypeVar, List, Tuple, Dict, Set, Union, Type, Callable, Generic
 from sys import IO
 
 Tf = TypeVar("Tf")
@@ -13,6 +13,10 @@ NumOrStrNoComplex = TypeVar("NumOrStr", bool, int, float, Str)
 
 
 class Exception():
+    pass
+
+Titer = TypeVar("Titer")
+class Iterator(Generic[Titer]):
     pass
 
 
@@ -189,16 +193,21 @@ def isinstance(x: object, y: object) -> bool:
     pass
 
 
-def iter(l: List[Tf]) -> List[Tf]:
+
+def iter(l: List[Tf]) -> Iterator[Tf]:
     pass
 
 
-def next(l: List[Tf]) -> Tf:
+def next(l: Iterator[Tf]) -> Tf:
     pass
 
 
 def len(_: object) -> int:
     """ Return the number of items in a container. """
+    pass
+
+
+def list(_: Union[List[Tf], Set[Tf], Dict[Tf, Uf], Iterator[Tf]]) -> List[Tf]:
     pass
 
 
@@ -270,7 +279,7 @@ def repr(_: object) -> str:
     pass
 
 
-def reversed(_: List[Tf]) -> List[Tf]:
+def reversed(_: List[Tf]) -> Iterator[Tf]:
     """Return a reversed version of the input list
 
     TODO: make it return reversed object after implementing interfaces

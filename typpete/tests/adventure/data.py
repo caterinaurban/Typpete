@@ -49,7 +49,7 @@ def make_object(dictionary, klass, n):
 def expand_tabs(segments):
     it = iter(segments)
     line = next(it)
-    for segment in it:
+    for segment in list(it):
         spaces = 8 - len(line) % 8
         line += ' ' * spaces + segment
     return line

@@ -59,13 +59,18 @@ class StubsHandler:
 
         return context
 
-    def get_relevant_nodes(self, tree, used_names):
+    def get_relevant_nodes(self, tree, used_names, global_ctx=False):
         """Get relevant nodes (which are used in the program) from the given AST `tree`"""
 
         # Class definitions
-        relevant_nodes = [node for node in tree.body
-                           if (isinstance(node, ast.ClassDef) and
-                               (node.name in used_names or self.get_relevant_nodes(node, used_names)))]
+        if not global_ctx:
+            relevant_nodes = [node for node in tree.body
+                              if (isinstance(node, ast.ClassDef) and
+                                  (node.name in used_names or self.get_relevant_nodes(node, used_names)))]
+        else:
+            relevant_nodes = [node for node in tree.body
+                              if (isinstance(node, ast.ClassDef))]
+
 
         # TypeVar definitions
         relevant_nodes += [node for node in tree.body
@@ -112,7 +117,7 @@ class StubsHandler:
 
         # Get nodes from normal classes and functions stubs.
         for tree in self.asts:
-            current = self.get_relevant_nodes(tree, used_names)
+            current = self.get_relevant_nodes(tree, used_names, True)
             relevant_nodes += current
 
         # Get nodes from builtin methods stubs.

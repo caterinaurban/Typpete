@@ -24,6 +24,7 @@ class ImportHandler:
         'Pattern': ('typing', 0),
         'Match': ('typing', 0),
         'Sequence': ('typing', 0),
+        'Iterator': ('typing', 0),
     }
 
     @staticmethod

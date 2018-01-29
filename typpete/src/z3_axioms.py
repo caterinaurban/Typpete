@@ -447,6 +447,8 @@ def instance_axioms(called, args, result, types, tvs):
     # Assert with __init__ function of all classes in the program
     axioms = []
     for t in types.all_types:
+        if t in types.config.class_type_params:
+            continue
         axioms.append(And(one_type_instantiation(t, args, result, types, tvs),
                           called == types.all_types[t]))
     return axioms
@@ -454,7 +456,6 @@ def instance_axioms(called, args, result, types, tvs):
 
 def function_call_axioms(called, args, result, types):
     """Constraints for function calls
-    
     To support default arguments values, an axiom for every possible arguments length is added, provided that the
     defaults count for the function matches the inferred one.
     """

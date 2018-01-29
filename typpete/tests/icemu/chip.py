@@ -32,7 +32,7 @@ class Chip(metaclass=ABCMeta):
         if len(pins) % 2:
             pins.append(None)
         left_pins = pins[:len(pins) // 2]
-        right_pins = reversed(pins[len(pins) // 2:])
+        right_pins = list(reversed(pins[len(pins) // 2:]))
         lines = []
         lines.append('     _______     ')
         for index, (left, right) in enumerate(zip(left_pins, right_pins)):

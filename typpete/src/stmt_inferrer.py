@@ -249,7 +249,6 @@ def _infer_control_flow(node, context, solver):
     for v in body_context.types_map:
         if context.has_variable(v) and v != var_is_instance:
             t1 = body_context.types_map[v]
-
             t2 = context.get_type(v)
             solver.add(t1 == t2,
                        fail_message="re-assigning in flow branching in line {}".format(node.lineno))
@@ -395,7 +394,7 @@ def is_annotated(node):
     if not node.returns:
         return False
     for arg in node.args.args if not hasattr(node, '_parent') or not isinstance(node._parent, ast.ClassDef) else node.args.args[1:]:
-        if not arg.annotation and arg.arg != 'self':
+        if not arg.annotation:
             return False
     return True
 
@@ -469,7 +468,7 @@ def is_abstract(node):
 def _infer_func_def(node, context, solver):
     """Infer the type for a function definition"""
     module = get_module(node)
-    if is_annotated(node) and (is_option_generic(node, solver) or (is_stub(node) and module is None)):
+    if is_annotated(node) and (is_option_generic(node, solver) or (is_stub(node))):
         return_annotation = node.returns
         args_annotations = []
         for arg in node.args.args:
@@ -518,9 +517,7 @@ def _infer_func_def(node, context, solver):
 
     if node.returns:
         return_type = solver.resolve_annotation(node.returns, get_module(node))
-        if (inference_config["ignore_fully_annotated_function"] and is_annotated(node)
-                or is_stub(node)):
-
+        if (inference_config["ignore_fully_annotated_function"] or is_stub(node)):
             # Ignore the body if it has return annotation and one of the following conditions:
             # The configuration flag for doing so is set
             # The body begins with ellipsis
@@ -624,7 +621,7 @@ def _infer_class_def(node, context, solver):
                 # Not a method and exists in superclass
                 solver.add(class_attrs[attr] == bases_attrs[base][attr],
                            fail_message="Field {} in subclass {} has same type"
-                                        "as that in the superclass".format(node.name, attr))
+                                        "as that in the superclass".format(attr, node.name))
         if attr not in class_context.types_map:
             # The context doesn't contain the types of the instance attributes (e.g., self.x)
             # The axioms for such attributes are already added in the condition above.

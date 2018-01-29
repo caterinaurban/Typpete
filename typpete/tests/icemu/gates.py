@@ -42,7 +42,7 @@ class CD4001B(NOR):
         ['G', 'H', 'M'],
         ['E', 'F', 'L'],
     ]
-    INPUT_PINS = chain([t[:2] for t in IO_MAPPING])
+    INPUT_PINS = list(chain(IO_MAPPING[0][:2], IO_MAPPING[1][:2], IO_MAPPING[2][:2], IO_MAPPING[3][:2]))
     OUTPUT_PINS = [t[2] for t in IO_MAPPING]
 
 class CD4002B(NOR):
@@ -50,7 +50,7 @@ class CD4002B(NOR):
         ['A', 'B', 'C', 'D', 'J'],
         ['E', 'F', 'G', 'H', 'K'],
     ]
-    INPUT_PINS = chain([t[:4] for t in IO_MAPPING])
+    INPUT_PINS = list(chain(IO_MAPPING[0][:4], IO_MAPPING[1][:4]))
     OUTPUT_PINS = [t[4] for t in IO_MAPPING]
 
 class CD4025B(NOR):
@@ -59,7 +59,7 @@ class CD4025B(NOR):
         ['D', 'E', 'F', 'K'],
         ['G', 'H', 'I', 'L'],
     ]
-    INPUT_PINS = chain([t[:3] for t in IO_MAPPING])
+    INPUT_PINS = list(chain(IO_MAPPING[0][:3], IO_MAPPING[1][:3], IO_MAPPING[2][:3]))
     OUTPUT_PINS = [t[3] for t in IO_MAPPING]
 
 class SN74LS02(NOR):
@@ -69,7 +69,7 @@ class SN74LS02(NOR):
         ['A3', 'B3', 'Y3'],
         ['A4', 'B4', 'Y4'],
     ]
-    INPUT_PINS = chain([t[:2] for t in IO_MAPPING])
+    INPUT_PINS = list(chain(IO_MAPPING[0][:2], IO_MAPPING[1][:2], IO_MAPPING[2][:2], IO_MAPPING[3][:2]))
     OUTPUT_PINS = [t[2] for t in IO_MAPPING]
 
 class SN74LS27(NOR):
@@ -78,7 +78,7 @@ class SN74LS27(NOR):
         ['A2', 'B2', 'C2', 'Y2'],
         ['A3', 'B3', 'C3', 'Y3'],
     ]
-    INPUT_PINS = chain([t[:3] for t in IO_MAPPING])
+    INPUT_PINS = list(chain(IO_MAPPING[0][:3], IO_MAPPING[1][:3], IO_MAPPING[2][:3]))
     OUTPUT_PINS = [t[3] for t in IO_MAPPING]
 
 class SN54ALS27A(SN74LS27):
@@ -107,7 +107,7 @@ class SN54S260(NOR):
         ['A1', 'B1', 'C1', 'D1', 'E1', 'Y1'],
         ['A2', 'B2', 'C2', 'D2', 'E2', 'Y2'],
     ]
-    INPUT_PINS = chain([t[:5] for t in IO_MAPPING])
+    INPUT_PINS = list(chain(IO_MAPPING[0][:5], IO_MAPPING[1][:5]))
     OUTPUT_PINS = [t[5] for t in IO_MAPPING]
 
 class SN74S260(SN54S260):
