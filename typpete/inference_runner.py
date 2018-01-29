@@ -10,6 +10,8 @@ import sys
 
 
 def configure_inference(flags):
+    class_type_params = None
+    func_type_params = None
     for flag in flags:
         flag_assignment = flag[2:]
         try:
@@ -17,10 +19,30 @@ def configure_inference(flags):
         except ValueError:
             print("Invalid flag assignment {}".format(flag_assignment))
             continue
-        if flag_name in config.config:
+        # func_type_params=make_object,1,d,2
+        if flag_name == 'func_type_params':
+            if func_type_params is None:
+                func_type_params = {}
+            flag_value = flag_value.split(',')
+            for i in range(0, len(flag_value), 2):
+                func_name = flag_value[i]
+                count = int(flag_value[i + 1])
+                type_vars = ['{}{}'.format(func_name, i) for i in range(count)]
+                func_type_params[func_name] = type_vars
+        elif flag_name == 'class_type_params':
+            if class_type_params is None:
+                class_type_params = {}
+            flag_value = flag_value.split(',')
+            for i in range(0, len(flag_value), 2):
+                cls_name = flag_value[i]
+                count = int(flag_value[i + 1])
+                type_vars = ['{}{}'.format(cls_name, i) for i in range(count)]
+                class_type_params[cls_name] = type_vars
+        elif flag_name in config.config:
             config.config[flag_name] = flag_value == 'True'
         else:
             print("Invalid flag {}. Ignoring.".format(flag_name))
+    return class_type_params, func_type_params
 
 def run_inference(file_path=None):
     if not file_path:
@@ -31,19 +53,16 @@ def run_inference(file_path=None):
             return
 
     start_time = time.time()
-    configure_inference([flag for flag in sys.argv[2:] if flag.startswith("--")])
+    class_type_params, func_type_params = configure_inference([flag for flag in sys.argv[2:] if flag.startswith("--")])
 
     base_folder = '/'.join(file_path.split('/')[:-1])
     file_name = file_path.split('/')[-1]
     if file_name.endswith('.py'):
         file_name = file_name[:-3]
 
-    class_type_params = None
-    type_params = {'make_object': [1]}
-
     t = ImportHandler.get_module_ast(file_name, base_folder)
 
-    solver = z3_types.TypesSolver(t, base_folder=base_folder, type_params=type_params,
+    solver = z3_types.TypesSolver(t, base_folder=base_folder, type_params=func_type_params,
                                   class_type_params=class_type_params)
 
     context = Context(t, t.body, solver)
