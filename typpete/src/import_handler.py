@@ -23,6 +23,7 @@ class ImportHandler:
         'IO': ('typing', 0),
         'Pattern': ('typing', 0),
         'Match': ('typing', 0),
+        'Sequence': ('typing', 0),
     }
 
     @staticmethod
@@ -118,6 +119,10 @@ class ImportHandler:
     @staticmethod
     def add_required_imports(module_name, module_ast, module_context):
         imports = module_context.get_imports()
+
+        if has_type_var(module_ast):
+            imports.add('TypeVar')
+
         module_to_names = {}
         for imp in imports:
             if imp not in ImportHandler.class_to_module:
@@ -137,4 +142,11 @@ class ImportHandler:
                 names=aliases,
                 level=level
             ))
+
+def has_type_var(tree):
+    return any(node.value.func.id for node in tree.body if
+             isinstance(node, ast.Assign) and
+             isinstance(node.value, ast.Call) and
+             isinstance(node.value.func, ast.Name) and
+             node.value.func.id == 'TypeVar')
 

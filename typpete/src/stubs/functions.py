@@ -5,6 +5,7 @@ from sys import IO
 Tf = TypeVar("Tf")
 Uf = TypeVar("Uf")
 Num = TypeVar("Num", bound=complex)
+IntOrFloat = TypeVar("IntOrFloat", int, float)
 Str = TypeVar("Str", str, bytes)
 Seq = TypeVar("Seq", Str, List[Tf])
 NumOrStr = TypeVar("NumOrStr", Num, Str)
@@ -102,7 +103,7 @@ def dir(_: object = None) -> List[str]:
     pass
 
 
-def divmod(_: float, __: float) -> Tuple[int, int]:
+def divmod(_: IntOrFloat, __: IntOrFloat) -> Tuple[IntOrFloat, IntOrFloat]:
     """ Return the tuple (x//y, x%y).  Invariant: div*y + mod == x. """
     pass
 
