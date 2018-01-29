@@ -71,7 +71,7 @@ def run_inference(file_path=None):
     if not os.path.exists(write_path):
         os.makedirs(write_path)
 
-    file = open(write_path + '/constraints_{}.txt'.format(file_name), 'w')
+    file = open(write_path + '/{}_constraints_log.txt'.format(file_name), 'w')
     file.write(print_solver(solver))
     file.close()
 
@@ -112,11 +112,11 @@ def run_inference(file_path=None):
 
 def print_solver(z3solver):
     printer = z3_types.z3printer
-    printer.set_pp_option('max_lines', 10000)
+    printer.set_pp_option('max_lines', 4000)
     printer.set_pp_option('max_width', 1000)
     printer.set_pp_option('max_visited', 10000000)
     printer.set_pp_option('max_depth', 1000000)
-    printer.set_pp_option('max_args', 1024)
+    printer.set_pp_option('max_args', 512)
     return str(z3solver)
 
 
