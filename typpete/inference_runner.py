@@ -91,22 +91,22 @@ def run_inference(file_path=None):
         else:
             model = solver.model()
 
-    context.generate_typed_ast(model, solver)
-    ImportHandler.add_required_imports(file_name, t, context)
+        context.generate_typed_ast(model, solver)
+        ImportHandler.add_required_imports(file_name, t, context)
 
-    # uncomment this to write typed source into a file
-    write_path = "inference_output/" + base_folder
-    print("Output is written to {}".format(write_path))
-    if not os.path.exists(write_path):
-        os.makedirs(write_path)
-    write_path += '/' + file_name + '.py'
-    if not os.path.exists(os.path.dirname(write_path)):
-        os.makedirs(os.path.dirname(write_path))
-    file = open(write_path, 'w')
-    file.write(astunparse.unparse(t))
-    file.close()
+        # uncomment this to write typed source into a file
+        write_path = "inference_output/" + base_folder
+        print("Output is written to {}".format(write_path))
+        if not os.path.exists(write_path):
+            os.makedirs(write_path)
+        write_path += '/' + file_name + '.py'
+        if not os.path.exists(os.path.dirname(write_path)):
+            os.makedirs(os.path.dirname(write_path))
+        file = open(write_path, 'w')
+        file.write(astunparse.unparse(t))
+        file.close()
 
-    ImportHandler.write_to_files(model, solver)
+        ImportHandler.write_to_files(model, solver)
 
 def print_solver(z3solver):
     printer = z3_types.z3printer

@@ -107,6 +107,18 @@ def _is_type_var_declaration(node):
     return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "TypeVar"
 
 
+def _infer_annotated_assign(node, context, solver):
+    """Infer the types of variables in annotated assignment node"""
+    if node.value:
+        value_type = expr.infer(node.value, context, solver)
+        target_type = _infer_assignment_target(node.target, context, value_type, solver)
+    else:
+        target_type = _infer_one_target(node.target, context, solver)
+    annotation_type = solver.resolve_annotation(node.annotation, get_module(node))
+    solver.add(target_type == annotation_type,
+               fail_message="Annotated assignment in line {}".format(node.lineno))
+
+
 def _infer_assign(node, context, solver):
     """Infer the types of target variables in an assignment node."""
 
@@ -795,4 +807,6 @@ def infer(node, context, solver, parent=None):
         return _infer_import_from(node, context, solver)
     elif isinstance(node, ast.Raise):
         return _infer_raise(node, context, solver)
+    elif sys.version_info >= (3, 6) and isinstance(node, ast.AnnAssign):
+        return _infer_annotated_assign(node, context, solver)
     return solver.z3_types.none
