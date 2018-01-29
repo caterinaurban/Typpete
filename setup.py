@@ -1,5 +1,5 @@
 try:
-    from setuptools import setup
+    from setuptools import setup, find_packages
 except ImportError:
     from distutils.core import setup
 
@@ -10,10 +10,17 @@ config = {
     'download_url': 'https://github.com/caterinaurban/Typpete',
     'author_email': 'caterina.urban@gmail.com',
     'version': '0.1',
-    'install_requires': [],
-    'packages': ['typpete'],
+    'install_requires': [
+        'astunparse'
+    ],
+    'packages': find_packages(),
     'scripts': [],
-    'name': 'Typpete'
+    'name': 'Typpete',
+    'entry_points': {
+        'console_scripts': ['typpete=typpete.inference_runner:run_inference'],
+    }
 }
 
 setup(**config)
+
+
