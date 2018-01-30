@@ -504,7 +504,7 @@ def _infer_func_def(node, context, solver):
     result_type = context.get_type(node.name)
     result_type.args_count = len(node.args.args)
     context.set_type(node.name, result_type)
-    if hasattr(node, 'super') and node.super != context.name:
+    if hasattr(node, 'super') and node.super != context.name and node.name != '__init__':
         return
     context.add_func_ast(node.name, node)
 

@@ -133,6 +133,8 @@ class Context:
         to_remove = [x for x in self.context_nodes if self.should_remove(x)]
         for node in to_remove:
             self.context_nodes.remove(node)
+            if isinstance(node, ast.FunctionDef) and node.name in self.func_to_ast:
+                del self.func_to_ast[node.name]
 
         for child in self.children_contexts:
             child.remove_extra_nodes()
@@ -226,7 +228,6 @@ class Context:
 
                 # Get the annotation with PEP 484 syntax
                 arg_annotation_str = solver.annotation_resolver.unparse_annotation(arg_type)
-
                 # Add the type annotation as an AST node
                 arg.annotation = ast.parse(arg_annotation_str).body[0].value
 
