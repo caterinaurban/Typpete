@@ -1,5 +1,5 @@
 condition = True
-q = [3] if condition else ["st"]
+q = [3] if condition else [2]
 r = [2.0] and [1, 2]
 rr = r[0] * 2
 s = q + r
@@ -9,7 +9,7 @@ v = 8
 w = t[u:v:u]
 x = w[u]
 
-# q := List[object]
+# q := List[float]
 # r := List[float]
 # rr := float
 # s := List[object]
