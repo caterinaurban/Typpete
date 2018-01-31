@@ -6,8 +6,10 @@ for i in range(n):
 res, ll, rr, k, l, r = 0, 0, 0, 0, 0, 0
 
 for s in a:
+    ss = s
     i, l, r = 0, 0, 0
     for z in s:
+        zz = z
         if z == '1':
             if l == 0:
                 l = m - i + 1
