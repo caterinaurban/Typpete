@@ -263,11 +263,23 @@ class Context:
                 # Annotated assignment only supports single assignment (no tuples or lists)
                 # To unparse the assignment statement into the new syntax of the variable annotation,
                 # The class of the nodes needs to be AnnAssign, to be recognized by the unparser
+                z3_t = simplify(z3_t)
+                if isinstance(node.targets[0], ast.Tuple):
+                    try:
+                        # Unfold tuple assignment
+                        assigns = get_unfolded_assignments(node.targets[0], node.value, z3_t, model, solver)
+                        if not assigns or node not in self.context_nodes:
+                            continue
+                        idx = self.context_nodes.index(node)
+                        self.context_nodes.remove(node)
+                        for assign in reversed(assigns):
+                            self.context_nodes.insert(idx, assign)
+                    except:
+                        pass
+                    continue
                 try:
                     z3_t = model[z3_t] if model[z3_t] is not None else z3_t
                 except Z3Exception:
-                    # tuple assignment found
-                    # Annotating tuple assignment is not supported in Python 3.6
                     continue
                 node.__class__ = ast.AnnAssign
                 node.target = node.targets[0]
@@ -315,6 +327,41 @@ class Context:
             if child.name == context_name:
                 return child
         raise NameError("Context {} is not defined".format(context_name))
+
+
+def get_unfolded_assignments(node, value, z3_t, model, solver):
+    if isinstance(node, ast.Tuple):
+        if not isinstance(value, ast.Tuple):
+            return [ast.Assign(
+                targets=[node],
+                value=value
+            )]
+        tuple_len = len(node.elts)
+        nodes = []
+        for i in range(tuple_len):
+            arg_accessor = getattr(solver.z3_types.type_sort, "tuple_{}_arg_{}".format(tuple_len, i + 1))
+            arg_z3_t = arg_accessor(z3_t)
+            cur = get_unfolded_assignments(node.elts[i], value.elts[i], arg_z3_t, model, solver)
+            nodes += cur
+        return nodes
+    elif isinstance(node, (ast.Name, ast.Attribute)):
+        z3_t = simplify(z3_t)
+        z3_t = model[z3_t] if model[z3_t] is not None else z3_t
+        annotation_str = solver.annotation_resolver.unparse_annotation(z3_t)
+        annotation = ast.parse(annotation_str).body[0].value
+        node = ast.AnnAssign(
+            target=node,
+            value=value,
+            annotation=annotation,
+            simple=1
+        )
+        return [node]
+    else:
+        return [ast.Assign(
+            targets=[node],
+            value=value
+        )]
+
 
 
 class AnnotatedFunction:
