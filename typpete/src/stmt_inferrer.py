@@ -627,7 +627,7 @@ def _infer_class_def(node, context, solver):
                     sub_arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}"
                                                .format(sub_args_len, i + 1))
 
-                    solver.add(base_arg_accessor(bases_attrs[base][attr]) == sub_arg_accessor(class_attrs[attr]),
+                    solver.add(base_arg_accessor(solver.z3_types.instance_attributes[base][attr]) == sub_arg_accessor(class_attrs[attr]),
                                fail_message="Inherited __init__ parameter in class {}".format(node.name))
         elif attr in class_to_funcs and attr in inherited_funcs_to_super:
             base = inherited_funcs_to_super[attr]
