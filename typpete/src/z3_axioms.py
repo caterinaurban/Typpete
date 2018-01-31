@@ -31,6 +31,26 @@ def overloading_axioms(left, right, result, method_name, types):
     return axioms
 
 
+def comparison_axioms(left, right, method_name, types):
+    """
+    Constraints for ordering comparison (>, >=, <, <=)
+    """
+    return [
+        And(left != types.none, right != types.none),
+        Or([
+            And(types.subtype(left, types.float), types.subtype(right, types.float)),
+            And(left == types.list(types.list_type(left)), right == left),
+            And(left == types.set(types.set_type(left)), right == types.set(types.set_type(right))),
+            And(types.subtype(left, types.tuple), types.subtype(right, types.tuple)),
+            And(left == types.string, right == types.string),
+            And(left == types.bytes, right == types.bytes),
+        ]
+        + overloading_axioms(left, right, types.bool, method_name, types)
+        )
+    ]
+
+
+
 def add(left, right, result, types):
     """Constraints for the addition operation
     

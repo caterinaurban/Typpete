@@ -326,11 +326,18 @@ def infer_compare(node, context, solver):
     for i, comparator in enumerate(node.comparators):
         comp_type = infer(comparator, context, solver)
         if isinstance(node.ops[i], (ast.Lt, ast.LtE, ast.Gt, ast.GtE)):
-            solver.add(comp_type != solver.z3_types.none,
-                       fail_message="Types in order comparison mustn't be none.")
-            if i == 0:
-                solver.add(left_type != solver.z3_types.none,
-                           fail_message="Types in order comparison mustn't be none.")
+            method_name = None
+            if isinstance(node.ops[i], ast.Lt):
+                method_name = '__lt__'
+            elif isinstance(node.ops[i], ast.Gt):
+                method_name = '__gt__'
+            elif isinstance(node.ops[i], ast.LtE):
+                method_name = '__le__'
+            else:
+                method_name = '__ge__'
+            solver.add(axioms.comparison_axioms(left_type, comp_type, method_name, solver.z3_types),
+                       fail_message="{} comparison in line {}".format(method_name, node.lineno))
+            left_type = comp_type
 
     return solver.z3_types.bool
 
