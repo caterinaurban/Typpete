@@ -150,20 +150,20 @@ def print_context(ctx, model, ind=""):
         except z3_types.Z3Exception:
             print(ind + "{}: {}".format(v, z3_t))
         if ctx.has_context_in_children(v):
-            print_context(ctx.get_context_from_children(v), "\t" + ind)
+            print_context(ctx.get_context_from_children(v), model, "\t" + ind)
         if not ind:
             print("---------------------------")
     children = False
     for child in ctx.children_contexts:
         if ctx.name == "" and child.name == "":
             children = True
-            print_context(child, "\t" + ind)
+            print_context(child, model, "\t" + ind)
     if not ind and children:
         print("---------------------------")
 
 if __name__ == '__main__':
-    try:
+    if len(sys.argv) > 1:
         file_path = sys.argv[1]
         run_inference(file_path)
-    except IndexError:
+    else:
         print("Please specify the python file")

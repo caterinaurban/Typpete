@@ -480,7 +480,7 @@ def propagate_attributes_to_subclasses(class_defs):
             for attr in inherited_attrs:
                 attr.super = parent
             class_inherited_funcs_to_super[class_def.name].update(
-                {func.name: parent for func in inherited_funcs if func.name != '__init__'}
+                {func.name: parent for func in inherited_funcs}
             )
 
             class_to_inherited_funcs[class_def.name] += inherited_funcs

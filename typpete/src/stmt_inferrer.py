@@ -527,7 +527,10 @@ def _infer_func_def(node, context, solver):
         solver.add(body_type == return_type,
                    fail_message="Return type annotation in line {}".format(node.lineno))
     else:
-        body_type = _infer_body(node.body, func_context, node.lineno, solver)
+        if hasattr(node, 'super') and node.super != context.name and node.name == '__init__':
+            body_type = solver.z3_types.none
+        else:
+            body_type = _infer_body(node.body, func_context, node.lineno, solver)
         return_type = solver.new_z3_const("return")
 
         # functions with no return must have None return type except abstract methods
@@ -571,7 +574,7 @@ def _infer_class_def(node, context, solver):
     for stmt in node.body:
         if isinstance(stmt, ast.FunctionDef):
             func_name = stmt.name
-            if func_name in inherited_funcs_to_super:
+            if func_name != '__init__' and func_name in inherited_funcs_to_super:
                 continue
         infer(stmt, class_context, solver)
 
@@ -586,7 +589,7 @@ def _infer_class_def(node, context, solver):
     instance_type = solver.z3_types.classes[node.name]
 
     for attr in class_attrs:
-        if (attr in class_to_funcs and attr not in inherited_funcs_to_super
+        if (attr == '__init__' or attr in class_to_funcs and attr not in inherited_funcs_to_super
            and "staticmethod" not in class_to_funcs[attr][1]):
             # First arg (the method receiver) is the same as instance only if it is not an inherited method
             # and not a static method
@@ -611,6 +614,21 @@ def _infer_class_def(node, context, solver):
             solver.add(first_arg == instance_type,
                        fail_message="First arg in instance method {} in class {} has class instance type"
                        .format(attr, node.name))
+
+            if attr == '__init__' and attr in inherited_funcs_to_super:
+                # If __init__ is inherited, equate all the params except the first one.
+                base = inherited_funcs_to_super[attr]
+                base_args_len = solver.z3_types.class_to_funcs[base][attr][0]
+                sub_args_len = class_to_funcs[attr][0]
+
+                for i in range(1, base_args_len):
+                    base_arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}"
+                                                .format(base_args_len, i + 1))
+                    sub_arg_accessor = getattr(solver.z3_types.type_sort, "func_{}_arg_{}"
+                                               .format(sub_args_len, i + 1))
+
+                    solver.add(base_arg_accessor(bases_attrs[base][attr]) == sub_arg_accessor(class_attrs[attr]),
+                               fail_message="Inherited __init__ parameter in class {}".format(node.name))
         elif attr in class_to_funcs and attr in inherited_funcs_to_super:
             base = inherited_funcs_to_super[attr]
             solver.add(class_attrs[attr] == solver.z3_types.instance_attributes[base][attr],
