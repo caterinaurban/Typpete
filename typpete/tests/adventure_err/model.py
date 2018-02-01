@@ -190,8 +190,6 @@ class Dwarf:
         return (room.is_after_hall_of_mists
                 and not room.is_forced
                 and not move.condition == ('%', 100))
-        else:
-            return False
 
 class Pirate(Dwarf):
     is_dwarf = False
