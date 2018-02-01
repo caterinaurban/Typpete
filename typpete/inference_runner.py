@@ -107,6 +107,27 @@ def run_inference(file_path=None):
             file.write(core_string)
             file.close()
             model = None
+            
+            opt = Optimize(solver.ctx)
+            for av in solver.assertions_vars:
+                opt.add_soft(av)
+            for a in solver.all_assertions:
+                opt.add(a)
+            for a in solver.z3_types.subtyping:
+                opt.add(a)
+            for a in solver.z3_types.subst_axioms:
+                opt.add(a)
+            for a in solver.forced:
+                opt.add(a)
+            start_time = time.time()
+            opt.check()
+            model = opt.model()
+            end_time = time.time()
+            print("Solving relaxed model took  {}s".format(end_time - start_time))
+            for av in solver.assertions_vars:
+                if not model[av]:
+                    print("Unsat:")
+                    print(solver.assertions_errors[av])
         else:
             opt = Optimize(solver.ctx)
             for av in solver.assertions_vars:
