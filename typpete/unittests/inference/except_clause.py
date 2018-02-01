@@ -1,4 +1,4 @@
-class MyException:
+class MyException(Exception):
     def __init__(self):
         self.val = 15
 
