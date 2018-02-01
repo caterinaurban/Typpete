@@ -170,7 +170,7 @@ class SCIONAddr(object):
         addr_len = ISD_AS.LEN + haddr_type.LEN
         data = Raw(raw, "SCIONAddr", addr_len, min_=True)
         self.isd_as = ISD_AS(data.pop(ISD_AS.LEN))
-        self.host = haddr_type(data.pop(haddr_type.LEN))
+        self.host = haddr_type(data.pop(haddr_type))         # ERROR
 
     @staticmethod    # CHANGE: Turned classmethod into staticmethod
     def from_values(isd_as, host):  # pragma: no cover
@@ -183,7 +183,6 @@ class SCIONAddr(object):
         addr = SCIONAddr()
         addr.isd_as = isd_as
         addr.host = host
-        isd_as._isd = host.MCAST     # ERROR
         return addr
 
     def pack(self):  # pragma: no cover
