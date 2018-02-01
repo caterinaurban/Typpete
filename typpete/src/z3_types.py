@@ -433,7 +433,8 @@ class Z3Types:
             axioms.append(axiom)
 
         for tv in self.tvs:
-            options = [x == tv, x == self.none]
+            tv_in_scope = Or([m == cm for cm in self.tv_to_method[tv]])
+            options = [And(tv_in_scope, x == tv), And(tv_in_scope, x == self.none)]
             for tvp in self.tvs:
                 if tvp is tv:
                     continue
@@ -444,8 +445,8 @@ class Z3Types:
             axiom = ForAll([x, m], self._subtype(m, x, tv) == Or(*options),
                            patterns = [self._subtype(m, x, tv)])
             axioms.append(axiom)
-            axiom = ForAll([x, m], self._subtype(m, tv, x) == Or(x == tv,
-                                                                 And(Or(*[m == m_tv for m_tv in self.tv_to_method[tv]]),
+            axiom = ForAll([x, m], self._subtype(m, tv, x) == And(tv_in_scope,
+                                                                  Or(x == tv,
                                                                      self._subtype(m, self.upper(tv), x))),
                            patterns = [self._subtype(m, tv, x)])
             axioms.append(axiom)

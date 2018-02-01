@@ -86,7 +86,6 @@ def run_inference(file_path=None):
     print("Constraints solving took  {}s".format(end_time - start_time))
 
     write_path = "inference_output/" + base_folder
-    print("Writing output to {}".format(write_path))
     if not os.path.exists(write_path):
         os.makedirs(write_path)
 
@@ -96,29 +95,47 @@ def run_inference(file_path=None):
 
     if check == z3_types.unsat:
         print("Check: unsat")
-        opt = Optimize(solver.ctx)
-        for av in solver.assertions_vars:
-            opt.add_soft(av)
-        for a in solver.all_assertions:
-            opt.add(a)
-        for a in solver.z3_types.subtyping:
-            opt.add(a)
-        for a in solver.z3_types.subst_axioms:
-            opt.add(a)
-        for a in solver.forced:
-            opt.add(a)
-        checkres = opt.check()
-        model = opt.model()
-        for av in solver.assertions_vars:
-            if not model[av]:
-                print("Unsat:")
-                print(solver.assertions_errors[av])
+        if config.config["print_unsat_core"]:
+            print("Writing unsat core to {}".format(write_path))
+            if config.config['enable_soft_constraints']:
+                solver.check(solver.assertions_vars)
+                core = solver.unsat_core()
+            else:
+                core = solver.unsat_core()
+            core_string = '\n'.join(solver.assertions_errors[c] for c in core)
+            file = open(write_path + '/{}_unsat_core.txt'.format(file_name), 'w')
+            file.write(core_string)
+            file.close()
+            model = None
+        else:
+            opt = Optimize(solver.ctx)
+            for av in solver.assertions_vars:
+                opt.add_soft(av)
+            for a in solver.all_assertions:
+                opt.add(a)
+            for a in solver.z3_types.subtyping:
+                opt.add(a)
+            for a in solver.z3_types.subst_axioms:
+                opt.add(a)
+            for a in solver.forced:
+                opt.add(a)
+            start_time = time.time()
+            opt.check()
+            model = opt.model()
+            end_time = time.time()
+            print("Solving relaxed model took  {}s".format(end_time - start_time))
+            for av in solver.assertions_vars:
+                if not model[av]:
+                    print("Unsat:")
+                    print(solver.assertions_errors[av])
     else:
         if config.config['enable_soft_constraints']:
             model = solver.optimize.model()
         else:
             model = solver.model()
 
+    if model is not None:
+        print("Writing output to {}".format(write_path))
         context.generate_typed_ast(model, solver)
         ImportHandler.add_required_imports(file_name, t, context)
 

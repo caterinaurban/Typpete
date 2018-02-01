@@ -505,6 +505,8 @@ def _infer_func_def(node, context, solver):
     result_type.args_count = len(node.args.args)
     context.set_type(node.name, result_type)
     if hasattr(node, 'super') and node.super != context.name and node.name != '__init__':
+        if method_key in solver.z3_types.method_ids:
+            solver.z3_types.current_method = old_method
         return
     context.add_func_ast(node.name, node)
 

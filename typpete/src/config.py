@@ -23,4 +23,9 @@ config = {
 
     # Whether to use soft constraints to infer more precise types for local variables
     "enable_soft_constraints": True,
+
+    # Whether to print the unsat core when a problem is unsatisfiable instead of
+    # generating the best possible solution and printing a minimal set of
+    # unsatisfiable constraints
+    "print_unsat_core": False,
 }
