@@ -259,7 +259,7 @@ class AnnotationResolver:
 
         # Use regex to match the prefix of the string representation of z3_type
 
-        match = re.match("list", type_str)
+        match = re.match("list\(", type_str)
         # unparse list type. Example: list(int) -> List[int]
         if match:
             # get the list elements' type
@@ -288,7 +288,7 @@ class AnnotationResolver:
                 return '{}[{}]'.format(generic_name, ', '.join(args))
             return match.group(1)
 
-        match = re.match("type", type_str)
+        match = re.match("type\(", type_str)
         # unparse type type. Example: type_type(class_A) -> Type[A]
         if match:
             # get the instance of this type
@@ -300,7 +300,7 @@ class AnnotationResolver:
             # unparse zero-length tuple. tuple_0 -> Tuple[()]
             return "Tuple[()]"
 
-        match = re.match("tuple_(\d+)", type_str)
+        match = re.match("tuple_(\d+)\(", type_str)
         if match:
             # unparse tuple type. tuple_2(int, list(int)) -> Tuple[int, List[int]]
             args = []
@@ -314,14 +314,14 @@ class AnnotationResolver:
             args_str = ", ".join(args)
             return "Tuple[{}]".format(args_str)
 
-        match = re.match("set", type_str)
+        match = re.match("set\(", type_str)
         # unparse set type. set(int) -> Set[int]
         if match:
             set_type_accessor = self.z3_types.set_type
             set_type = simplify(set_type_accessor(z3_type))
             return "Set[{}]".format(self.unparse_annotation(set_type))
 
-        match = re.match("dict", type_str)
+        match = re.match("dict\(", type_str)
         # unparse dict type. dict(int, str) -> Dict[int, str]
         if match:
             key_accessor = self.z3_types.dict_key_type
@@ -332,7 +332,7 @@ class AnnotationResolver:
             return "Dict[{}, {}]".format(self.unparse_annotation(key_type),
                                          self.unparse_annotation(val_type))
 
-        match = re.match("func_(\d+)", type_str)
+        match = re.match("func_(\d+)\(", type_str)
         # unparse func type. func_0(0, int, none) -> Callable[[int], None]
         if match:
             args = []
