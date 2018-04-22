@@ -36,10 +36,12 @@ class ImportHandler:
         """
         if module_name in ImportHandler.cached_asts:
             return ImportHandler.cached_asts[module_name]
-
         if path in STUB_ASTS:
             return STUB_ASTS[path]
         try:
+            if os.path.isdir(path[:-3]):
+                path = path[:-3]
+                path += '/__init__.py'
             r = open(path)
         except FileNotFoundError:
             raise ImportError("No module named {}.".format(module_name))
