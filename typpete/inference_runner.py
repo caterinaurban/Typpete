@@ -45,20 +45,45 @@ def configure_inference(flags):
     return class_type_params, func_type_params
 
 
+def print_help():
+    options = ["ignore_fully_annotated_function",
+               "enforce_same_type_in_branches",
+               "allow_attributes_outside_init",
+               "none_subtype_of_all",
+               "enable_soft_constraints",
+               "func_type_params",
+               "class_type_params"]
+    descriptions = ["Whether to ignore the body of fully annotated functions"
+                    " and just take the provided types for args/return.",
+                    "Whether to allow different branches to use different types of same variable.",
+                    "Whether to allow to de- fine instance attribute outside __init__.",
+                    "Whether to make None a sub-type of all types.",
+                    "Whether to use soft con- straints to infer more precise types for local variables.",
+                    "Type parameters required by generic functions.",
+                    "Type parameters required by generic classes."]
+
+    print("Typpete: Static type inference for Python 3")
+    print("Usage:")
+    print("\ttyppete file_path [working_directory] [options]")
+    print()
+    print("Options:")
+    for i, option in enumerate(options):
+        print("\t--{}:\t{}".format(option, descriptions[i]))
+
+
 def run_inference(file_name=None, base_folder=None):
     if not file_name:
-        if len(sys.argv) >= 2:
+        if len(sys.argv) >= 2 and sys.argv[1] != '--help':
             file_name = sys.argv[1]
             if len(sys.argv) >= 3:
                 base_folder = sys.argv[2]
         else:
-            print("Please specify the python file")
+            print_help()
             return
     start_time = time.time()
     class_type_params, func_type_params = configure_inference([flag for flag in sys.argv[2:] if flag.startswith("--")])
 
     if not base_folder:
-        print("WARNING: No root directory specified. Using the current working directory")
         base_folder = ''
 
     if file_name.endswith('.py'):
@@ -177,4 +202,4 @@ if __name__ == '__main__':
         base_folder = sys.argv[2] if len(sys.argv) >= 3 else None
         run_inference(file_path, base_folder)
     else:
-        print("Please specify the python file")
+        print_help()
