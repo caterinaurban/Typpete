@@ -286,7 +286,8 @@ class Context:
                 if isinstance(node.targets[0], ast.Tuple):
                     try:
                         # Unfold tuple assignment
-                        assigns = self.get_unfolded_assignments(node.targets[0], node.value, z3_t, model, solver, self.definition_linenos)
+                        assigns = self.get_unfolded_assignments(node.targets[0], node.value, z3_t, model, solver,
+                                                                self.definition_linenos)
                         if not assigns or node not in self.context_nodes:
                             continue
                         idx = self.context_nodes.index(node)
@@ -304,7 +305,7 @@ class Context:
                 node.target = node.targets[0]
                 node.simple = 1
                 annotation_str = solver.annotation_resolver.unparse_annotation(z3_t, self.name,
-                                                                               node.lineno,self.definition_linenos)
+                                                                               node.lineno, self.definition_linenos)
                 node.annotation = ast.parse(annotation_str).body[0].value
 
                 names = {name.id for name in list(ast.walk(node.annotation)) if isinstance(name, ast.Name)}
@@ -348,23 +349,39 @@ class Context:
                 return child
         raise NameError("Context {} is not defined".format(context_name))
 
-
     def get_unfolded_assignments(self, node, value, z3_t, model, solver, definition_linenos):
+        """
+        Unfold tuple assignments to multiple single assignment, only if both sides are a tuple
+
+        :param node: The assignment node to unfold
+        :param value: The assignment value
+        :param z3_t: The z3 type of the assignment target
+        :param model: The generated z3 model
+        :param solver: The z3 solver
+        :param definition_linenos: The line numbers of the type definitions/imports
+        :return:
+        """
         if isinstance(node, ast.Tuple):
             if not isinstance(value, ast.Tuple):
+                # Ride hand side is not a tuple
                 return [ast.Assign(
                     targets=[node],
                     value=value
                 )]
+
+            # deeply unfold the tuple
             tuple_len = len(node.elts)
             nodes = []
             for i in range(tuple_len):
                 arg_accessor = getattr(solver.z3_types.type_sort, "tuple_{}_arg_{}".format(tuple_len, i + 1))
                 arg_z3_t = arg_accessor(z3_t)
-                cur = self.get_unfolded_assignments(node.elts[i], value.elts[i], arg_z3_t, model, solver, definition_linenos)
+                cur = self.get_unfolded_assignments(node.elts[i], value.elts[i], arg_z3_t, model, solver,
+                                                    definition_linenos)
                 nodes += cur
             return nodes
+
         elif isinstance(node, (ast.Name, ast.Attribute)):
+            # Return a single annotated assignment
             z3_t = simplify(z3_t)
             z3_t = model[z3_t] if model[z3_t] is not None else z3_t
             annotation_str = solver.annotation_resolver.unparse_annotation(z3_t, self.name,
@@ -378,11 +395,11 @@ class Context:
             )
             return [node]
         else:
+            # Non name/attribute assignments cannot be annotated. Return a single normal assignment.
             return [ast.Assign(
                 targets=[node],
                 value=value
             )]
-
 
 
 class AnnotatedFunction:
