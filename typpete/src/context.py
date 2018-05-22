@@ -28,9 +28,14 @@ class Context:
         self.is_func = is_func
         self.types_map = {}
         self.isinstance_nodes = {}
+        self.definition_linenos = {}
+        if parent_context:
+            # Propagate the types lineno recordings
+            self.definition_linenos.update(parent_context.definition_linenos)
         self.node = node
         self.context_nodes = context_nodes
 
+        self.add_definition_linenos()
         self.add_nodes(context_nodes, solver)
 
         self.builtin_methods = {}
@@ -44,6 +49,21 @@ class Context:
 
         if parent_context:
             parent_context.children_contexts.append(self)
+
+    def add_definition_linenos(self):
+        """
+        Add the lineno of every type in the context
+        It is either imported from another module or defined in this context as a class definition
+        """
+        for node in self.context_nodes:
+            if isinstance(node, ast.Import):
+                for name in node.names:
+                    if name.asname:
+                        self.definition_linenos[name.asname] = node.lineno
+                    else:
+                        self.definition_linenos[name.name] = node.lineno
+            elif isinstance(node, ast.ClassDef):
+                self.definition_linenos[node.name] = node.lineno
 
     def add_nodes(self, context_nodes, solver):
         # Store all the class types that appear in this context. This enables using
@@ -72,14 +92,12 @@ class Context:
             raise NameError("Name {} is not defined.".format(var_name))
         return self.parent_context.get_type(var_name, passed_func)
 
-
     def get_isinstance_type(self, dump):
         if dump in self.isinstance_nodes:
             return self.isinstance_nodes[dump]
         if self.parent_context is None:
             raise NameError("Cannot find isinstance node")
         return self.parent_context.get_isinstance_type(dump)
-
 
     def set_type(self, var_name, var_type):
         """Sets the type of a variable in this context."""
@@ -221,13 +239,13 @@ class Context:
                 arg_accessor_func = lambda i, n: getattr(type_sort, "func_{}_arg_{}".format(n, i))
                 return_accessor_func = lambda n: getattr(type_sort, "func_{}_return".format(n))
 
-
             # Add the type annotations for the function arguments
             for i, arg in enumerate(node.args.args):
                 arg_type = simplify(arg_accessor_func(i + 1, func_len)(inferred_type))
 
                 # Get the annotation with PEP 484 syntax
-                arg_annotation_str = solver.annotation_resolver.unparse_annotation(arg_type)
+                arg_annotation_str = solver.annotation_resolver.unparse_annotation(arg_type, self.name,
+                                                                                   node.lineno, self.definition_linenos)
                 # Add the type annotation as an AST node
                 arg.annotation = ast.parse(arg_annotation_str).body[0].value
 
@@ -236,7 +254,8 @@ class Context:
 
             # Similarly, add the return type annotation
             return_type = simplify(return_accessor_func(func_len)(inferred_type))
-            return_annotation_str = solver.annotation_resolver.unparse_annotation(return_type)
+            return_annotation_str = solver.annotation_resolver.unparse_annotation(return_type, self.name,
+                                                                                  node.lineno, self.definition_linenos)
             node.returns = ast.parse(return_annotation_str).body[0].value
 
             names = {name.id for name in list(ast.walk(node.returns)) if isinstance(name, ast.Name)}
@@ -267,7 +286,8 @@ class Context:
                 if isinstance(node.targets[0], ast.Tuple):
                     try:
                         # Unfold tuple assignment
-                        assigns = get_unfolded_assignments(node.targets[0], node.value, z3_t, model, solver)
+                        assigns = self.get_unfolded_assignments(node.targets[0], node.value, z3_t, model, solver,
+                                                                self.definition_linenos)
                         if not assigns or node not in self.context_nodes:
                             continue
                         idx = self.context_nodes.index(node)
@@ -284,7 +304,8 @@ class Context:
                 node.__class__ = ast.AnnAssign
                 node.target = node.targets[0]
                 node.simple = 1
-                annotation_str = solver.annotation_resolver.unparse_annotation(z3_t)
+                annotation_str = solver.annotation_resolver.unparse_annotation(z3_t, self.name,
+                                                                               node.lineno, self.definition_linenos)
                 node.annotation = ast.parse(annotation_str).body[0].value
 
                 names = {name.id for name in list(ast.walk(node.annotation)) if isinstance(name, ast.Name)}
@@ -328,40 +349,57 @@ class Context:
                 return child
         raise NameError("Context {} is not defined".format(context_name))
 
+    def get_unfolded_assignments(self, node, value, z3_t, model, solver, definition_linenos):
+        """
+        Unfold tuple assignments to multiple single assignment, only if both sides are a tuple
 
-def get_unfolded_assignments(node, value, z3_t, model, solver):
-    if isinstance(node, ast.Tuple):
-        if not isinstance(value, ast.Tuple):
+        :param node: The assignment node to unfold
+        :param value: The assignment value
+        :param z3_t: The z3 type of the assignment target
+        :param model: The generated z3 model
+        :param solver: The z3 solver
+        :param definition_linenos: The line numbers of the type definitions/imports
+        :return:
+        """
+        if isinstance(node, ast.Tuple):
+            if not isinstance(value, ast.Tuple):
+                # Ride hand side is not a tuple
+                return [ast.Assign(
+                    targets=[node],
+                    value=value
+                )]
+
+            # deeply unfold the tuple
+            tuple_len = len(node.elts)
+            nodes = []
+            for i in range(tuple_len):
+                arg_accessor = getattr(solver.z3_types.type_sort, "tuple_{}_arg_{}".format(tuple_len, i + 1))
+                arg_z3_t = arg_accessor(z3_t)
+                cur = self.get_unfolded_assignments(node.elts[i], value.elts[i], arg_z3_t, model, solver,
+                                                    definition_linenos)
+                nodes += cur
+            return nodes
+
+        elif isinstance(node, (ast.Name, ast.Attribute)):
+            # Return a single annotated assignment
+            z3_t = simplify(z3_t)
+            z3_t = model[z3_t] if model[z3_t] is not None else z3_t
+            annotation_str = solver.annotation_resolver.unparse_annotation(z3_t, self.name,
+                                                                           node.lineno, self.definition_linenos)
+            annotation = ast.parse(annotation_str).body[0].value
+            node = ast.AnnAssign(
+                target=node,
+                value=value,
+                annotation=annotation,
+                simple=1
+            )
+            return [node]
+        else:
+            # Non name/attribute assignments cannot be annotated. Return a single normal assignment.
             return [ast.Assign(
                 targets=[node],
                 value=value
             )]
-        tuple_len = len(node.elts)
-        nodes = []
-        for i in range(tuple_len):
-            arg_accessor = getattr(solver.z3_types.type_sort, "tuple_{}_arg_{}".format(tuple_len, i + 1))
-            arg_z3_t = arg_accessor(z3_t)
-            cur = get_unfolded_assignments(node.elts[i], value.elts[i], arg_z3_t, model, solver)
-            nodes += cur
-        return nodes
-    elif isinstance(node, (ast.Name, ast.Attribute)):
-        z3_t = simplify(z3_t)
-        z3_t = model[z3_t] if model[z3_t] is not None else z3_t
-        annotation_str = solver.annotation_resolver.unparse_annotation(z3_t)
-        annotation = ast.parse(annotation_str).body[0].value
-        node = ast.AnnAssign(
-            target=node,
-            value=value,
-            annotation=annotation,
-            simple=1
-        )
-        return [node]
-    else:
-        return [ast.Assign(
-            targets=[node],
-            value=value
-        )]
-
 
 
 class AnnotatedFunction:

@@ -246,12 +246,17 @@ class AnnotationResolver:
                        fail_message="Upper bound of type variable {}".format(
                            type_var_name))
 
-    def unparse_annotation(self, z3_type):
+    def unparse_annotation(self, z3_type, context_name=None, lineno=0, definition_linenos=None):
         """Unparse the z3_type into a type annotation in PEP 484 syntax
-        
+
         :param z3_type: The z3 type to be unparsed
+        :param context_name: The name of the context this annotation occurs in
+        :param lineno: The line number this annotation is added to
+        :param definition_linenos: The line numbers for type definitions. Used for detecting forward referencing
         :returns str: the unparsed z3_type in PEP 484 syntax
         """
+        if not definition_linenos:
+            definition_linenos = {}
         type_str = str(z3_type)
 
         if type_str in self.z3_type_to_PEP: # check if normal type
@@ -265,7 +270,7 @@ class AnnotationResolver:
             # get the list elements' type
             list_type_accessor = self.z3_types.list_type
             list_type = simplify(list_type_accessor(z3_type))
-            return "List[{}]".format(self.unparse_annotation(list_type))
+            return "List[{}]".format(self.unparse_annotation(list_type, context_name, lineno, definition_linenos))
 
         match = re.match("class_(.+)", type_str)
         # unparse user defined class types. Example: class_A -> A
@@ -286,7 +291,11 @@ class AnnotationResolver:
                     instance = simplify(accessor(z3_type))
                     args.append(self.unparse_annotation(instance))
                 return '{}[{}]'.format(generic_name, ', '.join(args))
-            return match.group(1)
+            annotation = match.group(1)
+            if annotation in definition_linenos and (lineno <= definition_linenos[annotation]
+                                                     or context_name == annotation):
+                annotation = "'" + annotation + "'"
+            return annotation
 
         match = re.match("type\(", type_str)
         # unparse type type. Example: type_type(class_A) -> Type[A]
@@ -294,7 +303,7 @@ class AnnotationResolver:
             # get the instance of this type
             instance_accessor = getattr(self.z3_types.type_sort, "type_arg_0")
             instance = simplify(instance_accessor(z3_type))
-            return "Type[{}]".format(self.unparse_annotation(instance))
+            return "Type[{}]".format(self.unparse_annotation(instance, context_name, lineno, definition_linenos))
 
         if type_str == "tuple_0":
             # unparse zero-length tuple. tuple_0 -> Tuple[()]
@@ -309,7 +318,7 @@ class AnnotationResolver:
                 # Get the accessor for every tuple arg.
                 arg_accessor = getattr(self.z3_types.type_sort, "tuple_{}_arg_{}".format(tuple_len, i + 1))
                 arg = simplify(arg_accessor(z3_type))
-                args.append(self.unparse_annotation(arg))
+                args.append(self.unparse_annotation(arg, context_name, lineno, definition_linenos))
 
             args_str = ", ".join(args)
             return "Tuple[{}]".format(args_str)
@@ -319,7 +328,7 @@ class AnnotationResolver:
         if match:
             set_type_accessor = self.z3_types.set_type
             set_type = simplify(set_type_accessor(z3_type))
-            return "Set[{}]".format(self.unparse_annotation(set_type))
+            return "Set[{}]".format(self.unparse_annotation(set_type, context_name, lineno, definition_linenos))
 
         match = re.match("dict\(", type_str)
         # unparse dict type. dict(int, str) -> Dict[int, str]
@@ -329,8 +338,8 @@ class AnnotationResolver:
             key_type = simplify(key_accessor(z3_type))
             val_type = simplify(val_accessor(z3_type))
 
-            return "Dict[{}, {}]".format(self.unparse_annotation(key_type),
-                                         self.unparse_annotation(val_type))
+            return "Dict[{}, {}]".format(self.unparse_annotation(key_type, context_name, lineno, definition_linenos),
+                                         self.unparse_annotation(val_type, context_name, lineno, definition_linenos))
 
         match = re.match("func_(\d+)\(", type_str)
         # unparse func type. func_0(0, int, none) -> Callable[[int], None]
@@ -340,10 +349,10 @@ class AnnotationResolver:
             for i in range(args_len):
                 arg_accessor = getattr(self.z3_types.type_sort, "func_{}_arg_{}".format(args_len, i + 1))
                 arg = simplify(arg_accessor(z3_type))
-                args.append(self.unparse_annotation(arg))
+                args.append(self.unparse_annotation(arg, context_name, lineno, definition_linenos))
             return_accessor = getattr(self.z3_types.type_sort, "func_{}_return".format(args_len))
             return_type = simplify(return_accessor(z3_type))
-            return_annotation = self.unparse_annotation(return_type)
+            return_annotation = self.unparse_annotation(return_type, context_name, lineno, definition_linenos)
 
             return "Callable[[{}], {}]".format(", ".join(args), return_annotation)
 
