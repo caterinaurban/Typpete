@@ -1,4 +1,0 @@
-astunparse
-Sphinx==1.6.2
-sphinx-rtd-theme==0.1.9
-z3
