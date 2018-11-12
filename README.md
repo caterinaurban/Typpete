@@ -2,7 +2,7 @@
 
 
 <p align="left">
-  <img src ="https://raw.githubusercontent.com/caterinaurban/Typpete/master/typpete.png" width="30%"/>
+  <img src ="https://raw.githubusercontent.com/caterinaurban/Typpete/master/typpete/typpete.png" width="30%"/>
 </p>
 
 ## **SMT-based Static Type Inference for Python 3.x**
@@ -15,7 +15,7 @@
 ### Usage
 You can run the inference with the following command
 ```
-$ typpete <file_name> [flags]
+$ typpete <file_name> [flags]typpete.png
 ```
 Where flags is a space separated list of options for configuring the type inference. Each flag must have the following syntax: `--flag_name=flag_value`. For example, the following is a valid configuration flag: `--allow_attributes_outside_init=True`
 
