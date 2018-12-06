@@ -9,6 +9,8 @@
 
 
 ### Installation
+Typpete has been tested with Python 3.5 and 3.6; Python 3.7 is currently not supported.
+To install, follow these steps:
 - Build Z3 SMT solver. Follow the steps found [here](https://github.com/Z3Prover/z3 "Z3 GitHub Repository").
 - In the root folder (the one which contains the package and `setup.py`), run `pip install .` or `python3 setup.py install`. Note that installation via `pip` is recommended since packages installed with `setup.py` are not uninstallable (They can only be uninstalled by manually deleting their files)
 
